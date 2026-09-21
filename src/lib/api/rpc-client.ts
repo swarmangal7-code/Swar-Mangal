@@ -5,10 +5,9 @@
 // with a 45 second timeout, and classifies non-ok bodies the same way the
 // Flutter app does.
 //
-// The raw device token is NEVER stored in client JavaScript. In the browser
-// `token` is left empty and the server gateway resolves the session from the
-// httpOnly `sm_rpc_token` cookie (see src/app/api/auth/token/route.ts), sent
-// automatically because the request includes credentials.
+// In production (Cloudflare Pages), NEXT_PUBLIC_RPC_URL points at the VPS
+// backend and the token is sent in the request body (like Flutter).
+// In local/dev (same-origin), the cookie-based /api/rpc proxy is used.
 
 import type { RpcEnvelope } from "./rpc-types";
 
@@ -22,7 +21,14 @@ export const ERR_BRANCH_FORBIDDEN = "BRANCH_FORBIDDEN";
 export const ERR_BACKEND = "BACKEND_ERROR";
 
 export const RPC_TIMEOUT_MS = 45_000;
-export const DEFAULT_RPC_URL = "/api/rpc";
+
+/**
+ * Resolved RPC gateway URL. In production on Cloudflare Pages this is the
+ * VPS backend (e.g. https://swarmangal.in/api/rpc). In dev it falls back
+ * to the same-origin /api/rpc proxy.
+ */
+export const RPC_URL =
+  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_RPC_URL) || "/api/rpc";
 
 export type RpcArg = Record<string, unknown>;
 
@@ -70,22 +76,24 @@ export function classifyRpcCode(code: string): string {
 
 export class RpcClient {
   readonly baseUrl: string;
-  readonly token: string;
+  private _token: string;
 
   /**
-   * @param baseUrl  Gateway URL, default `/api/rpc` (same origin).
-   * @param token    Device token for server-side callers. Browser callers pass
-   *                 "" and rely on the httpOnly cookie.
+   * @param baseUrl  Gateway URL. Defaults to NEXT_PUBLIC_RPC_URL or /api/rpc.
+   * @param token    Device token sent in the POST body (like Flutter).
    */
-  constructor(baseUrl: string = DEFAULT_RPC_URL, token: string = "") {
+  constructor(baseUrl: string = RPC_URL, token: string = "") {
     this.baseUrl = baseUrl;
-    this.token = token;
+    this._token = token;
   }
+
+  get token() { return this._token; }
+  set token(t: string) { this._token = t; sharedToken = t; }
 
   async call<T = RpcEnvelope>(fn: string, arg?: RpcArg): Promise<T> {
     const body = new URLSearchParams();
     body.set("function", fn);
-    if (this.token) body.set("token", this.token);
+    if (this._token) body.set("token", this._token);
     if (arg !== undefined) body.set("arg", JSON.stringify(arg));
 
     const controller = new AbortController();
@@ -95,7 +103,6 @@ export class RpcClient {
     try {
       res = await fetch(this.baseUrl, {
         method: "POST",
-        credentials: "include",
         cache: "no-store",
         headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
         body,
@@ -135,15 +142,22 @@ export class RpcClient {
   }
 }
 
+let sharedToken = "";
 let sharedClient: RpcClient | null = null;
 
-/** Same-origin browser client. Token resolved from the httpOnly cookie. */
+/** Shared browser client. Token managed via setRpcToken(). */
 export function getRpcClient(): RpcClient {
-  if (!sharedClient) sharedClient = new RpcClient();
+  if (!sharedClient) sharedClient = new RpcClient(RPC_URL, sharedToken);
   return sharedClient;
 }
 
-/** One-shot helper for the shared cookie-authenticated client. */
+/** Update the shared client's token (call on login/logout). */
+export function setRpcToken(token: string) {
+  sharedToken = token;
+  if (sharedClient) sharedClient.token = token;
+}
+
+/** One-shot helper for the shared client. */
 export function rpc<T = RpcEnvelope>(fn: string, arg?: RpcArg): Promise<T> {
   return getRpcClient().call<T>(fn, arg);
 }

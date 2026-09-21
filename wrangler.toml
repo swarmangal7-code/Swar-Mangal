@@ -1,0 +1,7 @@
+name = "swar-mangal"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Cloudflare Pages project config.
+# Build: npx @cloudflare/next-on-pages
+# Output: .vercel/output/static

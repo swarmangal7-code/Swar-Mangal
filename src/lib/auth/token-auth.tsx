@@ -1,10 +1,13 @@
 "use client";
 
-// Client-side token auth. The raw device token NEVER touches client JS —
-// it lives only in the httpOnly sm_rpc_token cookie, set by /api/auth/token.
-// This module manages the session state derived from the cookie.
+// Client-side token auth. The device token is stored in sessionStorage and
+// sent with every RPC call to the VPS backend — matching Flutter's model exactly.
+// On Cloudflare Pages there is no server-side API route; the token goes directly
+// to the backend RPC gateway.
 
 import * as React from "react";
+import { rpc, RpcError, setRpcToken } from "@/lib/api/rpc-client";
+import type { BootstrapResponse, StaffBootResponse } from "@/lib/api/rpc-types";
 
 export type TokenRole = "FOUNDER_ADMIN" | "OPS_USER";
 
@@ -15,13 +18,15 @@ export interface TokenSession {
   branches: string[];
 }
 
+const STORAGE_KEY = "sw_token";
+
 interface TokenAuthContextValue {
   session: TokenSession | null;
+  token: string;
   isLoading: boolean;
   error: string | null;
-  restore: () => Promise<void>;
   login: (token: string, endpoint?: "founder" | "staff") => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: () => void;
   clearError: () => void;
 }
 
@@ -29,56 +34,74 @@ const TokenAuthContext = React.createContext<TokenAuthContextValue | undefined>(
 
 export function TokenAuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<TokenSession | null>(null);
+  const [token, setToken] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  const restore = React.useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/token", { credentials: "include", cache: "no-store" });
-      if (!res.ok) { setSession(null); return; }
-      const data = await res.json();
-      if (data.ok) {
-        setSession({ role: data.role, email: data.email, name: data.name, branches: data.branches ?? [] });
-      } else {
-        setSession(null);
+  // Restore session from sessionStorage on mount.
+  React.useEffect(() => {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (!stored) { setIsLoading(false); return; }
+    setRpcToken(stored);
+    setToken(stored);
+    // Validate by calling bootstrap.
+    (async () => {
+      try {
+        const boot = await rpc<BootstrapResponse>("api_bootstrap");
+        setSession({ role: boot.role, email: boot.email, name: boot.name, branches: boot.branches ?? [] });
+      } catch {
+        try {
+          const boot = await rpc<StaffBootResponse>("api_staff_boot", {});
+          setSession({ role: "OPS_USER", email: boot.email, name: boot.name, branches: boot.branches ?? [] });
+        } catch {
+          sessionStorage.removeItem(STORAGE_KEY);
+          setRpcToken("");
+          setToken("");
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      setSession(null);
-    } finally {
-      setIsLoading(false);
-    }
+    })();
   }, []);
 
-  const login = React.useCallback(async (token: string, endpoint?: "founder" | "staff"): Promise<boolean> => {
+  const login = React.useCallback(async (tok: string, endpoint?: "founder" | "staff"): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
+    setRpcToken(tok);
+    setToken(tok);
     try {
-      const res = await fetch("/api/auth/token", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, endpoint }),
-      });
-      const data = await res.json();
-      if (!data.ok) {
-        setError(data.error ?? "Login failed");
+      if (endpoint === "founder" || !endpoint) {
+        const boot = await rpc<BootstrapResponse>("api_bootstrap");
+        sessionStorage.setItem(STORAGE_KEY, tok);
+        setSession({ role: boot.role, email: boot.email, name: boot.name, branches: boot.branches ?? [] });
         setIsLoading(false);
-        return false;
+        return true;
       }
-      setSession({ role: data.role, email: data.email, name: data.name, branches: data.branches ?? [] });
+      const boot = await rpc<StaffBootResponse>("api_staff_boot", {});
+      sessionStorage.setItem(STORAGE_KEY, tok);
+      setSession({ role: "OPS_USER", email: boot.email, name: boot.name, branches: boot.branches ?? [] });
       setIsLoading(false);
       return true;
-    } catch {
-      setError("Could not reach server. Check your connection.");
+    } catch (e) {
+      const code = e instanceof RpcError ? e.code : "";
+      setRpcToken("");
+      setToken("");
+      if (code === "AUTH_FAILED") {
+        setError("Invalid or revoked token.");
+      } else if (code === "ROLE_FORBIDDEN") {
+        setError(endpoint === "founder" ? "This is not a founder token." : "This is not a staff token.");
+      } else {
+        setError("Could not reach server. Check your connection.");
+      }
       setIsLoading(false);
       return false;
     }
   }, []);
 
-  const logout = React.useCallback(async () => {
-    try { await fetch("/api/auth/token", { method: "DELETE", credentials: "include" }); } catch {}
+  const logout = React.useCallback(() => {
+    sessionStorage.removeItem(STORAGE_KEY);
+    setRpcToken("");
+    setToken("");
     setSession(null);
     setIsLoading(false);
     setError(null);
@@ -86,11 +109,8 @@ export function TokenAuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = React.useCallback(() => setError(null), []);
 
-  // Validate session on mount.
-  React.useEffect(() => { restore(); }, [restore]);
-
   return (
-    <TokenAuthContext.Provider value={{ session, isLoading, error, restore, login, logout, clearError }}>
+    <TokenAuthContext.Provider value={{ session, token, isLoading, error, login, logout, clearError }}>
       {children}
     </TokenAuthContext.Provider>
   );
