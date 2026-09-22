@@ -1,14 +1,17 @@
 # Deploying Swar Mangal to aaPanel VPS
 
 ```
-Flutter APK ──HTTPS──> Nginx (aaPanel) ──> app (PM2 / Next.js /api/rpc) ──> PostgreSQL (aaPanel DB)
-                                                                                      │
- sheets-worker (PM2) <── sheet_outbox ──> Google Sheets mirror
+Flutter APK ─────────────HTTPS──┐
+                                 ├──> Nginx (aaPanel) ──> app (PM2 / Next.js /api/rpc) ──> PostgreSQL (aaPanel DB)
+Public website (Cloudflare Pages, CORS)                                            │
+                                          sheets-worker (PM2) <── sheet_outbox ──> Google Sheets mirror
 ```
 
 - **App + Sheets worker**: PM2 via aaPanel's Node.js manager
 - **PostgreSQL**: aaPanel's database panel
 - **Nginx**: aaPanel's site manager
+- **Public website**: static export on Cloudflare Pages, calling this VPS's
+  `/api/rpc` directly — see §10 below
 - **WhatsApp gateway**: Docker (only service that needs Docker)
 
 ## 1. Prerequisites
@@ -153,6 +156,31 @@ Lost phone? Founder → "Manage staff access" → find device → Revoke. Staff 
 | Send fees digest now | `curl -s -X POST https://swarmangal.in/api/rpc -d function=api_founder_sendDailyDigest -d token=$RPC_FOUNDER_TOKEN` |
 | List device tokens | `curl -s -X POST https://swarmangal.in/api/rpc -d function=api_founder_listStaffTokens -d token=$RPC_FOUNDER_TOKEN` |
 | Old token mint | `node db/mint_device_token.mjs "<label>" <FOUNDER_ADMIN\|OPS_USER>` |
+
+## 10. Public website (Cloudflare Pages)
+
+The public site + founder/staff/student/parent/teacher web dashboards
+(`src/app/`, everything outside `/api`) deploy separately as a static export
+on Cloudflare Pages, calling the VPS's `/api/rpc` directly cross-origin (the
+route already sends permissive CORS headers — see `src/app/api/rpc/route.ts`).
+The VPS itself never serves this static build; `npm run build` there only
+needs `/api/*` up for the Flutter app and any dev use of the same-origin site.
+
+1. Cloudflare dashboard → Workers & Pages → Create → Pages → connect this repo
+2. Build command: `npm run pages:build` — build output directory:
+   `.vercel/output/static` (already set in `wrangler.toml`)
+3. **Required build-time env var** (Pages → Settings → Environment variables):
+   ```
+   NEXT_PUBLIC_RPC_URL=https://swarmangal.in/api/rpc
+   ```
+   Without this the static site falls back to calling itself at same-origin
+   `/api/rpc`, which doesn't exist on Pages (no server functions there) — the
+   whole site's RPC calls would just fail.
+4. Deploy. Cloudflare rebuilds automatically on every push to `main`.
+
+`npm run pages:build` runs `rm -rf src/app/api` before the Vercel/next-on-pages
+build — only inside that build's own checkout, never touching what's
+committed — because a static export can't contain server API routes at all.
 
 ## Architecture rules
 
