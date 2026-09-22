@@ -151,19 +151,19 @@ export default function FounderStaffAccessPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7F2E8]/40">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-dash-fg/40">
             Founder · Settings
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">
             Staff access
           </h1>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">
+          <p className="mt-1 text-sm text-dash-fg/55">
             Who may self-register a token, and every device token issued.
           </p>
         </div>
         <Button
           onClick={() => setAddOpen(true)}
-          className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+          className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
         >
           <UserPlus className="h-4 w-4" aria-hidden />
           Add access
@@ -171,11 +171,11 @@ export default function FounderStaffAccessPage() {
       </div>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-[#F7F2E8]/80">Authorized to register</h2>
+        <h2 className="mb-3 text-sm font-semibold text-dash-fg/80">Authorized to register</h2>
         {authorizedQ.isPending ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-[68px] w-full bg-white/[0.05]" />
+              <Skeleton key={i} className="h-[68px] w-full bg-dash-fg/[0.05]" />
             ))}
           </div>
         ) : authorizedQ.isError ? (
@@ -187,18 +187,18 @@ export default function FounderStaffAccessPage() {
             {authorized.map((row) => (
               <div
                 key={row.email}
-                className="flex items-center gap-4 rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.03] p-4"
+                className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-4"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-[#F7F2E8]/50">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dash-fg/[0.04] text-dash-fg/50">
                   <Mail className="h-4 w-4" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-[#F7F2E8]">{row.email}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#F7F2E8]/45">
+                  <p className="truncate text-sm font-semibold text-dash-fg">{row.email}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-dash-fg/45">
                     <span>{row.branches ? row.branches : "Default branches"}</span>
                     {row.addedBy && (
                       <>
-                        <span className="text-[#F7F2E8]/25">·</span>
+                        <span className="text-dash-fg/25">·</span>
                         <span className="truncate">added by {row.addedBy}</span>
                       </>
                     )}
@@ -220,11 +220,11 @@ export default function FounderStaffAccessPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-[#F7F2E8]/80">Issued device tokens</h2>
+        <h2 className="mb-3 text-sm font-semibold text-dash-fg/80">Issued device tokens</h2>
         {tokensQ.isPending ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-[76px] w-full bg-white/[0.05]" />
+              <Skeleton key={i} className="h-[76px] w-full bg-dash-fg/[0.05]" />
             ))}
           </div>
         ) : tokensQ.isError ? (
@@ -241,22 +241,22 @@ export default function FounderStaffAccessPage() {
               return (
                 <div
                   key={row.id}
-                  className="flex items-center gap-4 rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.03] p-4"
+                  className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-4"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-[#F7F2E8]/50">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-dash-fg/[0.04] text-dash-fg/50">
                     <Smartphone className="h-4 w-4" aria-hidden />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-[#F7F2E8]">
+                      <p className="truncate text-sm font-semibold text-dash-fg">
                         {row.label || "Unlabelled device"}
                       </p>
                       <Badge
                         variant="outline"
                         className={
                           row.role === "FOUNDER_ADMIN"
-                            ? "border-[#D6A84F]/30 bg-[#D6A84F]/10 text-[#D6A84F]"
-                            : "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/60"
+                            ? "border-dash-accent/30 bg-dash-accent/10 text-dash-accent"
+                            : "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/60"
                         }
                       >
                         {row.role === "FOUNDER_ADMIN" ? "Founder" : "Staff"}
@@ -271,15 +271,15 @@ export default function FounderStaffAccessPage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#F7F2E8]/45">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-dash-fg/45">
                       {row.email && <span className="truncate">{row.email}</span>}
-                      <span className="text-[#F7F2E8]/25">·</span>
+                      <span className="text-dash-fg/25">·</span>
                       <span>
                         {row.lastUsedAt ? `last used ${fmtStamp(row.lastUsedAt)}` : "never used"}
                       </span>
                       {row.branches && (
                         <>
-                          <span className="text-[#F7F2E8]/25">·</span>
+                          <span className="text-dash-fg/25">·</span>
                           <span>{row.branches}</span>
                         </>
                       )}
@@ -307,10 +307,10 @@ export default function FounderStaffAccessPage() {
       </section>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md border-[#F7F2E8]/10 bg-[#17131D] text-[#F7F2E8]">
+        <DialogContent className="max-w-md border-dash-fg/10 bg-dash-card text-dash-fg">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Add staff access</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/45">
+            <DialogTitle className="text-dash-fg">Add staff access</DialogTitle>
+            <DialogDescription className="text-dash-fg/45">
               This email can register its own device token. OTP only proves inbox control — this
               list is the actual authorization.
             </DialogDescription>
@@ -318,7 +318,7 @@ export default function FounderStaffAccessPage() {
 
           <div className="grid gap-4">
             <div>
-              <label htmlFor="sa-email" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="sa-email" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Email address
               </label>
               <input
@@ -327,11 +327,11 @@ export default function FounderStaffAccessPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="staff@example.com"
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-4 text-sm text-[#F7F2E8] placeholder:text-[#F7F2E8]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               />
             </div>
             <div>
-              <label htmlFor="sa-branches" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="sa-branches" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Branches (optional)
               </label>
               <input
@@ -339,7 +339,7 @@ export default function FounderStaffAccessPage() {
                 value={branchInput}
                 onChange={(e) => setBranchInput(e.target.value)}
                 placeholder="e.g. GOREGAON, KANDIVALI"
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-4 text-sm text-[#F7F2E8] placeholder:text-[#F7F2E8]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               />
               {branches.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -353,10 +353,10 @@ export default function FounderStaffAccessPage() {
                         key={b}
                         type="button"
                         onClick={() => toggleBranchChip(b)}
-                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 ${
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 ${
                           active
-                            ? "border-[#D6A84F]/40 bg-[#D6A84F]/15 text-[#D6A84F]"
-                            : "border-[#F7F2E8]/15 text-[#F7F2E8]/55 hover:bg-white/[0.05]"
+                            ? "border-dash-accent/40 bg-dash-accent/15 text-dash-accent"
+                            : "border-dash-fg/15 text-dash-fg/55 hover:bg-dash-fg/[0.05]"
                         }`}
                       >
                         {b}
@@ -365,7 +365,7 @@ export default function FounderStaffAccessPage() {
                   })}
                 </div>
               )}
-              <p className="mt-1.5 text-[11px] text-[#F7F2E8]/35">
+              <p className="mt-1.5 text-[11px] text-dash-fg/35">
                 Blank grants the default branches.
               </p>
             </div>
@@ -375,14 +375,14 @@ export default function FounderStaffAccessPage() {
             <Button
               variant="ghost"
               onClick={() => setAddOpen(false)}
-              className="border-[#F7F2E8]/10 text-[#F7F2E8]/70 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+              className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
               Cancel
             </Button>
             <Button
               onClick={handleAdd}
               loading={addMut.isPending}
-              className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+              className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
             >
               <Plus className="h-4 w-4" aria-hidden />
               Add
@@ -392,11 +392,11 @@ export default function FounderStaffAccessPage() {
       </Dialog>
 
       <Dialog open={!!removing} onOpenChange={(open) => !open && setRemoving(null)}>
-        <DialogContent className="max-w-sm border-[#F7F2E8]/10 bg-[#17131D] text-[#F7F2E8]">
+        <DialogContent className="max-w-sm border-dash-fg/10 bg-dash-card text-dash-fg">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Remove access?</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/45">
-              <span className="font-medium text-[#F7F2E8]">{removing?.email}</span> will no longer be
+            <DialogTitle className="text-dash-fg">Remove access?</DialogTitle>
+            <DialogDescription className="text-dash-fg/45">
+              <span className="font-medium text-dash-fg">{removing?.email}</span> will no longer be
               able to register or reset a token, and any active token of theirs is revoked
               immediately.
             </DialogDescription>
@@ -405,7 +405,7 @@ export default function FounderStaffAccessPage() {
             <Button
               variant="ghost"
               onClick={() => setRemoving(null)}
-              className="border-[#F7F2E8]/10 text-[#F7F2E8]/70 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+              className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
               Cancel
             </Button>
@@ -418,11 +418,11 @@ export default function FounderStaffAccessPage() {
       </Dialog>
 
       <Dialog open={!!revoking} onOpenChange={(open) => !open && setRevoking(null)}>
-        <DialogContent className="max-w-sm border-[#F7F2E8]/10 bg-[#17131D] text-[#F7F2E8]">
+        <DialogContent className="max-w-sm border-dash-fg/10 bg-dash-card text-dash-fg">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Revoke this device?</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/45">
-              <span className="font-medium text-[#F7F2E8]">
+            <DialogTitle className="text-dash-fg">Revoke this device?</DialogTitle>
+            <DialogDescription className="text-dash-fg/45">
+              <span className="font-medium text-dash-fg">
                 {revoking?.label || "This device"}
               </span>{" "}
               is locked out immediately. The person can self-register a new token if they still have
@@ -433,7 +433,7 @@ export default function FounderStaffAccessPage() {
             <Button
               variant="ghost"
               onClick={() => setRevoking(null)}
-              className="border-[#F7F2E8]/10 text-[#F7F2E8]/70 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+              className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
               Cancel
             </Button>
@@ -450,8 +450,8 @@ export default function FounderStaffAccessPage() {
 
 function EmptyCard({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-5 py-6 text-sm text-[#F7F2E8]/45">
-      <span className="text-[#F7F2E8]/30">{icon}</span>
+    <div className="flex items-center gap-3 rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-5 py-6 text-sm text-dash-fg/45">
+      <span className="text-dash-fg/30">{icon}</span>
       {text}
     </div>
   );
@@ -461,11 +461,11 @@ function ErrorCard({ message, onRetry }: { message?: string; onRetry: () => void
   return (
     <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-5">
       <p className="text-sm font-medium text-red-300">Could not load this list.</p>
-      <p className="mt-1 text-sm text-[#F7F2E8]/55">{message ?? "Something went wrong."}</p>
+      <p className="mt-1 text-sm text-dash-fg/55">{message ?? "Something went wrong."}</p>
       <Button
         variant="outline"
         onClick={onRetry}
-        className="mt-3 border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]"
+        className="mt-3 border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
       >
         Retry
       </Button>

@@ -31,6 +31,21 @@
     --shadow-lift: 0 4px 16px -4px rgb(19 24 38 / 0.08), 0 1px 3px rgb(19 24 38 / 0.04);
     --shadow-float: 0 12px 40px -8px rgb(19 24 38 / 0.12), 0 4px 12px rgb(19 24 38 / 0.04);
     --shadow-glow: 0 0 40px -10px hsl(262 80% 60% / 0.25);
+
+    /* Founder/staff dashboard shell — a separate, near-black + gold "world"
+       from the shadcn tokens above (kept as-is for the legacy dashboard
+       group). Light values authored fresh here: this surface had no light
+       mode at all before, only the dark palette below (which mirrors the
+       exact hex the dashboard already hardcoded everywhere, so switching
+       to dark preserves today's look pixel-for-pixel). */
+    --dash-bg: 40 30% 96%;
+    --dash-sidebar: 40 26% 97%;
+    --dash-elevated: 40 20% 98%;
+    --dash-surface: 30 15% 99%;
+    --dash-card: 0 0% 100%;
+    --dash-fg: 258 20% 12%;
+    --dash-accent: 36 68% 42%;
+    --dash-accent-hover: 36 72% 34%;
   }
 
   .dark {
@@ -59,6 +74,20 @@
     --shadow-lift: 0 4px 16px -4px rgb(0 0 0 / 0.4), 0 1px 3px rgb(0 0 0 / 0.25);
     --shadow-float: 0 16px 48px -8px rgb(0 0 0 / 0.5), 0 4px 16px rgb(0 0 0 / 0.3);
     --shadow-glow: 0 0 60px -12px hsl(262 80% 68% / 0.3);
+
+    /* Founder/staff dashboard shell, dark — exact HSL equivalents of the
+       hex this surface hardcoded everywhere (#08070B, #0B0A10, #121016,
+       #131019, #17131D, #F7F2E8, #D6A84F, #E2BD68), so this is the
+       default/current look, unchanged, now expressed as tokens instead of
+       literals. */
+    --dash-bg: 255 22% 4%;
+    --dash-sidebar: 250 23% 5%;
+    --dash-elevated: 260 16% 7%;
+    --dash-surface: 260 22% 8%;
+    --dash-card: 264 21% 9%;
+    --dash-fg: 40 48% 94%;
+    --dash-accent: 40 62% 57%;
+    --dash-accent-hover: 42 68% 65%;
   }
 }
 

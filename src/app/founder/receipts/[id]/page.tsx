@@ -77,9 +77,9 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
   if (isFetching && !receipt && !error) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-8 w-64 bg-white/[0.05]" />
-        <Skeleton className="h-40 w-full bg-white/[0.04]" />
-        <Skeleton className="h-40 w-full bg-white/[0.04]" />
+        <Skeleton className="h-8 w-64 bg-dash-fg/[0.05]" />
+        <Skeleton className="h-40 w-full bg-dash-fg/[0.04]" />
+        <Skeleton className="h-40 w-full bg-dash-fg/[0.04]" />
       </div>
     );
   }
@@ -96,10 +96,10 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
     return (
       <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-4">
         <BackLink />
-        <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-14 text-center">
-          <ReceiptText className="mb-3 h-9 w-9 text-[#F7F2E8]/20" aria-hidden />
-          <p className="text-sm font-medium text-[#F7F2E8]/70">Receipt not found</p>
-          <p className="mt-1 text-xs text-[#F7F2E8]/40">No receipt matches {receiptNo}.</p>
+        <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-14 text-center">
+          <ReceiptText className="mb-3 h-9 w-9 text-dash-fg/20" aria-hidden />
+          <p className="text-sm font-medium text-dash-fg/70">Receipt not found</p>
+          <p className="mt-1 text-xs text-dash-fg/40">No receipt matches {receiptNo}.</p>
         </div>
       </motion.div>
     );
@@ -139,23 +139,23 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
 
       <motion.div variants={fadeUp} className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Money · Receipt</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">{receiptNo}</h1>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">{fmtDate(receipt.date)}</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Money · Receipt</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">{receiptNo}</h1>
+          <p className="mt-1 text-sm text-dash-fg/55">{fmtDate(receipt.date)}</p>
         </div>
         <StatusBadge status={receipt.status} />
       </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
-          <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="space-y-5 pt-5">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[#F7F2E8]/35">Student</p>
-                <p className="mt-1 text-base font-semibold text-[#F7F2E8]">{studentName}</p>
-                <p className="text-xs text-[#F7F2E8]/45">{receipt.studentId || receipt.entityId || ""}</p>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">Student</p>
+                <p className="mt-1 text-base font-semibold text-dash-fg">{studentName}</p>
+                <p className="text-xs text-dash-fg/45">{receipt.studentId || receipt.entityId || ""}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3 border-t border-[#F7F2E8]/10 pt-4 text-sm sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 border-t border-dash-fg/10 pt-4 text-sm sm:grid-cols-3">
                 <Detail label="Amount" value={inr(amount)} />
                 <Detail label="Mode" value={receipt.mode || receipt.paymentMode || "—"} />
                 <Detail label="Reference" value={receipt.txnId || "—"} />
@@ -172,14 +172,14 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
           </Card>
 
           {!isVoid && (
-            <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+            <Card className="border-dash-fg/10 bg-dash-card">
               <CardContent className="space-y-3 pt-5">
                 <div className="flex flex-wrap gap-2">
                   {receipt.pdfUrl && (
                     <Button
                       asChild
                       variant="outline"
-                      className="border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]"
+                      className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
                     >
                       <a href={receipt.pdfUrl} target="_blank" rel="noreferrer">
                         <Printer className="h-4 w-4" /> Print PDF
@@ -191,13 +191,13 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
                       variant="outline"
                       onClick={sendWhatsApp}
                       loading={sendDoc.isPending}
-                      className="border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]"
+                      className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
                     >
                       <MessageCircle className="h-4 w-4" /> Send on WhatsApp
                     </Button>
                   )}
                 </div>
-                <p className="text-xs text-[#F7F2E8]/40">
+                <p className="text-xs text-dash-fg/40">
                   Send the receipt PDF to the student&apos;s registered WhatsApp number. One message per receipt per day.
                 </p>
               </CardContent>
@@ -206,11 +206,11 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="lg:col-span-2">
-          <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="space-y-4 pt-5">
               <div>
-                <p className="text-xs uppercase tracking-[0.12em] text-[#F7F2E8]/35">Founder action</p>
-                <p className="mt-1 text-sm text-[#F7F2E8]/55">
+                <p className="text-xs uppercase tracking-[0.12em] text-dash-fg/35">Founder action</p>
+                <p className="mt-1 text-sm text-dash-fg/55">
                   Voiding keeps the receipt number but excludes it from every total. A corrected payment issues a new receipt.
                 </p>
               </div>
@@ -228,16 +228,16 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
       </div>
 
       <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
-        <DialogContent className="border-[#F7F2E8]/12 bg-[#17131D] text-[#F7F2E8]">
+        <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Void {receiptNo}?</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/55">
+            <DialogTitle className="text-dash-fg">Void {receiptNo}?</DialogTitle>
+            <DialogDescription className="text-dash-fg/55">
               Voiding is permanent and audited. The receipt number stays, is excluded from all totals, and the student&apos;s
               fee account is reopened. This cannot be undone from the app.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setVoidOpen(false)} className="text-[#F7F2E8]/70 hover:bg-white/[0.05]">
+            <Button variant="ghost" onClick={() => setVoidOpen(false)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
               Cancel
             </Button>
             <Button
@@ -267,8 +267,8 @@ interface SendDocArg extends Record<string, unknown> {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.12em] text-[#F7F2E8]/35">{label}</p>
-      <p className="mt-0.5 font-medium text-[#F7F2E8]/85">{value}</p>
+      <p className="text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">{label}</p>
+      <p className="mt-0.5 font-medium text-dash-fg/85">{value}</p>
     </div>
   );
 }
@@ -284,7 +284,7 @@ function BackLink() {
   return (
     <Link
       href="/founder/receipts"
-      className="inline-flex items-center gap-2 text-sm font-medium text-[#F7F2E8]/60 transition-colors hover:text-[#F7F2E8]"
+      className="inline-flex items-center gap-2 text-sm font-medium text-dash-fg/60 transition-colors hover:text-dash-fg"
     >
       <ArrowLeft className="h-4 w-4" /> All receipts
     </Link>

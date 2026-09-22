@@ -41,15 +41,15 @@ type AddStudentRes = RpcEnvelope & {
 };
 
 const selectClass =
-  "h-11 w-full rounded-2xl border border-[#F7F2E8]/10 bg-[#131019] px-4 py-2 text-sm text-[#F7F2E8] focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60";
+  "h-11 w-full rounded-2xl border border-dash-fg/10 bg-dash-surface px-4 py-2 text-sm text-dash-fg focus-visible:ring-2 focus-visible:ring-dash-accent/60";
 
 const inputClass =
-  "border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35 focus-visible:ring-[#D6A84F]/60";
+  "border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35 focus-visible:ring-dash-accent/60";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[13px] font-medium text-[#F7F2E8]/70">{label}</Label>
+      <Label className="text-[13px] font-medium text-dash-fg/70">{label}</Label>
       {children}
     </div>
   );
@@ -134,12 +134,12 @@ export default function FounderAddStudentPage() {
       <motion.div variants={fadeUp}>
         <Link
           href="/founder/students"
-          className="inline-flex items-center gap-1.5 text-sm text-[#F7F2E8]/60 transition-colors hover:text-[#D6A84F]"
+          className="inline-flex items-center gap-1.5 text-sm text-dash-fg/60 transition-colors hover:text-dash-accent"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to students
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Add Student</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-dash-fg">Add Student</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">
           New admissions land straight on the roster with the fee plan attached.
         </p>
       </motion.div>
@@ -152,7 +152,7 @@ export default function FounderAddStudentPage() {
               feedback.ok ? "border-emerald-400/30 bg-emerald-400/5" : "border-red-400/30 bg-red-400/5",
             )}
           >
-            <CardContent className="flex items-center gap-2 pt-5 text-sm text-[#F7F2E8]/85">
+            <CardContent className="flex items-center gap-2 pt-5 text-sm text-dash-fg/85">
               {feedback.ok ? (
                 <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden />
               ) : (
@@ -165,7 +165,7 @@ export default function FounderAddStudentPage() {
       )}
 
       <motion.form variants={fadeUp} onSubmit={handleSubmit} className="space-y-4">
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-4 pt-5">
             <Field label="Student name *">
               <Input
@@ -216,7 +216,7 @@ export default function FounderAddStudentPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-4 pt-5">
             <Field label="Class code">
               <SegmentedControl
@@ -229,7 +229,7 @@ export default function FounderAddStudentPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Fee plan">
                 {boot.isLoading ? (
-                  <Skeleton className="h-11 bg-white/[0.04]" />
+                  <Skeleton className="h-11 bg-dash-fg/[0.04]" />
                 ) : (
                   <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selectClass}>
                     <option value="">No plan yet</option>
@@ -244,7 +244,7 @@ export default function FounderAddStudentPage() {
               </Field>
               <Field label="Fee cycle">
                 {boot.isLoading ? (
-                  <Skeleton className="h-11 bg-white/[0.04]" />
+                  <Skeleton className="h-11 bg-dash-fg/[0.04]" />
                 ) : (
                   <select
                     value={cycle}
@@ -279,10 +279,10 @@ export default function FounderAddStudentPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-4 pt-5">
             <div>
-              <Label className="text-[13px] font-medium text-[#F7F2E8]/70">
+              <Label className="text-[13px] font-medium text-dash-fg/70">
                 How did they come to us?
               </Label>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -295,10 +295,10 @@ export default function FounderAddStudentPage() {
                       onClick={() => setSource(active ? "" : src)}
                       aria-pressed={active}
                       className={cn(
-                        "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60",
+                        "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60",
                         active
-                          ? "border-[#D6A84F]/50 bg-[#D6A84F]/15 text-[#D6A84F]"
-                          : "border-[#F7F2E8]/12 text-[#F7F2E8]/65 hover:border-[#D6A84F]/40 hover:text-[#F7F2E8]",
+                          ? "border-dash-accent/50 bg-dash-accent/15 text-dash-accent"
+                          : "border-dash-fg/12 text-dash-fg/65 hover:border-dash-accent/40 hover:text-dash-fg",
                       )}
                     >
                       {admissionSourceLabel(src)}
@@ -309,7 +309,7 @@ export default function FounderAddStudentPage() {
             </div>
             <Field label="Teacher (optional)">
               {teachers.isPending ? (
-                <Skeleton className="h-11 bg-white/[0.04]" />
+                <Skeleton className="h-11 bg-dash-fg/[0.04]" />
               ) : (
                 <select
                   value={teacherId}
@@ -325,7 +325,7 @@ export default function FounderAddStudentPage() {
                   ))}
                 </select>
               )}
-              <p className="text-xs text-[#F7F2E8]/45">
+              <p className="text-xs text-dash-fg/45">
                 Attendance drives payroll — this is just who the student starts with.
               </p>
             </Field>
@@ -335,7 +335,7 @@ export default function FounderAddStudentPage() {
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href="/founder/students"
-            className="text-center text-sm text-[#F7F2E8]/60 transition-colors hover:text-[#F7F2E8]"
+            className="text-center text-sm text-dash-fg/60 transition-colors hover:text-dash-fg"
           >
             Cancel
           </Link>
@@ -343,7 +343,7 @@ export default function FounderAddStudentPage() {
             type="submit"
             loading={addStudent.isPending}
             disabled={!name.trim() || !validDueDay}
-            className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
           >
             Add Student
           </Button>

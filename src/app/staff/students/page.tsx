@@ -33,19 +33,19 @@ export default function StaffStudentsPage() {
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Staff · Students</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Students</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">Search by name, phone or student ID.</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Students</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Students</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">Search by name, phone or student ID.</p>
       </motion.div>
 
       <motion.div variants={fadeUp} className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#F7F2E8]/35" aria-hidden />
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-dash-fg/35" aria-hidden />
         <Input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Name, phone or STU id…"
-          className="h-12 border-[#F7F2E8]/12 bg-[#17131D] pl-11 text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+          className="h-12 border-dash-fg/12 bg-dash-card pl-11 text-dash-fg placeholder:text-dash-fg/30"
         />
       </motion.div>
 
@@ -57,10 +57,10 @@ export default function StaffStudentsPage() {
         </motion.div>
       ) : !searching ? (
         <motion.div variants={fadeUp}>
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-16 text-center">
-            <Users className="mb-3 h-9 w-9 text-[#F7F2E8]/20" aria-hidden />
-            <p className="text-sm font-medium text-[#F7F2E8]/70">Search the roster</p>
-            <p className="mt-1 max-w-xs text-xs text-[#F7F2E8]/40">
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-16 text-center">
+            <Users className="mb-3 h-9 w-9 text-dash-fg/20" aria-hidden />
+            <p className="text-sm font-medium text-dash-fg/70">Search the roster</p>
+            <p className="mt-1 max-w-xs text-xs text-dash-fg/40">
               Type at least two characters to find a student.
             </p>
           </div>
@@ -68,19 +68,19 @@ export default function StaffStudentsPage() {
       ) : search.isFetching && rows.length === 0 ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 bg-white/[0.04]" />
+            <Skeleton key={i} className="h-16 bg-dash-fg/[0.04]" />
           ))}
         </div>
       ) : rows.length === 0 ? (
         <motion.div variants={fadeUp}>
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-14 text-center">
-            <p className="text-sm font-medium text-[#F7F2E8]/70">No students matched</p>
-            <p className="mt-1 max-w-xs text-xs text-[#F7F2E8]/40">Try a different name or phone number.</p>
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-14 text-center">
+            <p className="text-sm font-medium text-dash-fg/70">No students matched</p>
+            <p className="mt-1 max-w-xs text-xs text-dash-fg/40">Try a different name or phone number.</p>
           </div>
         </motion.div>
       ) : (
-        <motion.div variants={fadeUp} className="overflow-hidden rounded-2xl border border-[#F7F2E8]/10 bg-[#17131D]">
-          <ul className="divide-y divide-[#F7F2E8]/[0.06]">
+        <motion.div variants={fadeUp} className="overflow-hidden rounded-2xl border border-dash-fg/10 bg-dash-card">
+          <ul className="divide-y divide-dash-fg/[0.06]">
             {rows.map((s) => {
               const status = studentStatusTone(s.status);
               const fee = feeStatusTone(s.feeStatus);
@@ -88,22 +88,22 @@ export default function StaffStudentsPage() {
                 <li key={s.studentId}>
                   <Link
                     href={`/staff/students/${encodeURIComponent(s.studentId)}`}
-                    className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-white/[0.04] sm:px-5"
+                    className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-dash-fg/[0.04] sm:px-5"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-[#F7F2E8]">{s.studentName}</span>
+                        <span className="text-sm font-semibold text-dash-fg">{s.studentName}</span>
                         <Badge className={status.className}>{status.label}</Badge>
                         <Badge className={fee.className}>{fee.label}</Badge>
                       </span>
-                      <span className="mt-0.5 block truncate text-xs text-[#F7F2E8]/45">
+                      <span className="mt-0.5 block truncate text-xs text-dash-fg/45">
                         {[s.studentId, s.classCode, s.phone, s.instrument].filter(Boolean).join(" · ")}
                       </span>
                     </span>
-                    <span className="hidden shrink-0 text-sm text-[#F7F2E8]/60 sm:block">
+                    <span className="hidden shrink-0 text-sm text-dash-fg/60 sm:block">
                       {s.monthlyFee ? formatINR(s.monthlyFee) : ""}
                     </span>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-[#F7F2E8]/30" aria-hidden />
+                    <ArrowRight className="h-4 w-4 shrink-0 text-dash-fg/30" aria-hidden />
                   </Link>
                 </li>
               );

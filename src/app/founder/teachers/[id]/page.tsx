@@ -52,8 +52,8 @@ const TEACHER_STATUSES = ["ACTIVE", "INACTIVE", "HOLD"];
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5">
-      <dt className="shrink-0 text-[13px] text-[#F7F2E8]/45">{label}</dt>
-      <dd className="min-w-0 text-right text-[13px] font-medium text-[#F7F2E8]/90">
+      <dt className="shrink-0 text-[13px] text-dash-fg/45">{label}</dt>
+      <dd className="min-w-0 text-right text-[13px] font-medium text-dash-fg/90">
         {value || "—"}
       </dd>
     </div>
@@ -108,7 +108,7 @@ export default function FounderTeacherProfilePage() {
         <Card className="border-red-400/30 bg-red-400/5">
           <CardContent className="pt-5 text-sm text-red-300">
             {prof.error?.message?.replace(/\[.*\]$/, "") || "Could not load this teacher."}{" "}
-            <Button variant="link" className="h-auto p-0 text-[#D6A84F]" onClick={() => prof.refetch()}>
+            <Button variant="link" className="h-auto p-0 text-dash-accent" onClick={() => prof.refetch()}>
               Retry
             </Button>
           </CardContent>
@@ -120,9 +120,9 @@ export default function FounderTeacherProfilePage() {
   if (!teacher) {
     return (
       <motion.div variants={listVariants} initial="hidden" animate="visible" className="space-y-4">
-        <Skeleton className="h-20 bg-white/[0.04]" />
-        <Skeleton className="h-40 bg-white/[0.04]" />
-        <Skeleton className="h-40 bg-white/[0.04]" />
+        <Skeleton className="h-20 bg-dash-fg/[0.04]" />
+        <Skeleton className="h-40 bg-dash-fg/[0.04]" />
+        <Skeleton className="h-40 bg-dash-fg/[0.04]" />
       </motion.div>
     );
   }
@@ -135,27 +135,27 @@ export default function FounderTeacherProfilePage() {
       <motion.div variants={fadeUp}>
         <Link
           href="/founder/teachers"
-          className="inline-flex items-center gap-1.5 text-sm text-[#F7F2E8]/60 transition-colors hover:text-[#D6A84F]"
+          className="inline-flex items-center gap-1.5 text-sm text-dash-fg/60 transition-colors hover:text-dash-accent"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to teachers
         </Link>
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#D6A84F]/10 text-lg font-semibold text-[#D6A84F]">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-dash-accent/10 text-lg font-semibold text-dash-accent">
                 {initials(teacher.teacherName)}
               </span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-semibold tracking-tight text-[#F7F2E8]">
+                  <h1 className="text-xl font-semibold tracking-tight text-dash-fg">
                     {teacher.teacherName}
                   </h1>
                   <Badge className={tone.className}>{tone.label}</Badge>
                 </div>
-                <p className="mt-1 text-sm text-[#F7F2E8]/55">
+                <p className="mt-1 text-sm text-dash-fg/55">
                   {[teacher.primaryRole, teacher.branchClassCode].filter(Boolean).join(" · ") ||
                     "Instrument not set"}
                 </p>
@@ -192,9 +192,9 @@ export default function FounderTeacherProfilePage() {
       </motion.div>
 
       <motion.div variants={fadeUp} className="grid gap-4 lg:grid-cols-2">
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="pt-5">
-            <h2 className="mb-2 text-sm font-semibold text-[#F7F2E8]/90">Compensation</h2>
+            <h2 className="mb-2 text-sm font-semibold text-dash-fg/90">Compensation</h2>
             <dl>
               <InfoRow label="Academy share" value={teacher.academyShare ? `${teacher.academyShare}%` : undefined} />
               <InfoRow label="Current %" value={teacher.compensationPercent ? `${teacher.compensationPercent}%` : undefined} />
@@ -206,22 +206,22 @@ export default function FounderTeacherProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="pt-5">
-            <h2 className="mb-2 text-sm font-semibold text-[#F7F2E8]/90">
+            <h2 className="mb-2 text-sm font-semibold text-dash-fg/90">
               Payout preview · {month}
             </h2>
             {pay.isPending ? (
-              <Skeleton className="h-32 bg-white/[0.04]" />
+              <Skeleton className="h-32 bg-dash-fg/[0.04]" />
             ) : pay.isError ? (
               <p className="py-6 text-sm text-red-300">
                 Could not load the payout preview.{" "}
-                <Button variant="link" className="h-auto p-0 text-[#D6A84F]" onClick={() => pay.refetch()}>
+                <Button variant="link" className="h-auto p-0 text-dash-accent" onClick={() => pay.refetch()}>
                   Retry
                 </Button>
               </p>
             ) : !payoutRow ? (
-              <p className="py-6 text-sm text-[#F7F2E8]/45">No payout recorded for {month} yet.</p>
+              <p className="py-6 text-sm text-dash-fg/45">No payout recorded for {month} yet.</p>
             ) : (
               <div>
                 <dl>
@@ -245,14 +245,14 @@ export default function FounderTeacherProfilePage() {
                     ))}
                   </ul>
                 ) : null}
-                <div className="mt-3 border-t border-white/[0.04] pt-3">
+                <div className="mt-3 border-t border-dash-fg/[0.04] pt-3">
                   <Badge
                     className={
                       payoutRow.status === "PAID"
                         ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                         : payoutRow.status === "PENDING" || payoutRow.status === "READY"
                           ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
-                          : "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/70"
+                          : "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/70"
                     }
                   >
                     {payoutRow.status || "—"}
@@ -265,28 +265,28 @@ export default function FounderTeacherProfilePage() {
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="pt-5">
-            <h2 className="mb-3 text-sm font-semibold text-[#F7F2E8]/90">
+            <h2 className="mb-3 text-sm font-semibold text-dash-fg/90">
               Assigned students ({students.length})
             </h2>
             {students.length === 0 ? (
-              <p className="py-6 text-sm text-[#F7F2E8]/45">No students assigned yet.</p>
+              <p className="py-6 text-sm text-dash-fg/45">No students assigned yet.</p>
             ) : (
-              <ul className="divide-y divide-white/[0.04]">
+              <ul className="divide-y divide-dash-fg/[0.04]">
                 {students.map((s) => {
                   const fee = feeStatusTone(s.feeStatus);
                   return (
                     <li key={s.studentId}>
                       <Link
                         href={`/founder/students/${s.studentId}`}
-                        className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-[#D6A84F]"
+                        className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-dash-accent"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-[#F7F2E8]/90">
+                          <p className="truncate text-sm font-medium text-dash-fg/90">
                             {s.studentName}
                           </p>
-                          <p className="truncate text-xs text-[#F7F2E8]/45">
+                          <p className="truncate text-xs text-dash-fg/45">
                             {[s.instrument, s.classCode].filter(Boolean).join(" · ")}
                           </p>
                         </div>
@@ -302,25 +302,25 @@ export default function FounderTeacherProfilePage() {
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
-          <CardContent className="flex items-center gap-2 pt-5 text-xs text-[#F7F2E8]/45">
-            <GraduationCap className="h-4 w-4 shrink-0 text-[#D6A84F]/60" aria-hidden />
+        <Card className="border-dash-fg/10 bg-dash-card">
+          <CardContent className="flex items-center gap-2 pt-5 text-xs text-dash-fg/45">
+            <GraduationCap className="h-4 w-4 shrink-0 text-dash-accent/60" aria-hidden />
             Contact: {teacher.phone || "no phone"} · {teacher.email || "no email"}
           </CardContent>
         </Card>
       </motion.div>
 
       <Dialog open={compOpen} onOpenChange={setCompOpen}>
-        <DialogContent className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Update compensation</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/50">
+            <DialogTitle className="text-dash-fg">Update compensation</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
               Percentage and effective date apply to new payouts. Audited.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Share percentage *</Label>
+              <Label className="text-[13px] text-dash-fg/70">Share percentage *</Label>
               <Input
                 value={compPercent}
                 onChange={(e) => setCompPercent(e.target.value)}
@@ -329,25 +329,25 @@ export default function FounderTeacherProfilePage() {
                 max={100}
                 inputMode="numeric"
                 placeholder="40"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Effective from *</Label>
+              <Label className="text-[13px] text-dash-fg/70">Effective from *</Label>
               <Input
                 value={compFrom}
                 onChange={(e) => setCompFrom(e.target.value)}
                 type="date"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8]"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Reason *</Label>
+              <Label className="text-[13px] text-dash-fg/70">Reason *</Label>
               <Textarea
                 value={compReason}
                 onChange={(e) => setCompReason(e.target.value)}
                 placeholder="Why this change?"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
               />
             </div>
           </div>
@@ -375,10 +375,10 @@ export default function FounderTeacherProfilePage() {
       </Dialog>
 
       <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
-        <DialogContent className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Change teacher status</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/50">
+            <DialogTitle className="text-dash-fg">Change teacher status</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
               Status changes are audited. A reason is required.
             </DialogDescription>
           </DialogHeader>
@@ -392,8 +392,8 @@ export default function FounderTeacherProfilePage() {
                   aria-pressed={statusValue === s}
                   className={`rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
                     statusValue === s
-                      ? "border-[#D6A84F]/50 bg-[#D6A84F]/15 text-[#D6A84F]"
-                      : "border-[#F7F2E8]/12 text-[#F7F2E8]/65 hover:text-[#F7F2E8]"
+                      ? "border-dash-accent/50 bg-dash-accent/15 text-dash-accent"
+                      : "border-dash-fg/12 text-dash-fg/65 hover:text-dash-fg"
                   }`}
                 >
                   {s.charAt(0) + s.slice(1).toLowerCase()}
@@ -401,12 +401,12 @@ export default function FounderTeacherProfilePage() {
               ))}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Reason *</Label>
+              <Label className="text-[13px] text-dash-fg/70">Reason *</Label>
               <Textarea
                 value={statusReason}
                 onChange={(e) => setStatusReason(e.target.value)}
                 placeholder="Why is this changing?"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
               />
             </div>
           </div>

@@ -56,8 +56,8 @@ const STUDENT_STATUSES = ["ACTIVE", "PAUSED", "LEFT"];
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5">
-      <dt className="shrink-0 text-[13px] text-[#F7F2E8]/45">{label}</dt>
-      <dd className="min-w-0 text-right text-[13px] font-medium text-[#F7F2E8]/90">
+      <dt className="shrink-0 text-[13px] text-dash-fg/45">{label}</dt>
+      <dd className="min-w-0 text-right text-[13px] font-medium text-dash-fg/90">
         {value || "—"}
       </dd>
     </div>
@@ -125,7 +125,7 @@ export default function FounderStudentProfilePage() {
         <Card className="border-red-400/30 bg-red-400/5">
           <CardContent className="pt-5 text-sm text-red-300">
             {prof.error?.message?.replace(/\[.*\]$/, "") || "Could not load this student."}{" "}
-            <Button variant="link" className="h-auto p-0 text-[#D6A84F]" onClick={() => prof.refetch()}>
+            <Button variant="link" className="h-auto p-0 text-dash-accent" onClick={() => prof.refetch()}>
               Retry
             </Button>
           </CardContent>
@@ -137,9 +137,9 @@ export default function FounderStudentProfilePage() {
   if (!loaded) {
     return (
       <motion.div variants={listVariants} initial="hidden" animate="visible" className="space-y-4">
-        <Skeleton className="h-20 bg-white/[0.04]" />
-        <Skeleton className="h-40 bg-white/[0.04]" />
-        <Skeleton className="h-40 bg-white/[0.04]" />
+        <Skeleton className="h-20 bg-dash-fg/[0.04]" />
+        <Skeleton className="h-40 bg-dash-fg/[0.04]" />
+        <Skeleton className="h-40 bg-dash-fg/[0.04]" />
       </motion.div>
     );
   }
@@ -149,27 +149,27 @@ export default function FounderStudentProfilePage() {
       <motion.div variants={fadeUp}>
         <Link
           href="/founder/students"
-          className="inline-flex items-center gap-1.5 text-sm text-[#F7F2E8]/60 transition-colors hover:text-[#D6A84F]"
+          className="inline-flex items-center gap-1.5 text-sm text-dash-fg/60 transition-colors hover:text-dash-accent"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to students
         </Link>
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#D6A84F]/10 text-lg font-semibold text-[#D6A84F]">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-dash-accent/10 text-lg font-semibold text-dash-accent">
                 {initials(student.studentName)}
               </span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-semibold tracking-tight text-[#F7F2E8]">
+                  <h1 className="text-xl font-semibold tracking-tight text-dash-fg">
                     {student.studentName}
                   </h1>
                   <Badge className={statusTone.className}>{statusTone.label}</Badge>
                 </div>
-                <p className="mt-1 text-sm text-[#F7F2E8]/55">
+                <p className="mt-1 text-sm text-dash-fg/55">
                   {[student.instrument, student.className, student.location].filter(Boolean).join(" · ") ||
                     "Instrument not set"}
                 </p>
@@ -210,7 +210,7 @@ export default function FounderStudentProfilePage() {
           </TabsList>
 
           <TabsContent value="details">
-            <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+            <Card className="border-dash-fg/10 bg-dash-card">
               <CardContent className="pt-5">
                 <dl className="grid gap-x-8 sm:grid-cols-2">
                   <InfoRow label="Phone" value={student.phone} />
@@ -226,8 +226,8 @@ export default function FounderStudentProfilePage() {
                   <InfoRow label="Monthly fee" value={formatINR(student.monthlyFee)} />
                   <InfoRow label="Last receipt" value={student.lastReceiptNo} />
                 </dl>
-                <div className="mt-2 flex items-center gap-2 border-t border-white/[0.04] pt-4">
-                  <span className="text-[13px] text-[#F7F2E8]/45">Fee status</span>
+                <div className="mt-2 flex items-center gap-2 border-t border-dash-fg/[0.04] pt-4">
+                  <span className="text-[13px] text-dash-fg/45">Fee status</span>
                   <Badge className={feeStatusTone(student.feeStatus).className}>
                     {feeStatusTone(student.feeStatus).label}
                   </Badge>
@@ -237,23 +237,23 @@ export default function FounderStudentProfilePage() {
           </TabsContent>
 
           <TabsContent value="attendance">
-            <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+            <Card className="border-dash-fg/10 bg-dash-card">
               <CardContent className="pt-5">
                 {attendance.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-[#F7F2E8]/45">
+                  <p className="py-8 text-center text-sm text-dash-fg/45">
                     No attendance recorded yet.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-white/[0.04]">
+                  <ul className="divide-y divide-dash-fg/[0.04]">
                     {attendance.map((a, i) => {
                       const tone = attendanceTone(a.status);
                       return (
                         <li key={`${a.date}-${i}`} className="flex items-center justify-between gap-3 py-3">
                           <div>
-                            <p className="text-sm font-medium text-[#F7F2E8]/90">
+                            <p className="text-sm font-medium text-dash-fg/90">
                               {formatDateOnly(a.date)}
                             </p>
-                            <p className="text-xs text-[#F7F2E8]/45">
+                            <p className="text-xs text-dash-fg/45">
                               {[a.teacherName, a.instrument].filter(Boolean).join(" · ")}
                             </p>
                           </div>
@@ -268,7 +268,7 @@ export default function FounderStudentProfilePage() {
           </TabsContent>
 
           <TabsContent value="receipts">
-            <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+            <Card className="border-dash-fg/10 bg-dash-card">
               <CardContent className="pt-5">
                 {pendingCount > 0 && (
                   <p className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-300">
@@ -276,20 +276,20 @@ export default function FounderStudentProfilePage() {
                   </p>
                 )}
                 {receipts.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-[#F7F2E8]/45">
+                  <p className="py-8 text-center text-sm text-dash-fg/45">
                     No receipts recorded yet.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-white/[0.04]">
+                  <ul className="divide-y divide-dash-fg/[0.04]">
                     {receipts.map((r) => {
                       const tone = feeStatusTone(r.status);
                       return (
                         <li key={r.receiptNo} className="flex items-center justify-between gap-3 py-3">
                           <div>
-                            <p className="text-sm font-medium text-[#F7F2E8]/90">
-                              <span className="font-semibold text-[#D6A84F]">{formatINR(r.amount)}</span>
+                            <p className="text-sm font-medium text-dash-fg/90">
+                              <span className="font-semibold text-dash-accent">{formatINR(r.amount)}</span>
                             </p>
-                            <p className="text-xs text-[#F7F2E8]/45">
+                            <p className="text-xs text-dash-fg/45">
                               {r.receiptNo} · {formatDateOnly(r.date)} · {r.paymentMode || r.mode}
                             </p>
                           </div>
@@ -306,10 +306,10 @@ export default function FounderStudentProfilePage() {
       </motion.div>
 
       <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
-        <DialogContent className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Set student status</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/50">
+            <DialogTitle className="text-dash-fg">Set student status</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
               Status changes are audited. A reason is required.
             </DialogDescription>
           </DialogHeader>
@@ -323,8 +323,8 @@ export default function FounderStudentProfilePage() {
                   aria-pressed={statusValue === s}
                   className={`rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
                     statusValue === s
-                      ? "border-[#D6A84F]/50 bg-[#D6A84F]/15 text-[#D6A84F]"
-                      : "border-[#F7F2E8]/12 text-[#F7F2E8]/65 hover:text-[#F7F2E8]"
+                      ? "border-dash-accent/50 bg-dash-accent/15 text-dash-accent"
+                      : "border-dash-fg/12 text-dash-fg/65 hover:text-dash-fg"
                   }`}
                 >
                   {s.charAt(0) + s.slice(1).toLowerCase()}
@@ -332,12 +332,12 @@ export default function FounderStudentProfilePage() {
               ))}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Reason *</Label>
+              <Label className="text-[13px] text-dash-fg/70">Reason *</Label>
               <Textarea
                 value={statusReason}
                 onChange={(e) => setStatusReason(e.target.value)}
                 placeholder="Why is this changing?"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
               />
             </div>
           </div>
@@ -359,52 +359,52 @@ export default function FounderStudentProfilePage() {
       </Dialog>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Edit student</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/50">
+            <DialogTitle className="text-dash-fg">Edit student</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
               Creates an edit draft you merge from Approvals.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Student name</Label>
+              <Label className="text-[13px] text-dash-fg/70">Student name</Label>
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8]"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Phone</Label>
+              <Label className="text-[13px] text-dash-fg/70">Phone</Label>
               <Input
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8]"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Email</Label>
+              <Label className="text-[13px] text-dash-fg/70">Email</Label>
               <Input
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8]"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Guardian</Label>
+              <Label className="text-[13px] text-dash-fg/70">Guardian</Label>
               <Input
                 value={editGuardian}
                 onChange={(e) => setEditGuardian(e.target.value)}
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8]"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Instrument</Label>
+              <Label className="text-[13px] text-dash-fg/70">Instrument</Label>
               <Input
                 value={editInstrument}
                 onChange={(e) => setEditInstrument(e.target.value)}
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8]"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg"
               />
             </div>
           </div>

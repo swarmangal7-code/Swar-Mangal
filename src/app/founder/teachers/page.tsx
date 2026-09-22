@@ -71,10 +71,10 @@ export default function FounderTeachersPage() {
         className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#F7F2E8]">Teachers</h1>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">Academy teaching panel and compensation.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-dash-fg">Teachers</h1>
+          <p className="mt-1 text-sm text-dash-fg/55">Academy teaching panel and compensation.</p>
         </div>
-        <Button className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]" onClick={() => setOpen(true)}>
+        <Button className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" aria-hidden /> Add Teacher
         </Button>
       </motion.div>
@@ -88,8 +88,8 @@ export default function FounderTeachersPage() {
             aria-pressed={filter === f.value}
             className={`rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
               filter === f.value
-                ? "border-[#D6A84F]/50 bg-[#D6A84F]/15 text-[#D6A84F]"
-                : "border-[#F7F2E8]/12 text-[#F7F2E8]/65 hover:border-[#D6A84F]/40 hover:text-[#F7F2E8]"
+                ? "border-dash-accent/50 bg-dash-accent/15 text-dash-accent"
+                : "border-dash-fg/12 text-dash-fg/65 hover:border-dash-accent/40 hover:text-dash-fg"
             }`}
           >
             {f.label}
@@ -102,7 +102,7 @@ export default function FounderTeachersPage() {
           <Card className="border-red-400/30 bg-red-400/5">
             <CardContent className="pt-5 text-sm text-red-300">
               {teachers.error?.message?.replace(/\[.*\]$/, "") || "Could not load teachers."}{" "}
-              <Button variant="link" className="h-auto p-0 text-[#D6A84F]" onClick={() => teachers.refetch()}>
+              <Button variant="link" className="h-auto p-0 text-dash-accent" onClick={() => teachers.refetch()}>
                 Retry
               </Button>
             </CardContent>
@@ -111,19 +111,19 @@ export default function FounderTeachersPage() {
       ) : teachers.isPending ? (
         <motion.div variants={fadeUp} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 bg-white/[0.04]" />
+            <Skeleton key={i} className="h-44 bg-dash-fg/[0.04]" />
           ))}
         </motion.div>
       ) : filtered.length === 0 ? (
         <motion.div variants={fadeUp}>
-          <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] text-[#F7F2E8]/40">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-dash-fg/[0.04] text-dash-fg/40">
                 <Users className="h-6 w-6" aria-hidden />
               </span>
               <div>
-                <p className="text-sm font-medium text-[#F7F2E8]">No teachers here</p>
-                <p className="mt-0.5 text-sm text-[#F7F2E8]/45">
+                <p className="text-sm font-medium text-dash-fg">No teachers here</p>
+                <p className="mt-0.5 text-sm text-dash-fg/45">
                   {filter === "ALL" ? "Add your first teacher to the panel." : `No ${filter.toLowerCase()} teachers.`}
                 </p>
               </div>
@@ -138,29 +138,29 @@ export default function FounderTeachersPage() {
               <Link
                 key={t.teacherId}
                 href={`/founder/teachers/${t.teacherId}`}
-                className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               >
-                <Card className="h-full border-[#F7F2E8]/10 bg-[#17131D] transition-colors hover:border-[#D6A84F]/40">
+                <Card className="h-full border-dash-fg/10 bg-dash-card transition-colors hover:border-dash-accent/40">
                   <CardContent className="flex h-full flex-col pt-5">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#D6A84F]/10 text-sm font-semibold text-[#D6A84F]">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-dash-accent/10 text-sm font-semibold text-dash-accent">
                         {initials(t.teacherName)}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[#F7F2E8]">{t.teacherName}</p>
-                        <p className="truncate text-xs text-[#F7F2E8]/50">{t.primaryRole || "Role not set"}</p>
+                        <p className="truncate text-sm font-medium text-dash-fg">{t.teacherName}</p>
+                        <p className="truncate text-xs text-dash-fg/50">{t.primaryRole || "Role not set"}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-[#F7F2E8]/30" aria-hidden />
+                      <ChevronRight className="h-4 w-4 shrink-0 text-dash-fg/30" aria-hidden />
                     </div>
                     <div className="mt-4 flex items-center gap-2">
                       <Badge className={tone.className}>{tone.label}</Badge>
                       {t.branchClassCode && (
-                        <Badge className="border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/70">
+                        <Badge className="border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/70">
                           {t.branchClassCode}
                         </Badge>
                       )}
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.04] pt-3 text-xs text-[#F7F2E8]/45">
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-dash-fg/[0.04] pt-3 text-xs text-dash-fg/45">
                       {t.academyShare && (
                         <span className="inline-flex items-center gap-1">
                           <GraduationCap className="h-3.5 w-3.5" aria-hidden /> {t.academyShare}% share
@@ -180,41 +180,41 @@ export default function FounderTeachersPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Add teacher</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/50">
+            <DialogTitle className="text-dash-fg">Add teacher</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
               A new teacher joins the panel immediately.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Teacher name *</Label>
+              <Label className="text-[13px] text-dash-fg/70">Teacher name *</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Full name"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Phone</Label>
+              <Label className="text-[13px] text-dash-fg/70">Phone</Label>
               <Input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 type="tel"
                 inputMode="numeric"
                 placeholder="98xxxxxx00"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[13px] text-[#F7F2E8]/70">Primary instrument / role</Label>
+              <Label className="text-[13px] text-dash-fg/70">Primary instrument / role</Label>
               <Input
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="Violin, Tabla, Vocal…"
-                className="border-[#F7F2E8]/10 bg-[#131019] text-[#F7F2E8] placeholder:text-[#F7F2E8]/35"
+                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
               />
             </div>
           </div>

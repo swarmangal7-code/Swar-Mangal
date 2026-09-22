@@ -116,12 +116,12 @@ function TimetableDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border-[#F7F2E8]/10 bg-[#17131D] text-[#F7F2E8]">
+      <DialogContent className="max-w-md border-dash-fg/10 bg-dash-card text-dash-fg">
         <DialogHeader>
-          <DialogTitle className="text-[#F7F2E8]">
+          <DialogTitle className="text-dash-fg">
             {mode === "create" ? "Add class" : "Edit class"}
           </DialogTitle>
-          <DialogDescription className="text-[#F7F2E8]/45">
+          <DialogDescription className="text-dash-fg/45">
             {mode === "create"
               ? "Add a recurring slot to the branch timetable."
               : `Editing ${entry?.className ?? "class"}.`}
@@ -130,7 +130,7 @@ function TimetableDialog({
 
         <div className="grid gap-4">
           <div>
-            <label htmlFor="tt-class" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+            <label htmlFor="tt-class" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
               Class name
             </label>
             <input
@@ -138,20 +138,20 @@ function TimetableDialog({
               value={className}
               onChange={(e) => setClassName(e.target.value)}
               placeholder="e.g. Keyboard"
-              className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-4 text-sm text-[#F7F2E8] placeholder:text-[#F7F2E8]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+              className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="tt-day" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="tt-day" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Day
               </label>
               <select
                 id="tt-day"
                 value={dayOfWeek}
                 onChange={(e) => setDayOfWeek(Number(e.target.value))}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               >
                 {DAYS.map((d, i) => (
                   <option key={d} value={i}>
@@ -161,14 +161,14 @@ function TimetableDialog({
               </select>
             </div>
             <div>
-              <label htmlFor="tt-branch" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="tt-branch" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Branch
               </label>
               <select
                 id="tt-branch"
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               >
                 {branches.map((b) => (
                   <option key={b} value={b}>
@@ -181,7 +181,7 @@ function TimetableDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="tt-start" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="tt-start" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Start time
               </label>
               <input
@@ -189,11 +189,11 @@ function TimetableDialog({
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               />
             </div>
             <div>
-              <label htmlFor="tt-end" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="tt-end" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 End time
               </label>
               <input
@@ -201,21 +201,21 @@ function TimetableDialog({
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="tt-teacher" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="tt-teacher" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Teacher
               </label>
               <select
                 id="tt-teacher"
                 value={teacherId}
                 onChange={(e) => setTeacherId(e.target.value)}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               >
                 <option value="" disabled>
                   Select teacher
@@ -228,14 +228,14 @@ function TimetableDialog({
               </select>
             </div>
             <div>
-              <label htmlFor="tt-status" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="tt-status" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Status
               </label>
               <select
                 id="tt-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               >
                 <option value="ENABLED">Enabled</option>
                 <option value="DISABLED">Disabled</option>
@@ -248,14 +248,14 @@ function TimetableDialog({
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}
-            className="border-[#F7F2E8]/10 text-[#F7F2E8]/70 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+            className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             loading={saving}
-            className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
           >
             {mode === "create" ? "Add class" : "Save changes"}
           </Button>
@@ -362,9 +362,9 @@ export default function FounderTimetablePage() {
   if (timetable.isPending) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-56 bg-white/[0.05]" />
-        <Skeleton className="h-40 w-full bg-white/[0.05]" />
-        <Skeleton className="h-40 w-full bg-white/[0.05]" />
+        <Skeleton className="h-8 w-56 bg-dash-fg/[0.05]" />
+        <Skeleton className="h-40 w-full bg-dash-fg/[0.05]" />
+        <Skeleton className="h-40 w-full bg-dash-fg/[0.05]" />
       </div>
     );
   }
@@ -373,13 +373,13 @@ export default function FounderTimetablePage() {
     return (
       <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6">
         <p className="text-sm font-medium text-red-300">Could not load the timetable.</p>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">
+        <p className="mt-1 text-sm text-dash-fg/55">
           {timetable.error instanceof Error ? timetable.error.message : "Something went wrong."}
         </p>
         <Button
           variant="outline"
           onClick={() => timetable.refetch()}
-          className="mt-4 border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]"
+          className="mt-4 border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
         >
           Retry
         </Button>
@@ -391,13 +391,13 @@ export default function FounderTimetablePage() {
     <div className="space-y-6 pb-24">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7F2E8]/40">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-dash-fg/40">
             Founder · Academy
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">
             Branch timetable
           </h1>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">
+          <p className="mt-1 text-sm text-dash-fg/55">
             Recurring class slots {branch !== "ALL" ? `for ${branch}` : "across branches"}.
           </p>
         </div>
@@ -407,7 +407,7 @@ export default function FounderTimetablePage() {
               aria-label="Branch"
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
-              className="h-10 rounded-xl border border-[#F7F2E8]/15 bg-white/[0.04] px-3 text-sm font-medium text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+              className="h-10 rounded-xl border border-dash-fg/15 bg-dash-fg/[0.04] px-3 text-sm font-medium text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
             >
               <option value="ALL">All Branches</option>
               {branches.map((b) => (
@@ -425,12 +425,12 @@ export default function FounderTimetablePage() {
               { value: "day", label: "Day" },
               { value: "week", label: "Week" },
             ]}
-            className="bg-white/[0.04]"
+            className="bg-dash-fg/[0.04]"
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.02] p-1">
+      <div className="grid grid-cols-7 gap-1 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.02] p-1">
         {DAYS.map((d, i) => {
           const active = view === "day" && i === selectedDay;
           const count = sorted.filter((e) => e.dayOfWeek === i).length;
@@ -443,12 +443,12 @@ export default function FounderTimetablePage() {
                 if (view === "week") setView("day");
               }}
               aria-pressed={active}
-              className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 ${
-                active ? "bg-[#D6A84F]/15 text-[#D6A84F]" : "text-[#F7F2E8]/60 hover:bg-white/[0.04]"
+              className={`flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 ${
+                active ? "bg-dash-accent/15 text-dash-accent" : "text-dash-fg/60 hover:bg-dash-fg/[0.04]"
               }`}
             >
               <span className="text-[11px] font-bold tracking-wide">{d}</span>
-              <span className={`text-[10px] ${count ? "text-[#F7F2E8]/50" : "text-[#F7F2E8]/25"}`}>
+              <span className={`text-[10px] ${count ? "text-dash-fg/50" : "text-dash-fg/25"}`}>
                 {count ? `${count} class${count === 1 ? "" : "es"}` : "—"}
               </span>
             </button>
@@ -459,18 +459,18 @@ export default function FounderTimetablePage() {
       {view === "day" ? (
         <div className="space-y-2">
           {dayEntries.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-12 text-center">
-              <CalendarDays className="mb-3 h-6 w-6 text-[#F7F2E8]/30" aria-hidden />
-              <p className="text-sm font-medium text-[#F7F2E8]">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-12 text-center">
+              <CalendarDays className="mb-3 h-6 w-6 text-dash-fg/30" aria-hidden />
+              <p className="text-sm font-medium text-dash-fg">
                 No classes on {DAY_LABELS[selectedDay]}
               </p>
-              <p className="mt-1 text-xs text-[#F7F2E8]/45">
+              <p className="mt-1 text-xs text-dash-fg/45">
                 Nothing scheduled here yet.
               </p>
               <Button
                 onClick={() => openCreate(selectedDay)}
                 size="sm"
-                className="mt-4 bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+                className="mt-4 bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
               >
                 <Plus className="h-4 w-4" aria-hidden />
                 Add class
@@ -487,12 +487,12 @@ export default function FounderTimetablePage() {
           ))}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.02]">
+        <div className="overflow-x-auto rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.02]">
           {times.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <CalendarDays className="mb-3 h-6 w-6 text-[#F7F2E8]/30" aria-hidden />
-              <p className="text-sm font-medium text-[#F7F2E8]">No classes in the timetable</p>
-              <p className="mt-1 text-xs text-[#F7F2E8]/45">
+              <CalendarDays className="mb-3 h-6 w-6 text-dash-fg/30" aria-hidden />
+              <p className="text-sm font-medium text-dash-fg">No classes in the timetable</p>
+              <p className="mt-1 text-xs text-dash-fg/45">
                 Add the recurring slots to get started.
               </p>
             </div>
@@ -501,18 +501,18 @@ export default function FounderTimetablePage() {
               className="grid min-w-[880px]"
               style={{ gridTemplateColumns: "5rem repeat(7, minmax(0, 1fr))" }}
             >
-              <div className="sticky left-0 z-10 border-b border-r border-[#F7F2E8]/10 bg-[#17131D] p-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#F7F2E8]/40" />
+              <div className="sticky left-0 z-10 border-b border-r border-dash-fg/10 bg-dash-card p-3 text-[10px] font-bold uppercase tracking-[0.14em] text-dash-fg/40" />
               {DAYS.map((d) => (
                 <div
                   key={d}
-                  className="border-b border-l border-[#F7F2E8]/10 bg-[#17131D] p-2 text-center text-[11px] font-bold tracking-wide text-[#F7F2E8]/70"
+                  className="border-b border-l border-dash-fg/10 bg-dash-card p-2 text-center text-[11px] font-bold tracking-wide text-dash-fg/70"
                 >
                   {DAY_LABELS[DAYS.indexOf(d)]}
                 </div>
               ))}
               {times.map((time) => (
                 <React.Fragment key={time}>
-                  <div className="sticky left-0 z-10 flex items-start border-b border-r border-[#F7F2E8]/10 bg-[#17131D] p-3 text-xs font-semibold text-[#F7F2E8]/50">
+                  <div className="sticky left-0 z-10 flex items-start border-b border-r border-dash-fg/10 bg-dash-card p-3 text-xs font-semibold text-dash-fg/50">
                     {fmt12(time)}
                   </div>
                   {DAYS.map((_, i) => {
@@ -520,19 +520,19 @@ export default function FounderTimetablePage() {
                     return (
                       <div
                         key={i}
-                        className="space-y-1 border-b border-l border-[#F7F2E8]/10 p-1.5"
+                        className="space-y-1 border-b border-l border-dash-fg/10 p-1.5"
                       >
                         {cell.map((entry) => (
                           <button
                             key={entry.id}
                             type="button"
                             onClick={() => openEdit(entry)}
-                            className="w-full rounded-xl border border-[#D6A84F]/20 bg-[#D6A84F]/10 px-2 py-1.5 text-left transition-colors hover:border-[#D6A84F]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                            className="w-full rounded-xl border border-dash-accent/20 bg-dash-accent/10 px-2 py-1.5 text-left transition-colors hover:border-dash-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
                           >
-                            <p className="truncate text-xs font-semibold text-[#F7F2E8]">
+                            <p className="truncate text-xs font-semibold text-dash-fg">
                               {entry.className}
                             </p>
-                            <p className="truncate text-[10px] text-[#F7F2E8]/50">
+                            <p className="truncate text-[10px] text-dash-fg/50">
                               {entry.teacherName}
                               {entry.status !== "ENABLED" ? " · disabled" : ""}
                             </p>
@@ -551,7 +551,7 @@ export default function FounderTimetablePage() {
       <button
         type="button"
         onClick={() => openCreate()}
-        className="fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#D6A84F] text-[#08070B] shadow-soft-lg transition-transform hover:bg-[#E2BD68] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08070B]"
+        className="fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-dash-accent text-dash-bg shadow-soft-lg transition-transform hover:bg-dash-accent-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-dash-bg"
         aria-label="Add class"
       >
         {createMut.isPending ? (
@@ -575,11 +575,11 @@ export default function FounderTimetablePage() {
       />
 
       <Dialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
-        <DialogContent className="max-w-sm border-[#F7F2E8]/10 bg-[#17131D] text-[#F7F2E8]">
+        <DialogContent className="max-w-sm border-dash-fg/10 bg-dash-card text-dash-fg">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">Delete this class?</DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/45">
-              <span className="font-medium text-[#F7F2E8]">{deleting?.className}</span> on{" "}
+            <DialogTitle className="text-dash-fg">Delete this class?</DialogTitle>
+            <DialogDescription className="text-dash-fg/45">
+              <span className="font-medium text-dash-fg">{deleting?.className}</span> on{" "}
               {deleting ? DAY_LABELS[deleting.dayOfWeek] : ""} at{" "}
               {deleting ? fmt12(deleting.startTime) : ""} will be removed from the timetable.
               This cannot be undone.
@@ -589,7 +589,7 @@ export default function FounderTimetablePage() {
             <Button
               variant="ghost"
               onClick={() => setDeleting(null)}
-              className="border-[#F7F2E8]/10 text-[#F7F2E8]/70 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+              className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
               Cancel
             </Button>
@@ -624,28 +624,28 @@ function TimeSlotCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.03] p-4">
+    <div className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-4">
       <div className="min-w-[54px] text-center">
-        <p className="text-sm font-bold tabular-nums text-[#F7F2E8]">{fmt12(entry.startTime)}</p>
+        <p className="text-sm font-bold tabular-nums text-dash-fg">{fmt12(entry.startTime)}</p>
         {entry.endTime && (
-          <p className="text-[10px] text-[#F7F2E8]/40">to {fmt12(entry.endTime)}</p>
+          <p className="text-[10px] text-dash-fg/40">to {fmt12(entry.endTime)}</p>
         )}
       </div>
-      <div className="h-8 w-px bg-[#F7F2E8]/10" />
+      <div className="h-8 w-px bg-dash-fg/10" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-semibold text-[#F7F2E8]">{entry.className}</p>
+          <p className="truncate text-sm font-semibold text-dash-fg">{entry.className}</p>
           {entry.status !== "ENABLED" && (
-            <Badge variant="outline" className="border-[#F7F2E8]/20 text-[#F7F2E8]/50">
+            <Badge variant="outline" className="border-dash-fg/20 text-dash-fg/50">
               Disabled
             </Badge>
           )}
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#F7F2E8]/50">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-dash-fg/50">
           <span>{entry.teacherName || "No teacher assigned"}</span>
           {entry.branch && (
             <>
-              <span className="text-[#F7F2E8]/25">·</span>
+              <span className="text-dash-fg/25">·</span>
               <span>{entry.branch}</span>
             </>
           )}

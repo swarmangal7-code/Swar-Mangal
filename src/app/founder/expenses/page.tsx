@@ -24,7 +24,7 @@ const entityFor = (branch: string) =>
   branch === "KANDIVALI" ? "ENT-KANDIVALI" : branch === "GOREGAON" ? "ENT-GOREGAON" : "";
 
 const selectCls =
-  "flex h-11 w-full rounded-2xl border border-[#F7F2E8]/12 bg-[#0B0A10] px-4 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60";
+  "flex h-11 w-full rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-4 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60";
 
 interface AddExpenseArg extends Record<string, unknown> {
   entryDate: string;
@@ -52,17 +52,17 @@ export default function FounderExpensesPage() {
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Money</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Expenses & Cashbook</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">Read the ledger and record expenses — every row is audited.</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Money</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Expenses & Cashbook</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">Read the ledger and record expenses — every row is audited.</p>
       </motion.div>
 
       <Tabs defaultValue="cashbook">
-        <TabsList className="border border-[#F7F2E8]/10 bg-white/[0.03] text-[#F7F2E8]/55">
-          <TabsTrigger value="cashbook" className="data-[state=active]:bg-[#D6A84F]/15 data-[state=active]:text-[#D6A84F]">
+        <TabsList className="border border-dash-fg/10 bg-dash-fg/[0.03] text-dash-fg/55">
+          <TabsTrigger value="cashbook" className="data-[state=active]:bg-dash-accent/15 data-[state=active]:text-dash-accent">
             Cashbook
           </TabsTrigger>
-          <TabsTrigger value="add" className="data-[state=active]:bg-[#D6A84F]/15 data-[state=active]:text-[#D6A84F]">
+          <TabsTrigger value="add" className="data-[state=active]:bg-dash-accent/15 data-[state=active]:text-dash-accent">
             Add Expense
           </TabsTrigger>
         </TabsList>
@@ -97,7 +97,7 @@ function CashbookView({ branches }: { branches: string[] }) {
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="w-fit border-[#F7F2E8]/12 bg-[#17131D] text-[#F7F2E8]"
+          className="w-fit border-dash-fg/12 bg-dash-card text-dash-fg"
         />
         <select className={selectCls + " w-auto"} value={branch} onChange={(e) => setBranch(e.target.value)}>
           <option value="ALL">All branches</option>
@@ -118,25 +118,25 @@ function CashbookView({ branches }: { branches: string[] }) {
       {error ? (
         <p className="rounded-2xl border border-red-400/30 bg-red-400/10 p-6 text-sm text-red-300">{error.message}</p>
       ) : isFetching && entries.length === 0 ? (
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-2 p-4">
-            <Skeleton className="h-9 bg-white/[0.05]" />
-            <Skeleton className="h-9 bg-white/[0.05]" />
-            <Skeleton className="h-9 bg-white/[0.05]" />
+            <Skeleton className="h-9 bg-dash-fg/[0.05]" />
+            <Skeleton className="h-9 bg-dash-fg/[0.05]" />
+            <Skeleton className="h-9 bg-dash-fg/[0.05]" />
           </CardContent>
         </Card>
       ) : entries.length === 0 ? (
-        <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-14 text-center">
-          <Download className="mb-3 h-8 w-8 text-[#F7F2E8]/20" aria-hidden />
-          <p className="text-sm font-medium text-[#F7F2E8]/70">No ledger entries</p>
-          <p className="mt-1 text-xs text-[#F7F2E8]/40">Nothing recorded for this month yet.</p>
+        <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-14 text-center">
+          <Download className="mb-3 h-8 w-8 text-dash-fg/20" aria-hidden />
+          <p className="text-sm font-medium text-dash-fg/70">No ledger entries</p>
+          <p className="mt-1 text-xs text-dash-fg/40">Nothing recorded for this month yet.</p>
         </div>
       ) : (
-        <Card className="overflow-hidden border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="overflow-hidden border-dash-fg/10 bg-dash-card">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#F7F2E8]/10 text-left text-[11px] uppercase tracking-[0.12em] text-[#F7F2E8]/35">
+                <tr className="border-b border-dash-fg/10 text-left text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Category</th>
                   <th className="px-4 py-3">Description</th>
@@ -145,16 +145,16 @@ function CashbookView({ branches }: { branches: string[] }) {
                   <th className="px-4 py-3 text-right">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F7F2E8]/[0.06]">
+              <tbody className="divide-y divide-dash-fg/[0.06]">
                 {entries.map((e) => {
                   const isIn = (e.type ?? "").toUpperCase().includes("INFLOW");
                   return (
-                    <tr key={e.entryId} className="hover:bg-white/[0.03]">
-                      <td className="px-4 py-3 text-[#F7F2E8]/60">{fmtDate(e.date)}</td>
-                      <td className="px-4 py-3 font-medium text-[#F7F2E8]/85">{e.category || "—"}</td>
-                      <td className="max-w-[220px] truncate px-4 py-3 text-[#F7F2E8]/60">{e.description || "—"}</td>
-                      <td className="px-4 py-3 text-[#F7F2E8]/60">{e.mode || e.status || "—"}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${isIn ? "text-emerald-300" : "text-[#F7F2E8]"}`}>
+                    <tr key={e.entryId} className="hover:bg-dash-fg/[0.03]">
+                      <td className="px-4 py-3 text-dash-fg/60">{fmtDate(e.date)}</td>
+                      <td className="px-4 py-3 font-medium text-dash-fg/85">{e.category || "—"}</td>
+                      <td className="max-w-[220px] truncate px-4 py-3 text-dash-fg/60">{e.description || "—"}</td>
+                      <td className="px-4 py-3 text-dash-fg/60">{e.mode || e.status || "—"}</td>
+                      <td className={`px-4 py-3 text-right font-semibold ${isIn ? "text-emerald-300" : "text-dash-fg"}`}>
                         {isIn ? "+" : "−"}
                         {inr(e.amount)}
                       </td>
@@ -166,14 +166,14 @@ function CashbookView({ branches }: { branches: string[] }) {
                     </tr>
                   );
                 })}
-                <tr className="border-t border-[#F7F2E8]/15 bg-white/[0.03]">
-                  <td colSpan={4} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-[#F7F2E8]/45">
+                <tr className="border-t border-dash-fg/15 bg-dash-fg/[0.03]">
+                  <td colSpan={4} className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-dash-fg/45">
                     Totals
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-[#F7F2E8]">
+                  <td className="px-4 py-3 text-right font-semibold text-dash-fg">
                     {inr(inflowTotal)} in · {inr(outflowTotal)} out
                   </td>
-                  <td className="px-4 py-3 text-right text-xs text-[#F7F2E8]/45">net {inr(inflowTotal - outflowTotal)}</td>
+                  <td className="px-4 py-3 text-right text-xs text-dash-fg/45">net {inr(inflowTotal - outflowTotal)}</td>
                 </tr>
               </tbody>
             </table>
@@ -234,11 +234,11 @@ function AddExpenseForm({ branches }: { branches: string[] }) {
 
   return (
     <motion.div variants={fadeUp} className="max-w-2xl">
-      <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+      <Card className="border-dash-fg/10 bg-dash-card">
         <CardContent className="space-y-4 pt-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label className="text-[#F7F2E8]/70">Amount (₹)</Label>
+              <Label className="text-dash-fg/70">Amount (₹)</Label>
               <Input
                 type="number"
                 min="1"
@@ -246,11 +246,11 @@ function AddExpenseForm({ branches }: { branches: string[] }) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="e.g. 4000"
-                className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[#F7F2E8]/70">Category</Label>
+              <Label className="text-dash-fg/70">Category</Label>
               <select className={selectCls} value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
@@ -262,24 +262,24 @@ function AddExpenseForm({ branches }: { branches: string[] }) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-[#F7F2E8]/70">Paid to / what for</Label>
+            <Label className="text-dash-fg/70">Paid to / what for</Label>
             <Input
               value={paidTo}
               onChange={(e) => setPaidTo(e.target.value)}
               placeholder="e.g. Rent — Goregaon academy"
-              className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
             />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label className="text-[#F7F2E8]/70">Paid from (account)</Label>
+              <Label className="text-dash-fg/70">Paid from (account)</Label>
               <Input
                 value={account}
                 onChange={(e) => setAccount(e.target.value)}
                 list="accounts"
                 placeholder="Cash / UPI / bank"
-                className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
               />
               <datalist id="accounts">
                 {accounts.map((a) => (
@@ -288,7 +288,7 @@ function AddExpenseForm({ branches }: { branches: string[] }) {
               </datalist>
             </div>
             <div className="space-y-2">
-              <Label className="text-[#F7F2E8]/70">Branch</Label>
+              <Label className="text-dash-fg/70">Branch</Label>
               <select className={selectCls} value={branch} onChange={(e) => setBranch(e.target.value)}>
                 <option value="ALL">All / Academy-level</option>
                 {branches.map((b) => (
@@ -301,12 +301,12 @@ function AddExpenseForm({ branches }: { branches: string[] }) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-[#F7F2E8]/70">Reference / UTR (optional)</Label>
+            <Label className="text-dash-fg/70">Reference / UTR (optional)</Label>
             <Input
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="Bank transfer ref, UTR…"
-              className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
             />
           </div>
 
@@ -317,7 +317,7 @@ function AddExpenseForm({ branches }: { branches: string[] }) {
           ) : null}
 
           <Button
-            className="w-full bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="w-full bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
             onClick={submit}
             disabled={!valid}
             loading={addExpense.isPending}
@@ -343,14 +343,14 @@ function SummaryCard({
 }) {
   const color = tone === "mint" ? "text-emerald-300" : "text-rose-300";
   return (
-    <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+    <Card className="border-dash-fg/10 bg-dash-card">
       <CardContent className="flex items-center gap-3 pt-5">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] ${color}`}>
+        <span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-dash-fg/[0.05] ${color}`}>
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <p className="text-xs text-[#F7F2E8]/45">{label}</p>
-          <p className="text-lg font-semibold tracking-tight text-[#F7F2E8]">{value}</p>
+          <p className="text-xs text-dash-fg/45">{label}</p>
+          <p className="text-lg font-semibold tracking-tight text-dash-fg">{value}</p>
         </div>
       </CardContent>
     </Card>

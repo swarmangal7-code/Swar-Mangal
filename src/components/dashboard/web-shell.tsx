@@ -23,6 +23,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useTokenAuth, type TokenRole } from "@/lib/auth/token-auth";
 import { cn } from "@/lib/utils/cn";
 import { founderNav, staffNav, type WebNavSection } from "@/lib/config/web-nav";
@@ -40,13 +41,13 @@ function Brand() {
     <Link
       href="#"
       onClick={(e) => e.preventDefault()}
-      className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08070B]"
+      className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-dash-bg"
       aria-label="Swar Mangal home"
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D6A84F]/30 bg-[#D6A84F]/10 text-[#D6A84F]">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dash-accent/30 bg-dash-accent/10 text-dash-accent">
         <Music2 className="h-4 w-4" aria-hidden />
       </span>
-      <span className="font-display text-base tracking-[0.08em] text-[#F7F2E8]">Swar Mangal</span>
+      <span className="font-display text-base tracking-[0.08em] text-dash-fg">Swar Mangal</span>
     </Link>
   );
 }
@@ -64,7 +65,7 @@ function NavList({
     <nav aria-label="Primary" className="space-y-5">
       {sections.map((section) => (
         <div key={section.label}>
-          <p className="px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7F2E8]/35">
+          <p className="px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-dash-fg/35">
             {section.label}
           </p>
           <ul className="mt-1 space-y-0.5">
@@ -77,10 +78,10 @@ function NavList({
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60",
+                      "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60",
                       active
-                        ? "bg-[#D6A84F]/10 text-[#D6A84F]"
-                        : "text-[#F7F2E8]/65 hover:bg-white/[0.05] hover:text-[#F7F2E8]",
+                        ? "bg-dash-accent/10 text-dash-accent"
+                        : "text-dash-fg/65 hover:bg-dash-fg/[0.05] hover:text-dash-fg",
                     )}
                   >
                     <item.icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -118,21 +119,21 @@ function BranchSelector({ branches }: { branches: string[] }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-2 rounded-full border border-[#F7F2E8]/15 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#F7F2E8]/85 transition-colors hover:border-[#D6A84F]/40 hover:text-[#E2BD68] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+          className="flex items-center gap-2 rounded-full border border-dash-fg/15 bg-dash-fg/[0.04] px-3 py-1.5 text-xs font-medium text-dash-fg/85 transition-colors hover:border-dash-accent/40 hover:text-dash-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
           aria-label={`Selected branch: ${label}. Change branch`}
         >
-          <Building2 className="h-3.5 w-3.5 text-[#F7F2E8]/40" aria-hidden />
+          <Building2 className="h-3.5 w-3.5 text-dash-fg/40" aria-hidden />
           <span className="max-w-[140px] truncate">{label}</span>
-          <ChevronsUpDown className="h-3.5 w-3.5 text-[#F7F2E8]/30" aria-hidden />
+          <ChevronsUpDown className="h-3.5 w-3.5 text-dash-fg/30" aria-hidden />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[180px] bg-[#121016] border-[#F7F2E8]/10">
+      <DropdownMenuContent align="end" className="min-w-[180px] bg-dash-elevated border-dash-fg/10">
         <DropdownMenuRadioGroup value={branch} onValueChange={setBranch}>
-          <DropdownMenuRadioItem value="ALL" className="text-[#F7F2E8]/85 focus:bg-white/[0.06]">
+          <DropdownMenuRadioItem value="ALL" className="text-dash-fg/85 focus:bg-dash-fg/[0.06]">
             All Branches
           </DropdownMenuRadioItem>
           {branches.map((b) => (
-            <DropdownMenuRadioItem key={b} value={b} className="text-[#F7F2E8]/85 focus:bg-white/[0.06]">
+            <DropdownMenuRadioItem key={b} value={b} className="text-dash-fg/85 focus:bg-dash-fg/[0.06]">
               {b}
             </DropdownMenuRadioItem>
           ))}
@@ -170,14 +171,14 @@ export function WebShell({ role, children }: WebShellProps) {
 
   if (isLoading || !session) {
     return (
-      <div className="dark flex min-h-dvh flex-col bg-[#08070B]">
-        <Skeleton className="h-16 rounded-none bg-white/[0.03] lg:hidden" />
+      <div className="flex h-dvh flex-col overflow-hidden bg-dash-bg">
+        <Skeleton className="h-16 rounded-none bg-dash-fg/[0.03] lg:hidden" />
         <div className="flex flex-1">
-          <Skeleton className="hidden w-60 rounded-none bg-white/[0.03] lg:block" />
+          <Skeleton className="hidden w-60 rounded-none bg-dash-fg/[0.03] lg:block" />
           <div className="flex-1 space-y-4 p-6">
-            <Skeleton className="h-8 w-56 bg-white/[0.05]" />
-            <Skeleton className="h-40 w-full bg-white/[0.05]" />
-            <Skeleton className="h-40 w-full bg-white/[0.05]" />
+            <Skeleton className="h-8 w-56 bg-dash-fg/[0.05]" />
+            <Skeleton className="h-40 w-full bg-dash-fg/[0.05]" />
+            <Skeleton className="h-40 w-full bg-dash-fg/[0.05]" />
           </div>
         </div>
       </div>
@@ -197,7 +198,7 @@ export function WebShell({ role, children }: WebShellProps) {
         <button
           type="button"
           onClick={() => setDrawerOpen(false)}
-          className="rounded-lg p-1.5 text-[#F7F2E8]/60 transition-colors hover:bg-white/[0.06] hover:text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+          className="rounded-lg p-1.5 text-dash-fg/60 transition-colors hover:bg-dash-fg/[0.06] hover:text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
           aria-label="Close navigation"
         >
           <X className="h-5 w-5" />
@@ -206,35 +207,37 @@ export function WebShell({ role, children }: WebShellProps) {
       <div className="overflow-y-auto no-scrollbar pr-1">
         <NavList sections={sections} pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
       </div>
-      <div className="mt-6 border-t border-[#F7F2E8]/10 pt-4">
+      <div className="mt-6 border-t border-dash-fg/10 pt-4">
         <div className="flex items-center gap-3 px-1">
           <Avatar name={session.name} size="sm" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-[#F7F2E8]">{session.name}</p>
-            <p className="truncate text-xs text-[#F7F2E8]/45">{session.email}</p>
+            <p className="truncate text-sm font-medium text-dash-fg">{session.name}</p>
+            <p className="truncate text-xs text-dash-fg/45">{session.email}</p>
           </div>
+          <ThemeToggle className="text-dash-fg/60 hover:bg-dash-fg/[0.06] hover:text-dash-fg" />
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="dark flex min-h-dvh bg-[#08070B] text-[#F7F2E8]">
+    <div className="flex h-dvh overflow-hidden bg-dash-bg text-dash-fg">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-[#F7F2E8]/10 bg-[#0B0A10] lg:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-dash-fg/10 bg-dash-sidebar lg:flex">
         <div className="px-5 py-5">
           <Brand />
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar px-3 pb-3">
           <NavList sections={sections} pathname={pathname} />
         </div>
-        <div className="border-t border-[#F7F2E8]/10 p-4">
+        <div className="border-t border-dash-fg/10 p-4">
           <div className="flex items-center gap-3">
             <Avatar name={session.name} size="sm" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-[#F7F2E8]">{session.name}</p>
-              <p className="truncate text-xs text-[#F7F2E8]/45">{session.email}</p>
+              <p className="truncate text-sm font-medium text-dash-fg">{session.name}</p>
+              <p className="truncate text-xs text-dash-fg/45">{session.email}</p>
             </div>
+            <ThemeToggle className="text-dash-fg/60 hover:bg-dash-fg/[0.06] hover:text-dash-fg" />
           </div>
           <Button
             type="button"
@@ -242,7 +245,7 @@ export function WebShell({ role, children }: WebShellProps) {
             size="sm"
             onClick={handleSignOut}
             loading={signingOut}
-            className="mt-3 w-full justify-start gap-2 rounded-xl px-3 text-[#F7F2E8]/55 hover:bg-white/[0.05] hover:text-red-300"
+            className="mt-3 w-full justify-start gap-2 rounded-xl px-3 text-dash-fg/55 hover:bg-dash-fg/[0.05] hover:text-red-300"
           >
             <LogOut className="h-4 w-4" aria-hidden />
             Sign out
@@ -254,7 +257,7 @@ export function WebShell({ role, children }: WebShellProps) {
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DialogContent
           hideClose
-          className="fixed inset-y-0 left-0 top-0 h-dvh max-h-none w-[280px] max-w-[85vw] translate-x-0 translate-y-0 rounded-none border-0 border-r border-[#F7F2E8]/10 bg-[#0B0A10] p-0 shadow-2xl"
+          className="fixed inset-y-0 left-0 top-0 h-dvh max-h-none w-[280px] max-w-[85vw] translate-x-0 translate-y-0 rounded-none border-0 border-r border-dash-fg/10 bg-dash-sidebar p-0 shadow-2xl"
         >
           <DialogTitle className="sr-only">Navigation</DialogTitle>
           {drawerNav}
@@ -263,12 +266,12 @@ export function WebShell({ role, children }: WebShellProps) {
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-[#F7F2E8]/10 bg-[#08070B]/80 px-4 backdrop-blur-xl lg:px-6">
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-dash-fg/10 bg-dash-bg/80 px-4 backdrop-blur-xl lg:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
-              className="rounded-lg p-2 text-[#F7F2E8]/70 transition-colors hover:bg-white/[0.06] hover:text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 lg:hidden"
+              className="rounded-lg p-2 text-dash-fg/70 transition-colors hover:bg-dash-fg/[0.06] hover:text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 lg:hidden"
               aria-label="Open navigation"
             >
               <Menu className="h-5 w-5" />
@@ -281,22 +284,22 @@ export function WebShell({ role, children }: WebShellProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 lg:hidden"
+                  className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 lg:hidden"
                   aria-label="Account menu"
                 >
                   <Avatar name={session.name} size="sm" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#121016] border-[#F7F2E8]/10">
+              <DropdownMenuContent align="end" className="bg-dash-elevated border-dash-fg/10">
                 <DropdownMenuLabel>
-                  <p className="text-sm font-medium text-[#F7F2E8]">{session.name}</p>
-                  <p className="text-xs font-normal text-[#F7F2E8]/45">{session.email}</p>
+                  <p className="text-sm font-medium text-dash-fg">{session.name}</p>
+                  <p className="text-xs font-normal text-dash-fg/45">{session.email}</p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={handleSignOut}
                   disabled={signingOut}
-                  className="text-red-300 focus:bg-white/[0.06] focus:text-red-300"
+                  className="text-red-300 focus:bg-dash-fg/[0.06] focus:text-red-300"
                 >
                   <LogOut className="h-4 w-4" aria-hidden />
                   Sign out

@@ -127,11 +127,11 @@ export default function FounderActivityLogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7F2E8]/40">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-dash-fg/40">
           Founder · Academy
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Activity log</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Activity log</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">
           Every change made through the app, newest first. Record ids only — no names, amounts or
           phone numbers.
         </p>
@@ -145,7 +145,7 @@ export default function FounderActivityLogPage() {
             aria-label="Month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="h-10 rounded-xl border border-[#F7F2E8]/15 bg-white/[0.04] px-3 text-sm font-medium text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+            className="h-10 rounded-xl border border-dash-fg/15 bg-dash-fg/[0.04] px-3 text-sm font-medium text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
           >
             {months.map((m) => (
               <option key={m.value} value={m.value}>
@@ -158,7 +158,7 @@ export default function FounderActivityLogPage() {
               aria-label="Branch"
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
-              className="h-10 rounded-xl border border-[#F7F2E8]/15 bg-white/[0.04] px-3 text-sm font-medium text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+              className="h-10 rounded-xl border border-dash-fg/15 bg-dash-fg/[0.04] px-3 text-sm font-medium text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
             >
               <option value="ALL">All Branches</option>
               {branches.map((b) => (
@@ -177,34 +177,34 @@ export default function FounderActivityLogPage() {
             { value: "all", label: "All writes" },
             { value: "failures", label: "Failures only" },
           ]}
-          className="bg-white/[0.04]"
+          className="bg-dash-fg/[0.04]"
         />
       </div>
 
       {auditQ.isPending ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-[84px] w-full bg-white/[0.05]" />
+            <Skeleton key={i} className="h-[84px] w-full bg-dash-fg/[0.05]" />
           ))}
         </div>
       ) : auditQ.isError ? (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6">
           <p className="text-sm font-medium text-red-300">Could not load the activity log.</p>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">
+          <p className="mt-1 text-sm text-dash-fg/55">
             {auditQ.error instanceof Error ? auditQ.error.message : "Something went wrong."}
           </p>
           <Button
             variant="outline"
             onClick={() => auditQ.refetch()}
-            className="mt-4 border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]"
+            className="mt-4 border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
           >
             Retry
           </Button>
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-16 text-center">
-          <History className="mb-3 h-6 w-6 text-[#F7F2E8]/30" aria-hidden />
-          <p className="text-sm font-medium text-[#F7F2E8]">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-16 text-center">
+          <History className="mb-3 h-6 w-6 text-dash-fg/30" aria-hidden />
+          <p className="text-sm font-medium text-dash-fg">
             {failuresOnly ? "No failed writes recorded." : "Nothing recorded for this period."}
           </p>
         </div>
@@ -218,7 +218,7 @@ export default function FounderActivityLogPage() {
               <Button
                 variant="outline"
                 onClick={() => setShown((n) => n + PAGE_SIZE)}
-                className="border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]"
+                className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
               >
                 Load more ({rows.length - shown} remaining)
               </Button>
@@ -234,8 +234,8 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
   const ok = entry.ok;
   return (
     <div
-      className={`flex items-start gap-3 rounded-2xl border bg-white/[0.03] p-4 ${
-        ok ? "border-[#F7F2E8]/10" : "border-red-500/25 bg-red-500/5"
+      className={`flex items-start gap-3 rounded-2xl border bg-dash-fg/[0.03] p-4 ${
+        ok ? "border-dash-fg/10" : "border-red-500/25 bg-red-500/5"
       }`}
     >
       {ok ? (
@@ -245,13 +245,13 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       )}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-mono text-[13px] font-semibold text-[#F7F2E8]">{entry.fn}</p>
+          <p className="truncate font-mono text-[13px] font-semibold text-dash-fg">{entry.fn}</p>
           <Badge
             variant="outline"
             className={
               entry.actorRole === "FOUNDER_ADMIN"
-                ? "border-[#D6A84F]/30 bg-[#D6A84F]/10 text-[#D6A84F]"
-                : "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/60"
+                ? "border-dash-accent/30 bg-dash-accent/10 text-dash-accent"
+                : "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/60"
             }
           >
             {roleLabel(entry.actorRole)}
@@ -262,26 +262,26 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
             </Badge>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#F7F2E8]/45">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-dash-fg/45">
           {entry.actorEmail && <span className="truncate">{entry.actorEmail}</span>}
           {entry.device && (
             <>
-              <span className="text-[#F7F2E8]/25">·</span>
+              <span className="text-dash-fg/25">·</span>
               <span className="truncate">{entry.device}</span>
             </>
           )}
           {entry.branch && (
             <>
-              <span className="text-[#F7F2E8]/25">·</span>
+              <span className="text-dash-fg/25">·</span>
               <span>{entry.branch}</span>
             </>
           )}
         </div>
         {entry.ref && (
-          <p className="mt-1 truncate font-mono text-[11px] text-[#F7F2E8]/35">{entry.ref}</p>
+          <p className="mt-1 truncate font-mono text-[11px] text-dash-fg/35">{entry.ref}</p>
         )}
       </div>
-      <p className="shrink-0 text-[11px] text-[#F7F2E8]/40">
+      <p className="shrink-0 text-[11px] text-dash-fg/40">
         {entry.at ? stamp.format(new Date(entry.at.replace(" ", "T"))) : "—"}
       </p>
     </div>
@@ -302,14 +302,14 @@ function PeriodLockCard({
   const canClose = !!nextToClose && locks.unansweredCount === 0;
 
   return (
-    <div className="rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.03] p-5">
-      <h2 className="flex items-center gap-2 text-sm font-semibold text-[#F7F2E8]/80">
-        <Lock className="h-4 w-4 text-[#D6A84F]" aria-hidden />
+    <div className="rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-5">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-dash-fg/80">
+        <Lock className="h-4 w-4 text-dash-accent" aria-hidden />
         Service months
       </h2>
 
       {!nextToClose ? (
-        <p className="mt-3 text-sm text-[#F7F2E8]/55">Every past month is closed.</p>
+        <p className="mt-3 text-sm text-dash-fg/55">Every past month is closed.</p>
       ) : locks.unansweredCount > 0 ? (
         <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" aria-hidden />
@@ -320,14 +320,14 @@ function PeriodLockCard({
         </div>
       ) : (
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#F7F2E8]/55">
+          <p className="text-sm text-dash-fg/55">
             {locks.nextToCloseLabel} has ended and every class is answered.
           </p>
           <Button
             onClick={() => setConfirmOpen(true)}
             disabled={!canClose}
             loading={closing}
-            className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
           >
             <Lock className="h-4 w-4" aria-hidden />
             Close month
@@ -340,7 +340,7 @@ function PeriodLockCard({
           {locks.rows.slice(0, 6).map((r) => (
             <span
               key={r.month}
-              className="inline-flex items-center gap-1 rounded-full border border-[#F7F2E8]/15 bg-white/[0.04] px-2.5 py-1 text-[11px] text-[#F7F2E8]/55"
+              className="inline-flex items-center gap-1 rounded-full border border-dash-fg/15 bg-dash-fg/[0.04] px-2.5 py-1 text-[11px] text-dash-fg/55"
               title={r.closedBy ? `Closed by ${r.closedBy} on ${r.closedAt}` : undefined}
             >
               <Lock className="h-3 w-3" aria-hidden />
@@ -351,12 +351,12 @@ function PeriodLockCard({
       )}
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-sm border-[#F7F2E8]/10 bg-[#17131D] text-[#F7F2E8]">
+        <DialogContent className="max-w-sm border-dash-fg/10 bg-dash-card text-dash-fg">
           <DialogHeader>
-            <DialogTitle className="text-[#F7F2E8]">
+            <DialogTitle className="text-dash-fg">
               Close {locks.nextToCloseLabel}?
             </DialogTitle>
-            <DialogDescription className="text-[#F7F2E8]/45">
+            <DialogDescription className="text-dash-fg/45">
               This locks every dated write in that month — attendance, fees, expenses, classes. It
               cannot be reopened from the app.
             </DialogDescription>
@@ -365,7 +365,7 @@ function PeriodLockCard({
             <Button
               variant="ghost"
               onClick={() => setConfirmOpen(false)}
-              className="border-[#F7F2E8]/10 text-[#F7F2E8]/70 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+              className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
               Cancel
             </Button>
@@ -375,7 +375,7 @@ function PeriodLockCard({
                 onClose();
               }}
               loading={closing}
-              className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+              className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
             >
               {closing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               Close month

@@ -5,14 +5,15 @@ import { useTheme } from "next-themes";
 import { AnimatePresence, motion } from "framer-motion";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils/cn";
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <Button variant="ghost" size="icon" aria-label="Toggle theme" disabled className="opacity-0" />;
+    return <Button variant="ghost" size="icon" aria-label="Toggle theme" disabled className={cn("opacity-0", className)} />;
   }
 
   const isDark = theme === "dark";
@@ -23,7 +24,7 @@ export function ThemeToggle() {
       size="icon"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="relative overflow-hidden"
+      className={cn("relative overflow-hidden", className)}
     >
       <AnimatePresence mode="wait" initial={false}>
         {isDark ? (

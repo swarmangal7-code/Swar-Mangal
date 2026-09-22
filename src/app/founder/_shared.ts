@@ -50,14 +50,14 @@ export interface Tone {
 
 export function feeStatusTone(status?: string | null): Tone {
   const s = (status ?? "").toUpperCase();
-  if (!s) return { label: "—", className: "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/55" };
+  if (!s) return { label: "—", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/55" };
   if (s.includes("UP_TO") || s.includes("CLEAR") || s === "PAID")
     return { label: "Up to date", className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" };
   if (s.includes("OVERDUE"))
     return { label: "Overdue", className: "border-red-400/30 bg-red-400/10 text-red-300" };
   if (s.includes("DUE") || s.includes("PENDING"))
     return { label: "Due", className: "border-amber-400/30 bg-amber-400/10 text-amber-300" };
-  return { label: status ?? "—", className: "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/70" };
+  return { label: status ?? "—", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/70" };
 }
 
 export function studentStatusTone(status?: string | null): Tone {
@@ -69,7 +69,7 @@ export function studentStatusTone(status?: string | null): Tone {
     case "LEFT":
       return { label: "Left", className: "border-red-400/30 bg-red-400/10 text-red-300" };
     default:
-      return { label: status || "—", className: "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/55" };
+      return { label: status || "—", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/55" };
   }
 }
 
@@ -80,9 +80,9 @@ export function teacherStatusTone(status?: string | null): Tone {
     case "HOLD":
       return { label: "Hold", className: "border-amber-400/30 bg-amber-400/10 text-amber-300" };
     case "INACTIVE":
-      return { label: "Inactive", className: "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/55" };
+      return { label: "Inactive", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/55" };
     default:
-      return { label: status || "—", className: "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/55" };
+      return { label: status || "—", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/55" };
   }
 }
 
@@ -95,6 +95,6 @@ export function attendanceTone(status?: string | null): Tone {
   if (s === "LATE")
     return { label: "Late", className: "border-amber-400/30 bg-amber-400/10 text-amber-300" };
   if (s === "EXCUSED")
-    return { label: "Excused", className: "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/70" };
-  return { label: status || "—", className: "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/55" };
+    return { label: "Excused", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/70" };
+  return { label: status || "—", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/55" };
 }

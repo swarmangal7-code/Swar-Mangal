@@ -46,18 +46,18 @@ export default function StaffReceiptsPage() {
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Staff · Money</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Receipts</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">Search by receipt number, student name or UTR reference.</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Money</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Receipts</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">Search by receipt number, student name or UTR reference.</p>
       </motion.div>
 
       <motion.div variants={fadeUp} className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#F7F2E8]/35" aria-hidden />
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-dash-fg/35" aria-hidden />
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Receipt number, student name, UTR…"
-          className="h-12 border-[#F7F2E8]/12 bg-[#17131D] pl-11 text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+          className="h-12 border-dash-fg/12 bg-dash-card pl-11 text-dash-fg placeholder:text-dash-fg/30"
         />
       </motion.div>
 
@@ -70,23 +70,23 @@ export default function StaffReceiptsPage() {
       ) : isFetching && rows.length === 0 ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 bg-white/[0.04]" />
+            <Skeleton key={i} className="h-16 bg-dash-fg/[0.04]" />
           ))}
         </div>
       ) : rows.length === 0 ? (
         <motion.div variants={fadeUp}>
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-14 text-center">
-            <ReceiptText className="mb-3 h-9 w-9 text-[#F7F2E8]/20" aria-hidden />
-            <p className="text-sm font-medium text-[#F7F2E8]/70">No receipts found</p>
-            <p className="mt-1 max-w-xs text-xs text-[#F7F2E8]/40">
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-14 text-center">
+            <ReceiptText className="mb-3 h-9 w-9 text-dash-fg/20" aria-hidden />
+            <p className="text-sm font-medium text-dash-fg/70">No receipts found</p>
+            <p className="mt-1 max-w-xs text-xs text-dash-fg/40">
               {debounced.trim() ? "Try a different search term." : "Receipts will appear here once they are recorded."}
             </p>
           </div>
         </motion.div>
       ) : (
         <>
-          <motion.div variants={fadeUp} className="overflow-hidden rounded-2xl border border-[#F7F2E8]/10 bg-[#17131D]">
-            <ul className="divide-y divide-[#F7F2E8]/[0.06]">
+          <motion.div variants={fadeUp} className="overflow-hidden rounded-2xl border border-dash-fg/10 bg-dash-card">
+            <ul className="divide-y divide-dash-fg/[0.06]">
               {rows.map((r) => (
                 <ReceiptItem key={r.receiptNo ?? r.entityId} row={r} />
               ))}
@@ -94,7 +94,7 @@ export default function StaffReceiptsPage() {
           </motion.div>
 
           <motion.div variants={fadeUp} className="flex items-center justify-between gap-4 text-sm">
-            <p className="text-[#F7F2E8]/45">
+            <p className="text-dash-fg/45">
               Showing {from}–{to} of {total}
             </p>
             <div className="flex gap-2">
@@ -102,7 +102,7 @@ export default function StaffReceiptsPage() {
                 type="button"
                 disabled={!hasPrev}
                 onClick={() => setOffset((o) => Math.max(0, o - PAGE))}
-                className="flex h-9 items-center gap-1 rounded-xl border border-[#F7F2E8]/12 px-3 text-xs font-medium text-[#F7F2E8]/80 transition-colors hover:bg-white/[0.05] disabled:pointer-events-none disabled:opacity-40"
+                className="flex h-9 items-center gap-1 rounded-xl border border-dash-fg/12 px-3 text-xs font-medium text-dash-fg/80 transition-colors hover:bg-dash-fg/[0.05] disabled:pointer-events-none disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" /> Prev
               </button>
@@ -110,7 +110,7 @@ export default function StaffReceiptsPage() {
                 type="button"
                 disabled={!hasNext}
                 onClick={() => setOffset((o) => o + PAGE)}
-                className="flex h-9 items-center gap-1 rounded-xl border border-[#F7F2E8]/12 px-3 text-xs font-medium text-[#F7F2E8]/80 transition-colors hover:bg-white/[0.05] disabled:pointer-events-none disabled:opacity-40"
+                className="flex h-9 items-center gap-1 rounded-xl border border-dash-fg/12 px-3 text-xs font-medium text-dash-fg/80 transition-colors hover:bg-dash-fg/[0.05] disabled:pointer-events-none disabled:opacity-40"
               >
                 Next <ChevronRight className="h-4 w-4" />
               </button>
@@ -125,19 +125,19 @@ export default function StaffReceiptsPage() {
 function ReceiptItem({ row }: { row: ReceiptRow }) {
   const inner = (
     <>
-      <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6A84F]/10 text-[#D6A84F] sm:flex">
+      <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dash-accent/10 text-dash-accent sm:flex">
         <ReceiptText className="h-5 w-5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-[#F7F2E8]">{row.studentName || row.student || "Student"}</span>
+          <span className="text-sm font-semibold text-dash-fg">{row.studentName || row.student || "Student"}</span>
           <StatusBadge status={row.status} />
         </span>
-        <span className="mt-0.5 block truncate text-xs text-[#F7F2E8]/45">
+        <span className="mt-0.5 block truncate text-xs text-dash-fg/45">
           {[row.receiptNo, fmtDate(row.date), row.mode || row.paymentMode || row.txnId || "—"].filter(Boolean).join(" · ")}
         </span>
       </span>
-      <span className="text-sm font-semibold text-[#F7F2E8]">{inr(row.amount)}</span>
+      <span className="text-sm font-semibold text-dash-fg">{inr(row.amount)}</span>
     </>
   );
 
@@ -146,7 +146,7 @@ function ReceiptItem({ row }: { row: ReceiptRow }) {
       {row.studentId ? (
         <Link
           href={`/staff/students/${encodeURIComponent(row.studentId)}`}
-          className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-white/[0.04] sm:px-5"
+          className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-dash-fg/[0.04] sm:px-5"
         >
           {inner}
         </Link>

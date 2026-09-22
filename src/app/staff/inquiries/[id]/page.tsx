@@ -80,7 +80,7 @@ function statusTone(status: string) {
   const s = (status ?? "").toUpperCase();
   if (s === "CONVERTED") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
   if (s === "DROPPED") return "border-red-400/30 bg-red-400/10 text-red-300";
-  if (s === "DORMANT") return "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/60";
+  if (s === "DORMANT") return "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/60";
   if (s === "TRIAL_SCHEDULED" || s === "TRIAL_DONE") return "border-sky-400/30 bg-sky-400/10 text-sky-300";
   return "border-amber-400/30 bg-amber-400/10 text-amber-300";
 }
@@ -139,7 +139,7 @@ export default function StaffInquiryDetailPage() {
         <Card className="border-red-400/30 bg-red-400/5">
           <CardContent className="pt-5 text-sm text-red-300">
             {detail.error?.message?.replace(/\[.*\]$/, "") || "Could not load this inquiry."}{" "}
-            <button type="button" onClick={() => detail.refetch()} className="font-medium text-[#D6A84F]">
+            <button type="button" onClick={() => detail.refetch()} className="font-medium text-dash-accent">
               Retry
             </button>
           </CardContent>
@@ -151,9 +151,9 @@ export default function StaffInquiryDetailPage() {
   if (!data) {
     return (
       <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-4">
-        <Skeleton className="h-24 bg-white/[0.04]" />
-        <Skeleton className="h-48 bg-white/[0.04]" />
-        <Skeleton className="h-48 bg-white/[0.04]" />
+        <Skeleton className="h-24 bg-dash-fg/[0.04]" />
+        <Skeleton className="h-48 bg-dash-fg/[0.04]" />
+        <Skeleton className="h-48 bg-dash-fg/[0.04]" />
       </motion.div>
     );
   }
@@ -163,39 +163,39 @@ export default function StaffInquiryDetailPage() {
       <motion.div variants={fadeUp}>
         <Link
           href="/staff/inquiries"
-          className="inline-flex items-center gap-1.5 text-sm text-[#F7F2E8]/60 transition-colors hover:text-[#D6A84F]"
+          className="inline-flex items-center gap-1.5 text-sm text-dash-fg/60 transition-colors hover:text-dash-accent"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to inquiries
         </Link>
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#D6A84F]/10 text-[#D6A84F]">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-dash-accent/10 text-dash-accent">
                 <UserRound className="h-6 w-6" aria-hidden />
               </span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-semibold tracking-tight text-[#F7F2E8]">{data.name || "Inquiry"}</h1>
+                  <h1 className="text-xl font-semibold tracking-tight text-dash-fg">{data.name || "Inquiry"}</h1>
                   <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-medium", statusTone(data.status))}>
                     {data.finalStatus || data.status || "—"}
                   </span>
                   {data.noAnswerCount > 0 && <Badge variant="outline">{data.noAnswerCount} no-answers</Badge>}
                 </div>
-                <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-[#F7F2E8]/55">
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-dash-fg/55">
                   <span className="inline-flex items-center gap-1.5">
                     <Phone className="h-3.5 w-3.5" aria-hidden />
                     {data.phone || "—"}
                   </span>
-                  <span className="text-[#F7F2E8]/25">·</span>
+                  <span className="text-dash-fg/25">·</span>
                   <span>{[data.course, data.branch, data.source].filter(Boolean).join(" · ")}</span>
                 </p>
               </div>
             </div>
             {data.convertedStudentId && (
-              <Button asChild size="sm" variant="outline" className="border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]">
+              <Button asChild size="sm" variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
                 <Link href={`/staff/students/${encodeURIComponent(data.convertedStudentId)}`}>View student</Link>
               </Button>
             )}
@@ -205,9 +205,9 @@ export default function StaffInquiryDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <motion.div variants={fadeUp} className="lg:col-span-2">
-          <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="space-y-3 pt-5">
-              <h2 className="text-sm font-semibold text-[#F7F2E8]/90">Details</h2>
+              <h2 className="text-sm font-semibold text-dash-fg/90">Details</h2>
               <dl className="space-y-2 text-sm">
                 <Row label="Next contact" value={formatDateOnly(data.nextContactDate)} />
                 <Row label="Trial date" value={formatDateOnly(data.trialDate)} />
@@ -217,7 +217,7 @@ export default function StaffInquiryDetailPage() {
                 {data.dormantReason && <Row label="Dormant" value={data.dormantReason} />}
               </dl>
               {data.notes && (
-                <p className="rounded-xl border border-[#F7F2E8]/10 bg-white/[0.02] p-3 text-xs text-[#F7F2E8]/70">
+                <p className="rounded-xl border border-dash-fg/10 bg-dash-fg/[0.02] p-3 text-xs text-dash-fg/70">
                   {data.notes}
                 </p>
               )}
@@ -226,9 +226,9 @@ export default function StaffInquiryDetailPage() {
         </motion.div>
 
         <motion.div variants={fadeUp} className="space-y-6 lg:col-span-3">
-          <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="space-y-4 pt-5">
-              <h2 className="text-sm font-semibold text-[#F7F2E8]/90">Log activity</h2>
+              <h2 className="text-sm font-semibold text-dash-fg/90">Log activity</h2>
 
               <div className="flex flex-wrap gap-2">
                 {ACTIONS.filter((a) => (terminal ? a.value === "REOPEN" : true)).map((a) => (
@@ -238,10 +238,10 @@ export default function StaffInquiryDetailPage() {
                     onClick={() => setAction(a.value)}
                     aria-pressed={action === a.value}
                     className={cn(
-                      "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60",
+                      "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60",
                       action === a.value
-                        ? "border-[#D6A84F]/50 bg-[#D6A84F]/15 text-[#D6A84F]"
-                        : "border-[#F7F2E8]/12 text-[#F7F2E8]/65 hover:text-[#F7F2E8]",
+                        ? "border-dash-accent/50 bg-dash-accent/15 text-dash-accent"
+                        : "border-dash-fg/12 text-dash-fg/65 hover:text-dash-fg",
                     )}
                   >
                     {a.label}
@@ -251,7 +251,7 @@ export default function StaffInquiryDetailPage() {
 
               {(action === "LOG_CONTACT" || action === "TRIAL_DONE") && (
                 <div className="space-y-1.5">
-                  <Label className="text-[13px] text-[#F7F2E8]/70">
+                  <Label className="text-[13px] text-dash-fg/70">
                     Next contact date {action === "LOG_CONTACT" ? "*" : "(optional)"}
                   </Label>
                   <Input
@@ -259,60 +259,60 @@ export default function StaffInquiryDetailPage() {
                     value={nextContactDate}
                     min={todayISO()}
                     onChange={(e) => setNextContactDate(e.target.value)}
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8]"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
                   />
                 </div>
               )}
 
               {action === "SCHEDULE_TRIAL" && (
                 <div className="space-y-1.5">
-                  <Label className="text-[13px] text-[#F7F2E8]/70">Trial date *</Label>
+                  <Label className="text-[13px] text-dash-fg/70">Trial date *</Label>
                   <Input
                     type="date"
                     value={trialDate}
                     min={todayISO()}
                     onChange={(e) => setTrialDate(e.target.value)}
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8]"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
                   />
                 </div>
               )}
 
               {action === "DROP" && (
                 <div className="space-y-1.5">
-                  <Label className="text-[13px] text-[#F7F2E8]/70">Why is it being dropped? *</Label>
+                  <Label className="text-[13px] text-dash-fg/70">Why is it being dropped? *</Label>
                   <Input
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     placeholder="Reason"
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
               )}
 
               {action === "CONVERT" && (
                 <div className="space-y-1.5">
-                  <Label className="text-[13px] text-[#F7F2E8]/70">Student ID (optional)</Label>
+                  <Label className="text-[13px] text-dash-fg/70">Student ID (optional)</Label>
                   <Input
                     value={studentRef}
                     onChange={(e) => setStudentRef(e.target.value)}
                     placeholder="STU-… if already added"
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <Label className="text-[13px] text-[#F7F2E8]/70">Note (optional)</Label>
+                <Label className="text-[13px] text-dash-fg/70">Note (optional)</Label>
                 <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="What was discussed?"
-                  className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                  className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                 />
               </div>
 
               <Button
-                className="w-full bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+                className="w-full bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
                 loading={transition.isPending}
                 disabled={action === "LOG_CONTACT" && !nextContactDate}
                 onClick={submit}
@@ -322,21 +322,21 @@ export default function StaffInquiryDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="pt-5">
-              <h2 className="mb-3 text-sm font-semibold text-[#F7F2E8]/90">Follow-up history</h2>
+              <h2 className="mb-3 text-sm font-semibold text-dash-fg/90">Follow-up history</h2>
               {data.followups.length === 0 ? (
-                <p className="py-6 text-center text-sm text-[#F7F2E8]/45">No activity recorded yet.</p>
+                <p className="py-6 text-center text-sm text-dash-fg/45">No activity recorded yet.</p>
               ) : (
-                <ul className="divide-y divide-white/[0.04]">
+                <ul className="divide-y divide-dash-fg/[0.04]">
                   {data.followups.map((f) => (
                     <li key={f.id} className="py-3">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-[#F7F2E8]/90">{prettyAction(f.action)}</p>
-                        <span className="shrink-0 text-xs text-[#F7F2E8]/45">{formatWhen(f.createdAt)}</span>
+                        <p className="text-sm font-medium text-dash-fg/90">{prettyAction(f.action)}</p>
+                        <span className="shrink-0 text-xs text-dash-fg/45">{formatWhen(f.createdAt)}</span>
                       </div>
-                      {f.description && <p className="mt-0.5 text-xs text-[#F7F2E8]/60">{f.description}</p>}
-                      <p className="mt-0.5 text-xs text-[#F7F2E8]/40">
+                      {f.description && <p className="mt-0.5 text-xs text-dash-fg/60">{f.description}</p>}
+                      <p className="mt-0.5 text-xs text-dash-fg/40">
                         {[f.resultingStatus, f.nextContactDate && `next ${formatDateOnly(f.nextContactDate)}`, f.createdBy]
                           .filter(Boolean)
                           .join(" · ")}
@@ -356,8 +356,8 @@ export default function StaffInquiryDetailPage() {
 function Row({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-[13px] text-[#F7F2E8]/45">{label}</dt>
-      <dd className="text-right text-[13px] font-medium text-[#F7F2E8]/85">{value || "—"}</dd>
+      <dt className="text-[13px] text-dash-fg/45">{label}</dt>
+      <dd className="text-right text-[13px] font-medium text-dash-fg/85">{value || "—"}</dd>
     </div>
   );
 }

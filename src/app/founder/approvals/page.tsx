@@ -112,9 +112,9 @@ export default function FounderApprovalsPage() {
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">People</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Approvals</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">
+        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">People</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Approvals</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">
           {empty ? "All caught up." : `${totalPending} item(s) awaiting your authority.`}
         </p>
       </motion.div>
@@ -128,15 +128,15 @@ export default function FounderApprovalsPage() {
       ) : approvals.isFetching && items.length === 0 ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 bg-white/[0.04]" />
+            <Skeleton key={i} className="h-28 bg-dash-fg/[0.04]" />
           ))}
         </div>
       ) : empty ? (
         <motion.div variants={fadeUp}>
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-16 text-center">
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-16 text-center">
             <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-300/70" aria-hidden />
-            <p className="text-sm font-medium text-[#F7F2E8]/75">All caught up</p>
-            <p className="mt-1 max-w-sm text-xs text-[#F7F2E8]/40">Nothing waiting for you. New drafts from the team will show up here.</p>
+            <p className="text-sm font-medium text-dash-fg/75">All caught up</p>
+            <p className="mt-1 max-w-sm text-xs text-dash-fg/40">Nothing waiting for you. New drafts from the team will show up here.</p>
           </div>
         </motion.div>
       ) : (
@@ -147,7 +147,7 @@ export default function FounderApprovalsPage() {
 
           <div className="space-y-2">
             {allItems.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-[#F7F2E8]/15 p-8 text-center text-sm text-[#F7F2E8]/45">Nothing in this tab.</p>
+              <p className="rounded-2xl border border-dashed border-dash-fg/15 p-8 text-center text-sm text-dash-fg/45">Nothing in this tab.</p>
             ) : (
               allItems.map((item) => (
                 <ApprovalCard
@@ -164,8 +164,8 @@ export default function FounderApprovalsPage() {
 
           {tab === "ALL" && queue.length > 0 && (
             <motion.div variants={fadeUp} className="pt-2">
-              <h2 className="mb-1 text-sm font-semibold text-[#F7F2E8]/80">Receipts pending</h2>
-              <p className="mb-3 text-xs text-[#F7F2E8]/40">
+              <h2 className="mb-1 text-sm font-semibold text-dash-fg/80">Receipts pending</h2>
+              <p className="mb-3 text-xs text-dash-fg/40">
                 Approved payments that have not been turned into a receipt. Finalising writes real money records server-side.
               </p>
               <div className="space-y-2">
@@ -188,16 +188,16 @@ export default function FounderApprovalsPage() {
 
 function DraftCard({ row, onFinalise, busy }: { row: PaymentDraft; onFinalise: () => void; busy: boolean }) {
   return (
-    <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+    <Card className="border-dash-fg/10 bg-dash-card">
       <CardContent className="space-y-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[#F7F2E8]">{row.studentName || "Student"}</p>
-            <p className="text-xs text-[#F7F2E8]/45">
+            <p className="truncate text-sm font-semibold text-dash-fg">{row.studentName || "Student"}</p>
+            <p className="text-xs text-dash-fg/45">
               {row.draftId} · {row.branch || "—"}
             </p>
           </div>
-          <span className="text-sm font-bold text-[#D6A84F]">{inr(Number(row.amount) || 0)}</span>
+          <span className="text-sm font-bold text-dash-accent">{inr(Number(row.amount) || 0)}</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           <StatusBadge status={row.status} />
@@ -209,7 +209,7 @@ function DraftCard({ row, onFinalise, busy }: { row: PaymentDraft; onFinalise: (
         <div>
           <Button
             size="sm"
-            className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
             disabled={row.status !== "APPROVED"}
             loading={busy}
             onClick={onFinalise}
@@ -239,23 +239,23 @@ function ApprovalCard({
   const amount = item.amount ? inr(Number(item.amount)) : "";
 
   return (
-    <Card className={cn("border-[#F7F2E8]/10 bg-[#17131D] transition-colors", active && "border-[#D6A84F]/40")}>
+    <Card className={cn("border-dash-fg/10 bg-dash-card transition-colors", active && "border-dash-accent/40")}>
       <CardContent className="p-4 sm:p-5">
-        <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60">
+        <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="lavender">{item.entity || item.type}</Badge>
               {amount && <Badge variant="outline">{amount}</Badge>}
             </div>
-            <p className="mt-1.5 text-sm font-semibold text-[#F7F2E8]">{item.itemId}</p>
-            <p className="text-xs text-[#F7F2E8]/45">
+            <p className="mt-1.5 text-sm font-semibold text-dash-fg">{item.itemId}</p>
+            <p className="text-xs text-dash-fg/45">
               {fmtDate(item.date)} · {item.branch || "—"}
             </p>
           </div>
-          <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#F7F2E8]/40 transition-transform", active && "rotate-180")} aria-hidden />
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-dash-fg/40 transition-transform", active && "rotate-180")} aria-hidden />
         </button>
 
-        {item.reason && <p className="mt-2 text-sm text-[#F7F2E8]/75">{item.reason}</p>}
+        {item.reason && <p className="mt-2 text-sm text-dash-fg/75">{item.reason}</p>}
 
         <div className="mt-2 flex flex-wrap gap-1.5">
           {item.noStudentLinked && <Badge variant="destructive">NO STUDENT LINKED</Badge>}
@@ -266,10 +266,10 @@ function ApprovalCard({
           {item.termsStatus && <Badge variant="outline">{item.termsStatus}</Badge>}
           {item.paymentMode && <Badge variant="outline">{item.paymentMode}</Badge>}
         </div>
-        {item.feesPeriod && <p className="mt-2 text-xs text-[#F7F2E8]/45">Period: {item.feesPeriod}</p>}
+        {item.feesPeriod && <p className="mt-2 text-xs text-dash-fg/45">Period: {item.feesPeriod}</p>}
 
         {active && (
-          <div className="mt-3 space-y-3 border-t border-[#F7F2E8]/10 pt-3">
+          <div className="mt-3 space-y-3 border-t border-dash-fg/10 pt-3">
             {actions.includes("details") && <ApprovalDetails item={item} />}
             <div className="flex flex-wrap gap-2">
               {actions.includes("approve") && (
@@ -293,7 +293,7 @@ function ApprovalCard({
                 </Button>
               )}
               {actions.includes("reject") && (
-                <Button size="sm" variant="ghost" className="text-[#F7F2E8]/60 hover:bg-white/[0.05] hover:text-red-300" loading={busy} onClick={() => onAction("reject")}>
+                <Button size="sm" variant="ghost" className="text-dash-fg/60 hover:bg-dash-fg/[0.05] hover:text-red-300" loading={busy} onClick={() => onAction("reject")}>
                   Reject
                 </Button>
               )}
@@ -314,19 +314,19 @@ function ApprovalDetails({ item }: { item: ApprovalItem }) {
   const fields = data?.fields ?? {};
 
   return (
-    <div className="rounded-xl border border-[#F7F2E8]/10 bg-white/[0.02] p-3">
+    <div className="rounded-xl border border-dash-fg/10 bg-dash-fg/[0.02] p-3">
       {isFetching ? (
-        <Skeleton className="h-10 bg-white/[0.05]" />
+        <Skeleton className="h-10 bg-dash-fg/[0.05]" />
       ) : error ? (
         <p className="text-xs text-red-300">{error.message}</p>
       ) : Object.keys(fields).length === 0 ? (
-        <p className="text-xs text-[#F7F2E8]/45">No further detail stored for this record.</p>
+        <p className="text-xs text-dash-fg/45">No further detail stored for this record.</p>
       ) : (
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
           {Object.entries(fields).map(([k, v]) => (
             <div key={k}>
-              <dt className="text-[11px] uppercase tracking-[0.1em] text-[#F7F2E8]/35">{pretty(k)}</dt>
-              <dd className="break-words text-xs text-[#F7F2E8]/80">{String(v)}</dd>
+              <dt className="text-[11px] uppercase tracking-[0.1em] text-dash-fg/35">{pretty(k)}</dt>
+              <dd className="break-words text-xs text-dash-fg/80">{String(v)}</dd>
             </div>
           ))}
         </dl>
@@ -356,8 +356,8 @@ function Tabs({ tabs, active, onChange }: { tabs: { label: string; key: string }
           className={cn(
             "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors",
             active === t.key
-              ? "border-[#D6A84F]/50 bg-[#D6A84F]/15 text-[#D6A84F]"
-              : "border-[#F7F2E8]/10 text-[#F7F2E8]/60 hover:bg-white/[0.05] hover:text-[#F7F2E8]",
+              ? "border-dash-accent/50 bg-dash-accent/15 text-dash-accent"
+              : "border-dash-fg/10 text-dash-fg/60 hover:bg-dash-fg/[0.05] hover:text-dash-fg",
           )}
         >
           {t.label}
@@ -378,16 +378,16 @@ function ConfirmDialog({
 }) {
   return (
     <Dialog open={!!state} onOpenChange={(v) => !v && setState(null)}>
-      <DialogContent className="border-[#F7F2E8]/12 bg-[#17131D] text-[#F7F2E8]">
+      <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
         <DialogHeader>
-          <DialogTitle className="text-[#F7F2E8]">{state?.money ? "Approve — money operation" : "Confirm"}</DialogTitle>
-          <DialogDescription className="text-[#F7F2E8]/55">{state?.message ?? "Continue?"}</DialogDescription>
+          <DialogTitle className="text-dash-fg">{state?.money ? "Approve — money operation" : "Confirm"}</DialogTitle>
+          <DialogDescription className="text-dash-fg/55">{state?.message ?? "Continue?"}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setState(null)} className="text-[#F7F2E8]/70 hover:bg-white/[0.05]">
+          <Button variant="ghost" onClick={() => setState(null)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
             Cancel
           </Button>
-          <Button className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]" onClick={onConfirm}>
+          <Button className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover" onClick={onConfirm}>
             Yes, proceed
           </Button>
         </DialogFooter>
@@ -409,19 +409,19 @@ function RejectDialog({
   React.useEffect(() => setReason(""), [item]);
   return (
     <Dialog open={!!item} onOpenChange={(v) => !v && setItem(null)}>
-      <DialogContent className="border-[#F7F2E8]/12 bg-[#17131D] text-[#F7F2E8]">
+      <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
         <DialogHeader>
-          <DialogTitle className="text-[#F7F2E8]">Reject {item?.itemId}</DialogTitle>
-          <DialogDescription className="text-[#F7F2E8]/55">A reason is required and is audited.</DialogDescription>
+          <DialogTitle className="text-dash-fg">Reject {item?.itemId}</DialogTitle>
+          <DialogDescription className="text-dash-fg/55">A reason is required and is audited.</DialogDescription>
         </DialogHeader>
         <Textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Why is this being rejected?"
-          className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+          className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
         />
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setItem(null)} className="text-[#F7F2E8]/70 hover:bg-white/[0.05]">
+          <Button variant="ghost" onClick={() => setItem(null)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
             Cancel
           </Button>
           <Button variant="destructive" disabled={reason.trim().length === 0} onClick={() => onReject(reason.trim())}>

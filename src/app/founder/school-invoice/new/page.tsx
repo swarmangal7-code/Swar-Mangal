@@ -109,18 +109,18 @@ export default function FounderNewSchoolInvoicePage() {
       <div>
         <Link
           href="/founder/school-invoice"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#F7F2E8]/50 transition-colors hover:text-[#D6A84F]"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-dash-fg/50 transition-colors hover:text-dash-accent"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           School invoices
         </Link>
-        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#F7F2E8]/40">
+        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.16em] text-dash-fg/40">
           Founder · Academy
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">
           Generate invoice
         </h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">
+        <p className="mt-1 text-sm text-dash-fg/55">
           Allocate an invoice number and issue it to the school.
         </p>
       </div>
@@ -139,7 +139,7 @@ export default function FounderNewSchoolInvoicePage() {
               <Button
                 asChild
                 size="sm"
-                className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+                className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
               >
                 <Link href={`/founder/school-invoice/${created.invoiceId}`}>
                   View invoice
@@ -169,11 +169,11 @@ export default function FounderNewSchoolInvoicePage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        <div className="space-y-4 rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.03] p-5">
-          <h2 className="text-sm font-semibold text-[#F7F2E8]/80">Invoice details</h2>
+        <div className="space-y-4 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-5">
+          <h2 className="text-sm font-semibold text-dash-fg/80">Invoice details</h2>
 
           <div>
-            <label htmlFor="inv-class" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+            <label htmlFor="inv-class" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
               Class name
             </label>
             <input
@@ -182,12 +182,12 @@ export default function FounderNewSchoolInvoicePage() {
               onChange={(e) => setClassName(e.target.value)}
               disabled={!!created}
               placeholder="e.g. Tabla"
-              className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-4 text-sm text-[#F7F2E8] placeholder:text-[#F7F2E8]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 disabled:opacity-60"
+              className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
             />
           </div>
 
           <div>
-            <label htmlFor="inv-amount" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+            <label htmlFor="inv-amount" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
               Amount (₹)
             </label>
             <input
@@ -199,12 +199,12 @@ export default function FounderNewSchoolInvoicePage() {
               onChange={(e) => setAmount(e.target.value)}
               disabled={!!created}
               placeholder="e.g. 9000"
-              className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-4 text-sm text-[#F7F2E8] placeholder:text-[#F7F2E8]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 disabled:opacity-60"
+              className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
             />
           </div>
 
           <div>
-            <label htmlFor="inv-tenure" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+            <label htmlFor="inv-tenure" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
               Tenure
             </label>
             <input
@@ -213,13 +213,13 @@ export default function FounderNewSchoolInvoicePage() {
               onChange={(e) => setTenure(e.target.value)}
               disabled={!!created}
               placeholder="e.g. 1 Month / 6 Months"
-              className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-4 text-sm text-[#F7F2E8] placeholder:text-[#F7F2E8]/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 disabled:opacity-60"
+              className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="inv-branch" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="inv-branch" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Branch
               </label>
               <select
@@ -227,7 +227,7 @@ export default function FounderNewSchoolInvoicePage() {
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
                 disabled={!!created || branches.length <= 1}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 disabled:opacity-60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
               >
                 {branches.length === 0 && <option value="">Default</option>}
                 {branches.map((b) => (
@@ -238,7 +238,7 @@ export default function FounderNewSchoolInvoicePage() {
               </select>
             </div>
             <div>
-              <label htmlFor="inv-date" className="mb-1.5 block text-xs font-medium text-[#F7F2E8]/70">
+              <label htmlFor="inv-date" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
                 Invoice date
               </label>
               <input
@@ -247,7 +247,7 @@ export default function FounderNewSchoolInvoicePage() {
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
                 disabled={!!created}
-                className="h-11 w-full rounded-2xl border border-[#F7F2E8]/15 bg-[#08070B] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 disabled:opacity-60"
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
               />
             </div>
           </div>
@@ -256,7 +256,7 @@ export default function FounderNewSchoolInvoicePage() {
             onClick={handleGenerate}
             disabled={!valid || !!created}
             loading={generateMut.isPending}
-            className="w-full bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="w-full bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
           >
             <FileText className="h-4 w-4" aria-hidden />
             {created ? "Invoice generated" : "Generate invoice"}
@@ -271,7 +271,7 @@ export default function FounderNewSchoolInvoicePage() {
                 setTenure("");
                 setInvoiceDate(todayIso());
               }}
-              className="w-full text-[#F7F2E8]/60 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+              className="w-full text-dash-fg/60 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
               Generate another
             </Button>
@@ -279,7 +279,7 @@ export default function FounderNewSchoolInvoicePage() {
         </div>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-[#F7F2E8]/80">Invoice preview</h2>
+          <h2 className="mb-3 text-sm font-semibold text-dash-fg/80">Invoice preview</h2>
           <InvoicePreview
             invoiceNo={previewInvoice?.invoiceNo ?? "—"}
             invoiceDate={invoiceDate}

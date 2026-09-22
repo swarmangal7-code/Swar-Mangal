@@ -69,23 +69,23 @@ export default function StaffRequestsPage() {
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Staff · Connect</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">My Requests</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">
+        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Connect</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">My Requests</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">
           Everything you have sent to Sharvil, and where it stands.
         </p>
       </motion.div>
 
       <motion.div variants={fadeUp} className="grid gap-3 sm:grid-cols-3">
         {cards.map((c) => (
-          <Card key={c.label} className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card key={c.label} className="border-dash-fg/10 bg-dash-card">
             <CardContent className="flex items-center gap-3 pt-5">
-              <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05]", c.tone)}>
+              <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl bg-dash-fg/[0.05]", c.tone)}>
                 <c.icon className="h-4 w-4" aria-hidden />
               </span>
               <div>
-                <p className="text-xs text-[#F7F2E8]/45">{c.label}</p>
-                <p className="text-lg font-semibold tracking-tight text-[#F7F2E8]">{c.value}</p>
+                <p className="text-xs text-dash-fg/45">{c.label}</p>
+                <p className="text-lg font-semibold tracking-tight text-dash-fg">{c.value}</p>
               </div>
             </CardContent>
           </Card>
@@ -96,7 +96,7 @@ export default function StaffRequestsPage() {
         <motion.div variants={fadeUp}>
           <p className="rounded-2xl border border-red-400/30 bg-red-400/10 p-6 text-sm text-red-300">
             {error.message?.replace(/\[.*\]$/, "") || "Could not load your requests."}{" "}
-            <button type="button" onClick={() => refetch()} className="font-medium text-[#D6A84F]">
+            <button type="button" onClick={() => refetch()} className="font-medium text-dash-accent">
               Retry
             </button>
           </p>
@@ -104,15 +104,15 @@ export default function StaffRequestsPage() {
       ) : isPending ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 bg-white/[0.04]" />
+            <Skeleton key={i} className="h-16 bg-dash-fg/[0.04]" />
           ))}
         </div>
       ) : rows.length === 0 ? (
         <motion.div variants={fadeUp}>
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-16 text-center">
-            <Inbox className="mb-3 h-9 w-9 text-[#F7F2E8]/25" aria-hidden />
-            <p className="text-sm font-medium text-[#F7F2E8]/75">Nothing sent yet</p>
-            <p className="mt-1 max-w-xs text-xs text-[#F7F2E8]/40">
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-16 text-center">
+            <Inbox className="mb-3 h-9 w-9 text-dash-fg/25" aria-hidden />
+            <p className="text-sm font-medium text-dash-fg/75">Nothing sent yet</p>
+            <p className="mt-1 max-w-xs text-xs text-dash-fg/40">
               Fee payments, expenses and student drafts you submit will show up here.
             </p>
           </div>
@@ -128,8 +128,8 @@ export default function StaffRequestsPage() {
                 className={cn(
                   "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors",
                   tab === t.key
-                    ? "border-[#D6A84F]/50 bg-[#D6A84F]/15 text-[#D6A84F]"
-                    : "border-[#F7F2E8]/10 text-[#F7F2E8]/60 hover:bg-white/[0.05] hover:text-[#F7F2E8]",
+                    ? "border-dash-accent/50 bg-dash-accent/15 text-dash-accent"
+                    : "border-dash-fg/10 text-dash-fg/60 hover:bg-dash-fg/[0.05] hover:text-dash-fg",
                 )}
               >
                 {t.label}
@@ -137,34 +137,34 @@ export default function StaffRequestsPage() {
             ))}
           </motion.div>
 
-          <motion.div variants={fadeUp} className="overflow-hidden rounded-2xl border border-[#F7F2E8]/10 bg-[#17131D]">
+          <motion.div variants={fadeUp} className="overflow-hidden rounded-2xl border border-dash-fg/10 bg-dash-card">
             {filtered.length === 0 ? (
-              <p className="px-4 py-10 text-center text-sm text-[#F7F2E8]/45">Nothing in this tab.</p>
+              <p className="px-4 py-10 text-center text-sm text-dash-fg/45">Nothing in this tab.</p>
             ) : (
-              <ul className="divide-y divide-[#F7F2E8]/[0.06]">
+              <ul className="divide-y divide-dash-fg/[0.06]">
                 {filtered.map((r) => {
                   const tone = statusStyle(r.status);
                   const Icon = tone.icon;
                   return (
                     <li key={`${r.type}-${r.id}`} className="flex items-center gap-4 px-4 py-3.5 sm:px-5">
-                      <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6A84F]/10 text-[#D6A84F] sm:flex">
+                      <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dash-accent/10 text-dash-accent sm:flex">
                         <Icon className="h-5 w-5" aria-hidden />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-[#F7F2E8]">{r.student || TYPE_LABELS[r.type] || r.type}</span>
+                          <span className="text-sm font-semibold text-dash-fg">{r.student || TYPE_LABELS[r.type] || r.type}</span>
                           <Badge className={tone.className}>{tone.label}</Badge>
                           {r.backdated && <Badge variant="peach">Backdated</Badge>}
                         </div>
-                        <p className="mt-0.5 truncate text-xs text-[#F7F2E8]/45">
+                        <p className="mt-0.5 truncate text-xs text-dash-fg/45">
                           {[TYPE_LABELS[r.type] ?? r.type, r.category, r.when ? formatWhen(r.when) : ""].filter(Boolean).join(" · ")}
                         </p>
                         {r.decisionNote && (
-                          <p className="mt-1 truncate text-xs text-[#F7F2E8]/60">Note: {r.decisionNote}</p>
+                          <p className="mt-1 truncate text-xs text-dash-fg/60">Note: {r.decisionNote}</p>
                         )}
                       </div>
                       {r.amount && (
-                        <span className="shrink-0 text-sm font-semibold text-[#F7F2E8]">{formatINR(r.amount)}</span>
+                        <span className="shrink-0 text-sm font-semibold text-dash-fg">{formatINR(r.amount)}</span>
                       )}
                     </li>
                   );

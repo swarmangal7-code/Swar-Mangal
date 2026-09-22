@@ -49,7 +49,7 @@ interface AssignSharedArg extends Record<string, unknown> {
 }
 
 const selectCls =
-  "flex h-11 w-full rounded-2xl border border-[#F7F2E8]/12 bg-[#0B0A10] px-4 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60";
+  "flex h-11 w-full rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-4 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60";
 
 export default function FounderPayoutsPage() {
   const [month, setMonth] = React.useState(currentMonth());
@@ -66,15 +66,15 @@ export default function FounderPayoutsPage() {
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp} className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Money</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Teacher Payouts</h1>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">Earnings are computed server-side — nothing is calculated on this screen.</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Money</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Teacher Payouts</h1>
+          <p className="mt-1 text-sm text-dash-fg/55">Earnings are computed server-side — nothing is calculated on this screen.</p>
         </div>
         <Input
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="w-fit border-[#F7F2E8]/12 bg-[#17131D] text-[#F7F2E8]"
+          className="w-fit border-dash-fg/12 bg-dash-card text-dash-fg"
         />
       </motion.div>
 
@@ -91,15 +91,15 @@ export default function FounderPayoutsPage() {
       ) : isFetching && rows.length === 0 ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 bg-white/[0.04]" />
+            <Skeleton key={i} className="h-20 bg-dash-fg/[0.04]" />
           ))}
         </div>
       ) : rows.length === 0 ? (
         <motion.div variants={fadeUp}>
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-14 text-center">
-            <Users className="mb-3 h-9 w-9 text-[#F7F2E8]/20" aria-hidden />
-            <p className="text-sm font-medium text-[#F7F2E8]/70">No payout data for this month</p>
-            <p className="mt-1 text-xs text-[#F7F2E8]/40">Once classes are attended and receipts are recorded, earnings show up here.</p>
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-14 text-center">
+            <Users className="mb-3 h-9 w-9 text-dash-fg/20" aria-hidden />
+            <p className="text-sm font-medium text-dash-fg/70">No payout data for this month</p>
+            <p className="mt-1 text-xs text-dash-fg/40">Once classes are attended and receipts are recorded, earnings show up here.</p>
           </div>
         </motion.div>
       ) : (
@@ -112,7 +112,7 @@ export default function FounderPayoutsPage() {
 
           {awaiting.length > 0 && (
             <motion.div variants={fadeUp} className="pt-2">
-              <h2 className="mb-3 text-sm font-semibold text-[#F7F2E8]/80">
+              <h2 className="mb-3 text-sm font-semibold text-dash-fg/80">
                 Shared students — split {inr(data?.awaitingDecisionAmount ?? 0)}
               </h2>
               <div className="space-y-2">
@@ -136,35 +136,35 @@ function PayoutCard({ row, month, open, onToggle }: { row: PayoutRow; month: str
   const balanceNum = Number.isFinite(balance) ? balance : 0;
 
   return (
-    <Card className={cn("border-[#F7F2E8]/10 bg-[#17131D] transition-colors", open && "border-[#D6A84F]/40")}>
+    <Card className={cn("border-dash-fg/10 bg-dash-card transition-colors", open && "border-dash-accent/40")}>
       <CardContent className="p-4 sm:p-5">
         <button
           type="button"
           onClick={onToggle}
-          className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+          className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#D6A84F]/10 text-[#D6A84F]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-dash-accent/10 text-dash-accent">
             <UserRound className="h-5 w-5" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-[#F7F2E8]">{row.teacherName}</span>
-            <span className="block text-xs text-[#F7F2E8]/45">
+            <span className="block truncate text-sm font-semibold text-dash-fg">{row.teacherName}</span>
+            <span className="block text-xs text-dash-fg/45">
               {row.receiptCount} session{row.receiptCount === 1 ? "" : "s"} · gross {inr(row.totalCollection)}
             </span>
           </span>
           <span className="hidden gap-4 text-right sm:flex">
-            <span className="w-20 text-xs text-[#F7F2E8]/45">
-              paid<span className="block text-sm font-semibold text-[#F7F2E8]/80">{inr(paid)}</span>
+            <span className="w-20 text-xs text-dash-fg/45">
+              paid<span className="block text-sm font-semibold text-dash-fg/80">{inr(paid)}</span>
             </span>
-            <span className="w-20 text-xs text-[#F7F2E8]/45">
-              balance<span className="block text-sm font-semibold text-[#F7F2E8]">{inr(row.balance)}</span>
+            <span className="w-20 text-xs text-dash-fg/45">
+              balance<span className="block text-sm font-semibold text-dash-fg">{inr(row.balance)}</span>
             </span>
           </span>
-          <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#F7F2E8]/40 transition-transform", open && "rotate-180")} aria-hidden />
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-dash-fg/40 transition-transform", open && "rotate-180")} aria-hidden />
         </button>
 
         {open && (
-          <div className="mt-4 space-y-3 border-t border-[#F7F2E8]/10 pt-4">
+          <div className="mt-4 space-y-3 border-t border-dash-fg/10 pt-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <Detail label="Sessions held" value={String(row.receiptCount)} />
               <Detail label="Gross collected" value={inr(row.totalCollection)} />
@@ -173,17 +173,17 @@ function PayoutCard({ row, month, open, onToggle }: { row: PayoutRow; month: str
             </div>
             {(row.reasons ?? []).length > 0 && (
               <div>
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[#F7F2E8]/35">Notes</p>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">Notes</p>
                 <ul className="mt-1 space-y-1">
                   {row.reasons.map((r, i) => (
-                    <li key={i} className="text-xs text-[#F7F2E8]/55">• {r.message}</li>
+                    <li key={i} className="text-xs text-dash-fg/55">• {r.message}</li>
                   ))}
                 </ul>
               </div>
             )}
             {(row.qualifications ?? []).length > 0 && (
               <div>
-                <p className="text-[11px] uppercase tracking-[0.12em] text-[#F7F2E8]/35">Qualification</p>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">Qualification</p>
                 <ul className="mt-1 space-y-1">
                   {row.qualifications.map((r, i) => (
                     <li key={i} className="text-xs text-emerald-300/80">• {r.message}</li>
@@ -191,10 +191,10 @@ function PayoutCard({ row, month, open, onToggle }: { row: PayoutRow; month: str
                 </ul>
               </div>
             )}
-            {row.note && <p className="text-xs text-[#F7F2E8]/45">{row.note}</p>}
+            {row.note && <p className="text-xs text-dash-fg/45">{row.note}</p>}
             {row.status && <Badge variant={row.status.toUpperCase().includes("PAID") ? "mint" : "peach"}>{row.status}</Badge>}
             <Button
-              className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68] lg:w-fit"
+              className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover lg:w-fit"
               size="sm"
               disabled={balanceNum <= 0}
               onClick={() => setPayOpen(true)}
@@ -249,27 +249,27 @@ function RecordPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-[#F7F2E8]/12 bg-[#17131D] text-[#F7F2E8]">
+      <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
         <DialogHeader>
-          <DialogTitle className="text-[#F7F2E8]">Record payment — {teacher.teacherName}</DialogTitle>
-          <DialogDescription className="text-[#F7F2E8]/55">
+          <DialogTitle className="text-dash-fg">Record payment — {teacher.teacherName}</DialogTitle>
+          <DialogDescription className="text-dash-fg/55">
             {month} · posts a cashbook outflow server-side. Audited, founder only.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-[#F7F2E8]/70">Amount (₹)</Label>
+            <Label className="text-dash-fg/70">Amount (₹)</Label>
             <Input
               type="number"
               min="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8]"
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label className="text-[#F7F2E8]/70">Mode</Label>
+              <Label className="text-dash-fg/70">Mode</Label>
               <select className={selectCls} value={mode} onChange={(e) => setMode(e.target.value)}>
                 {MODES.map((m) => (
                   <option key={m} value={m}>
@@ -279,26 +279,26 @@ function RecordPaymentDialog({
               </select>
             </div>
             <div className="space-y-2">
-              <Label className="text-[#F7F2E8]/70">Paid on</Label>
-              <Input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8]" />
+              <Label className="text-dash-fg/70">Paid on</Label>
+              <Input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} className="border-dash-fg/12 bg-dash-sidebar text-dash-fg" />
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-[#F7F2E8]/70">Reference / UTR (optional)</Label>
+            <Label className="text-dash-fg/70">Reference / UTR (optional)</Label>
             <Input
               value={reference}
               onChange={(e) => setReference(e.target.value)}
-              className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
               placeholder="Bank ref, UTR…"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-[#F7F2E8]/70 hover:bg-white/[0.05]">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
             Cancel
           </Button>
           <Button
-            className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
             disabled={!valid}
             loading={record.isPending}
             onClick={() =>
@@ -324,15 +324,15 @@ function RecordPaymentDialog({
 function SharedCard({ decision, month }: { decision: SharedStudentDecision; month: string }) {
   const [openAssign, setOpenAssign] = React.useState(false);
   return (
-    <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+    <Card className="border-dash-fg/10 bg-dash-card">
       <CardContent className="flex items-center justify-between gap-3 p-4">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[#F7F2E8]">{decision.studentName}</p>
-          <p className="text-xs text-[#F7F2E8]/45">
+          <p className="truncate text-sm font-semibold text-dash-fg">{decision.studentName}</p>
+          <p className="text-xs text-dash-fg/45">
             collected {inr(decision.collected)} · assigned {inr(decision.assigned)} · {inr(decision.remaining)} to split
           </p>
         </div>
-        <Button size="sm" variant="outline" className="border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]" onClick={() => setOpenAssign(true)}>
+        <Button size="sm" variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]" onClick={() => setOpenAssign(true)}>
           Split
         </Button>
       </CardContent>
@@ -376,10 +376,10 @@ function AssignSharedDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-[#F7F2E8]/12 bg-[#17131D] text-[#F7F2E8]">
+      <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
         <DialogHeader>
-          <DialogTitle className="text-[#F7F2E8]">Split {decision.studentName}</DialogTitle>
-          <DialogDescription className="text-[#F7F2E8]/55">
+          <DialogTitle className="text-dash-fg">Split {decision.studentName}</DialogTitle>
+          <DialogDescription className="text-dash-fg/55">
             Divide {inr(remaining)} between the teachers who taught this student in {month}.
           </DialogDescription>
         </DialogHeader>
@@ -387,8 +387,8 @@ function AssignSharedDialog({
           {decision.teachers.map((t) => (
             <AssignmentRow key={t.teacherId} teacher={t} value={allocs[t.teacherId] ?? ""} onChange={(v) => setAllocs((p) => ({ ...p, [t.teacherId]: v }))} />
           ))}
-          <div className="flex items-center justify-between border-t border-[#F7F2E8]/10 pt-3 text-sm">
-            <span className="text-[#F7F2E8]/55">
+          <div className="flex items-center justify-between border-t border-dash-fg/10 pt-3 text-sm">
+            <span className="text-dash-fg/55">
               Allocated {inr(used)} of {inr(remaining)}
             </span>
             <span className={cn("font-semibold", used > remaining ? "text-rose-300" : "text-emerald-300")}>
@@ -397,11 +397,11 @@ function AssignSharedDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-[#F7F2E8]/70 hover:bg-white/[0.05]">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
             Cancel
           </Button>
           <Button
-            className="bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+            className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
             disabled={!valid}
             loading={assign.isPending}
             onClick={() =>
@@ -426,8 +426,8 @@ function AssignmentRow({ teacher, value, onChange }: { teacher: SharedStudentTea
   return (
     <div className="flex items-center gap-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-[#F7F2E8]/85">{teacher.teacherName}</p>
-        <p className="text-xs text-[#F7F2E8]/40">{teacher.classesThisMonth} classes · assigned {inr(teacher.assigned)}</p>
+        <p className="truncate text-sm font-medium text-dash-fg/85">{teacher.teacherName}</p>
+        <p className="text-xs text-dash-fg/40">{teacher.classesThisMonth} classes · assigned {inr(teacher.assigned)}</p>
       </div>
       <Input
         type="number"
@@ -436,7 +436,7 @@ function AssignmentRow({ teacher, value, onChange }: { teacher: SharedStudentTea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0"
-        className="w-28 border-[#F7F2E8]/12 bg-[#0B0A10] text-right text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+        className="w-28 border-dash-fg/12 bg-dash-sidebar text-right text-dash-fg placeholder:text-dash-fg/30"
       />
     </div>
   );
@@ -452,14 +452,14 @@ function SummaryCard({
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 }) {
   return (
-    <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+    <Card className="border-dash-fg/10 bg-dash-card">
       <CardContent className="flex items-center gap-3 pt-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#D6A84F]/10 text-[#D6A84F]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-dash-accent/10 text-dash-accent">
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <p className="text-xs text-[#F7F2E8]/45">{label}</p>
-          <p className="text-lg font-semibold tracking-tight text-[#F7F2E8]">{value}</p>
+          <p className="text-xs text-dash-fg/45">{label}</p>
+          <p className="text-lg font-semibold tracking-tight text-dash-fg">{value}</p>
         </div>
       </CardContent>
     </Card>
@@ -469,8 +469,8 @@ function SummaryCard({
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.12em] text-[#F7F2E8]/35">{label}</p>
-      <p className="mt-0.5 font-medium text-[#F7F2E8]/85">{value}</p>
+      <p className="text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">{label}</p>
+      <p className="mt-0.5 font-medium text-dash-fg/85">{value}</p>
     </div>
   );
 }

@@ -37,18 +37,18 @@ function MetricCard({
   gold?: boolean;
 }) {
   const inner = (
-    <Card className="h-full border-[#F7F2E8]/10 bg-[#17131D] transition-colors hover:border-[#D6A84F]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60">
+    <Card className="h-full border-dash-fg/10 bg-dash-card transition-colors hover:border-dash-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60">
       <CardContent className="pt-5">
-        <p className="text-xs font-medium text-[#F7F2E8]/45">{label}</p>
+        <p className="text-xs font-medium text-dash-fg/45">{label}</p>
         <p
           className={cn(
             "mt-2 text-2xl font-semibold tracking-tight",
-            gold ? "text-[#D6A84F]" : "text-[#F7F2E8]",
+            gold ? "text-dash-accent" : "text-dash-fg",
           )}
         >
           {value}
         </p>
-        {sub ? <p className="mt-1 text-xs text-[#F7F2E8]/40">{sub}</p> : null}
+        {sub ? <p className="mt-1 text-xs text-dash-fg/40">{sub}</p> : null}
       </CardContent>
     </Card>
   );
@@ -76,12 +76,12 @@ function ReminderCard({
   return (
     <Link
       href="/founder/fees"
-      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
     >
-      <Card className="h-full border-[#F7F2E8]/10 bg-[#17131D] transition-colors hover:border-[#D6A84F]/40">
+      <Card className="h-full border-dash-fg/10 bg-dash-card transition-colors hover:border-dash-accent/40">
         <CardContent className="pt-5">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-[#F7F2E8]">{title}</p>
+            <p className="text-sm font-semibold text-dash-fg">{title}</p>
             <Badge
               className={cn(
                 "border",
@@ -94,24 +94,24 @@ function ReminderCard({
             </Badge>
           </div>
           {total > 0 && (
-            <p className="mt-1.5 text-lg font-semibold tracking-tight text-[#D6A84F]">
+            <p className="mt-1.5 text-lg font-semibold tracking-tight text-dash-accent">
               {formatINR(total)}
             </p>
           )}
           <ul className="mt-3 space-y-1.5">
             {rows.slice(0, 4).map((r) => (
               <li key={r.studentId} className="flex items-center justify-between gap-2 text-[13px]">
-                <span className="truncate text-[#F7F2E8]/85">{r.studentName}</span>
-                <span className="shrink-0 text-[#F7F2E8]/45">
+                <span className="truncate text-dash-fg/85">{r.studentName}</span>
+                <span className="shrink-0 text-dash-fg/45">
                   {r.classCode} · {formatDateOnly(r.nextDueDate)}
                 </span>
               </li>
             ))}
           </ul>
           {count === 0 && (
-            <p className="mt-3 text-sm text-[#F7F2E8]/45">Nothing {tone === "overdue" ? "overdue" : "due"} today.</p>
+            <p className="mt-3 text-sm text-dash-fg/45">Nothing {tone === "overdue" ? "overdue" : "due"} today.</p>
           )}
-          <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[#D6A84F]">
+          <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-dash-accent">
             Collect fees <ArrowRight className="h-3.5 w-3.5" aria-hidden />
           </p>
         </CardContent>
@@ -160,15 +160,15 @@ export default function FounderDashboardPage() {
         className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
-          <p className="text-xs uppercase tracking-[0.14em] text-[#F7F2E8]/40">{today}</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#F7F2E8]">
+          <p className="text-xs uppercase tracking-[0.14em] text-dash-fg/40">{today}</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-dash-fg">
             Welcome back, {firstName}
           </h1>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">
+          <p className="mt-1 text-sm text-dash-fg/55">
             Founder overview — collections, approvals and academy health.
           </p>
         </div>
-        <Badge className="w-fit border border-[#D6A84F]/30 bg-[#D6A84F]/10 text-[#D6A84F]">
+        <Badge className="w-fit border border-dash-accent/30 bg-dash-accent/10 text-dash-accent">
           Founder
         </Badge>
       </motion.div>
@@ -178,7 +178,7 @@ export default function FounderDashboardPage() {
           <Card className="border-red-400/30 bg-red-400/5">
             <CardContent className="pt-5 text-sm text-red-300">
               Could not load live data.{" "}
-              <Button variant="link" className="h-auto p-0 text-[#D6A84F]" onClick={() => { dash.refetch(); reminders.refetch(); }}>
+              <Button variant="link" className="h-auto p-0 text-dash-accent" onClick={() => { dash.refetch(); reminders.refetch(); }}>
                 Retry
               </Button>
             </CardContent>
@@ -210,7 +210,7 @@ export default function FounderDashboardPage() {
           </>
         ) : (
           Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 bg-white/[0.04]" />
+            <Skeleton key={i} className="h-28 bg-dash-fg/[0.04]" />
           ))
         )}
       </motion.div>
@@ -223,60 +223,60 @@ export default function FounderDashboardPage() {
           </>
         ) : (
           <>
-            <Skeleton className="h-52 bg-white/[0.04]" />
-            <Skeleton className="h-52 bg-white/[0.04]" />
+            <Skeleton className="h-52 bg-dash-fg/[0.04]" />
+            <Skeleton className="h-52 bg-dash-fg/[0.04]" />
           </>
         )}
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <h2 className="mb-3 text-sm font-semibold text-[#F7F2E8]/80">Quick actions</h2>
+        <h2 className="mb-3 text-sm font-semibold text-dash-fg/80">Quick actions</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {QUICK_LINKS.map((q) => (
             <Link
               key={q.href}
               href={q.href}
-              className="group flex items-center gap-3 rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.03] px-4 py-3.5 transition-colors hover:border-[#D6A84F]/40 hover:bg-[#D6A84F]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+              className="group flex items-center gap-3 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] px-4 py-3.5 transition-colors hover:border-dash-accent/40 hover:bg-dash-accent/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#D6A84F]/10 text-[#D6A84F]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-dash-accent/10 text-dash-accent">
                 <q.icon className="h-4 w-4" aria-hidden />
               </span>
-              <p className="text-sm font-medium text-[#F7F2E8]">{q.label}</p>
+              <p className="text-sm font-medium text-dash-fg">{q.label}</p>
             </Link>
           ))}
         </div>
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="pt-5">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-[#F7F2E8]/90">Recent activity</h2>
-              <Link href="/founder/activity" className="text-xs font-medium text-[#D6A84F] hover:text-[#E2BD68]">
+              <h2 className="text-sm font-semibold text-dash-fg/90">Recent activity</h2>
+              <Link href="/founder/activity" className="text-xs font-medium text-dash-accent hover:text-dash-accent-hover">
                 View all
               </Link>
             </div>
             {audit.isLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-9 bg-white/[0.04]" />
+                  <Skeleton key={i} className="h-9 bg-dash-fg/[0.04]" />
                 ))}
               </div>
             ) : auditRows.length === 0 ? (
-              <p className="py-4 text-sm text-[#F7F2E8]/45">No recent activity recorded.</p>
+              <p className="py-4 text-sm text-dash-fg/45">No recent activity recorded.</p>
             ) : (
-              <ul className="divide-y divide-white/[0.04]">
+              <ul className="divide-y divide-dash-fg/[0.04]">
                 {auditRows.slice(0, 6).map((e, i) => (
                   <li key={`${e.at}-${i}`} className="flex items-center justify-between gap-3 py-2.5">
                     <div className="min-w-0">
-                      <p className="truncate text-sm text-[#F7F2E8]/85">
-                        <span className="font-medium text-[#D6A84F]">{e.fn.replace("api_", "api·")}</span>
+                      <p className="truncate text-sm text-dash-fg/85">
+                        <span className="font-medium text-dash-accent">{e.fn.replace("api_", "api·")}</span>
                         {" — "}
                         {e.ok ? "succeeded" : e.code}
                       </p>
-                      <p className="truncate text-xs text-[#F7F2E8]/40">{e.actorEmail}</p>
+                      <p className="truncate text-xs text-dash-fg/40">{e.actorEmail}</p>
                     </div>
-                    <span className="shrink-0 text-xs text-[#F7F2E8]/45">{formatWhen(e.at)}</span>
+                    <span className="shrink-0 text-xs text-dash-fg/45">{formatWhen(e.at)}</span>
                   </li>
                 ))}
               </ul>

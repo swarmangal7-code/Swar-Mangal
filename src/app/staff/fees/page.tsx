@@ -21,7 +21,7 @@ import { formatINR, feeStatusTone } from "@/app/founder/_shared";
 const MODE_DEFAULTS = ["Cash", "UPI", "Bank Transfer", "Cheque"];
 
 const selectCls =
-  "flex h-11 w-full rounded-2xl border border-[#F7F2E8]/12 bg-[#0B0A10] px-4 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60";
+  "flex h-11 w-full rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-4 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60";
 
 interface DraftArg extends Record<string, unknown> {
   studentId: string;
@@ -106,9 +106,9 @@ export default function StaffFeesPage() {
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Staff · Money</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">Fee Collection</h1>
-        <p className="mt-1 text-sm text-[#F7F2E8]/55">
+        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Money</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Fee Collection</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">
           Record the payment details — Sharvil approves and issues the receipt.
         </p>
       </motion.div>
@@ -117,11 +117,11 @@ export default function StaffFeesPage() {
         <div className="space-y-6 lg:col-span-3">
           <StudentPicker student={student} onSelect={setStudent} />
 
-          <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+          <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="space-y-4 pt-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Amount (₹)</Label>
+                  <Label className="text-dash-fg/70">Amount (₹)</Label>
                   <Input
                     type="number"
                     min="1"
@@ -129,11 +129,11 @@ export default function StaffFeesPage() {
                     placeholder="e.g. 1250"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Mode</Label>
+                  <Label className="text-dash-fg/70">Mode</Label>
                   <select className={selectCls} value={mode} onChange={(e) => setMode(e.target.value)}>
                     {modes.map((m) => (
                       <option key={m} value={m}>
@@ -145,38 +145,38 @@ export default function StaffFeesPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[#F7F2E8]/70">Payment date</Label>
+                <Label className="text-dash-fg/70">Payment date</Label>
                 <Input
                   type="date"
                   value={payDate}
                   max={todayISO()}
                   onChange={(e) => setPayDate(e.target.value)}
-                  className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8]"
+                  className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[#F7F2E8]/70">{isCash ? "Receipt-book number" : "Reference / UTR"}</Label>
+                <Label className="text-dash-fg/70">{isCash ? "Receipt-book number" : "Reference / UTR"}</Label>
                 <Input
                   value={isCash ? receiptBook : reference}
                   onChange={(e) => (isCash ? setReceiptBook(e.target.value) : setReference(e.target.value))}
                   placeholder={isCash ? "Physical receipt-book number (required for cash)" : "UPI ref / bank UTR (required for non-cash)"}
-                  className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                  className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                 />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Package start (optional)</Label>
+                  <Label className="text-dash-fg/70">Package start (optional)</Label>
                   <Input
                     type="date"
                     value={packageStart}
                     onChange={(e) => setPackageStart(e.target.value)}
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8]"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Months paid (optional)</Label>
+                  <Label className="text-dash-fg/70">Months paid (optional)</Label>
                   <Input
                     type="number"
                     min="1"
@@ -184,18 +184,18 @@ export default function StaffFeesPage() {
                     value={months}
                     onChange={(e) => setMonths(e.target.value)}
                     placeholder="e.g. 3"
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[#F7F2E8]/70">Notes (optional)</Label>
+                <Label className="text-dash-fg/70">Notes (optional)</Label>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Anything Sharvil should know"
-                  className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                  className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                 />
               </div>
 
@@ -209,7 +209,7 @@ export default function StaffFeesPage() {
                   </div>
                   {success.draftId && <p className="font-mono text-xs text-emerald-200/70">{success.draftId}</p>}
                   <div className="flex flex-wrap gap-2">
-                    <Button asChild size="sm" variant="outline" className="border-[#F7F2E8]/15 text-[#F7F2E8] hover:bg-white/[0.05]">
+                    <Button asChild size="sm" variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
                       <Link href="/staff/requests">
                         View my requests <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                       </Link>
@@ -221,7 +221,7 @@ export default function StaffFeesPage() {
                 </div>
               ) : (
                 <Button
-                  className="w-full bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+                  className="w-full bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
                   onClick={submit}
                   disabled={!valid}
                   loading={prepare.isPending}
@@ -235,28 +235,28 @@ export default function StaffFeesPage() {
 
         <div className="lg:col-span-2">
           {student ? (
-            <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+            <Card className="border-dash-fg/10 bg-dash-card">
               <CardContent className="space-y-4 pt-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#D6A84F]/10 text-[#D6A84F]">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-dash-accent/10 text-dash-accent">
                     <UserRound className="h-5 w-5" aria-hidden />
                   </div>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-[#F7F2E8]/50 hover:bg-white/[0.05] hover:text-[#F7F2E8]"
+                    className="text-dash-fg/50 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
                     onClick={() => setStudent(null)}
                   >
                     Change
                   </Button>
                 </div>
                 <div>
-                  <p className="text-base font-semibold text-[#F7F2E8]">{student.studentName}</p>
-                  <p className="text-xs text-[#F7F2E8]/45">
+                  <p className="text-base font-semibold text-dash-fg">{student.studentName}</p>
+                  <p className="text-xs text-dash-fg/45">
                     {[student.studentId, student.classCode, student.phone].filter(Boolean).join(" · ")}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-3 border-t border-[#F7F2E8]/10 pt-4 text-sm">
+                <div className="grid grid-cols-2 gap-3 border-t border-dash-fg/10 pt-4 text-sm">
                   <Detail label="Fee plan" value={student.feePlan || "—"} />
                   <Detail label="Monthly fee" value={inr(student.monthlyFee)} />
                   <Detail label="Fee status" value={feeStatusTone(student.feeStatus).label} />
@@ -267,11 +267,11 @@ export default function StaffFeesPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-dashed border-[#F7F2E8]/15 bg-white/[0.02]">
+            <Card className="border-dashed border-dash-fg/15 bg-dash-fg/[0.02]">
               <CardContent className="flex min-h-[220px] flex-col items-center justify-center text-center">
-                <Banknote className="mb-3 h-8 w-8 text-[#F7F2E8]/25" aria-hidden />
-                <p className="text-sm font-medium text-[#F7F2E8]/70">No student selected</p>
-                <p className="mt-1 max-w-[260px] text-xs text-[#F7F2E8]/40">
+                <Banknote className="mb-3 h-8 w-8 text-dash-fg/25" aria-hidden />
+                <p className="text-sm font-medium text-dash-fg/70">No student selected</p>
+                <p className="mt-1 max-w-[260px] text-xs text-dash-fg/40">
                   Search and pick a student to prepare a fee payment draft.
                 </p>
               </CardContent>
@@ -286,8 +286,8 @@ export default function StaffFeesPage() {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-[0.12em] text-[#F7F2E8]/35">{label}</p>
-      <p className="mt-0.5 font-medium text-[#F7F2E8]/85">{value}</p>
+      <p className="text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">{label}</p>
+      <p className="mt-0.5 font-medium text-dash-fg/85">{value}</p>
     </div>
   );
 }
@@ -307,10 +307,10 @@ function StudentPicker({ student, onSelect }: { student: Student | null; onSelec
   if (student) return null;
 
   return (
-    <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+    <Card className="border-dash-fg/10 bg-dash-card">
       <CardContent className="pt-5">
-        <Label className="flex items-center gap-2 text-[#F7F2E8]/70">
-          <Search className="h-4 w-4 text-[#F7F2E8]/40" aria-hidden />
+        <Label className="flex items-center gap-2 text-dash-fg/70">
+          <Search className="h-4 w-4 text-dash-fg/40" aria-hidden />
           Search student by name or phone
         </Label>
         <div className="mt-2">
@@ -319,17 +319,17 @@ function StudentPicker({ student, onSelect }: { student: Student | null; onSelec
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Type at least 2 characters…"
-            className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+            className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
           />
         </div>
         <div className="mt-3 max-h-72 space-y-1 overflow-y-auto no-scrollbar">
           {search.isFetching && rows.length === 0 && debounced.trim().length >= 2 ? (
             <>
-              <Skeleton className="h-14 bg-white/[0.05]" />
-              <Skeleton className="h-14 bg-white/[0.05]" />
+              <Skeleton className="h-14 bg-dash-fg/[0.05]" />
+              <Skeleton className="h-14 bg-dash-fg/[0.05]" />
             </>
           ) : debounced.trim().length >= 2 && rows.length === 0 && !search.isFetching ? (
-            <p className="rounded-2xl border border-dashed border-[#F7F2E8]/15 p-6 text-center text-sm text-[#F7F2E8]/45">
+            <p className="rounded-2xl border border-dashed border-dash-fg/15 p-6 text-center text-sm text-dash-fg/45">
               No students matched.
             </p>
           ) : (
@@ -338,16 +338,16 @@ function StudentPicker({ student, onSelect }: { student: Student | null; onSelec
                 key={r.studentId}
                 type="button"
                 onClick={() => onSelect(r)}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-dash-fg/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               >
-                <span className={cn("h-2 w-2 shrink-0 rounded-full", r.status === "ACTIVE" ? "bg-emerald-400" : "bg-[#F7F2E8]/25")} />
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", r.status === "ACTIVE" ? "bg-emerald-400" : "bg-dash-fg/25")} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-[#F7F2E8]">{r.studentName}</span>
-                  <span className="block truncate text-xs text-[#F7F2E8]/45">
+                  <span className="block truncate text-sm font-medium text-dash-fg">{r.studentName}</span>
+                  <span className="block truncate text-xs text-dash-fg/45">
                     {[r.studentId, r.classCode, r.phone].filter(Boolean).join(" · ")}
                   </span>
                 </span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-[#F7F2E8]/30" aria-hidden />
+                <ArrowRight className="h-4 w-4 shrink-0 text-dash-fg/30" aria-hidden />
               </button>
             ))
           )}

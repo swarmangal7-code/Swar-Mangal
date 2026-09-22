@@ -47,6 +47,19 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Founder/staff dashboard shell's own near-black + gold world —
+        // separate from the tokens above (which the legacy dashboard group
+        // and marketing pages use). See globals.css for light/dark values.
+        dash: {
+          bg: "hsl(var(--dash-bg) / <alpha-value>)",
+          sidebar: "hsl(var(--dash-sidebar) / <alpha-value>)",
+          elevated: "hsl(var(--dash-elevated) / <alpha-value>)",
+          surface: "hsl(var(--dash-surface) / <alpha-value>)",
+          card: "hsl(var(--dash-card) / <alpha-value>)",
+          fg: "hsl(var(--dash-fg) / <alpha-value>)",
+          accent: "hsl(var(--dash-accent) / <alpha-value>)",
+          "accent-hover": "hsl(var(--dash-accent-hover) / <alpha-value>)",
+        },
         navy: {
           50: "#f5f7fa",
           100: "#e9edf3",

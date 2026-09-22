@@ -36,13 +36,13 @@ interface DraftResponse extends RpcEnvelope {
 function statusStyle(status: string) {
   const s = (status ?? "").toUpperCase();
   if (s === "FINAL" || s === "FINALISED" || s === "PAID" || s === "ISSUED")
-    return "border-[#D6A84F]/30 bg-[#D6A84F]/10 text-[#D6A84F]";
+    return "border-dash-accent/30 bg-dash-accent/10 text-dash-accent";
   if (s === "VOID" || s === "CANCELLED" || s === "REJECTED") return "border-red-500/30 bg-red-500/10 text-red-300";
-  return "border-[#F7F2E8]/15 bg-white/[0.04] text-[#F7F2E8]/60";
+  return "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/60";
 }
 
 const selectCls =
-  "flex h-11 w-full rounded-2xl border border-[#F7F2E8]/12 bg-[#0B0A10] px-4 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60";
+  "flex h-11 w-full rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-4 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60";
 
 export default function StaffSchoolInvoicePage() {
   const { session } = useTokenAuth();
@@ -94,9 +94,9 @@ export default function StaffSchoolInvoicePage() {
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp} className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-[#F7F2E8]/40">Staff · Academy</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#F7F2E8]">School Invoices</h1>
-          <p className="mt-1 text-sm text-[#F7F2E8]/55">
+          <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Academy</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">School Invoices</h1>
+          <p className="mt-1 text-sm text-dash-fg/55">
             Draft an invoice for Sharvil to number and issue.
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function StaffSchoolInvoicePage() {
             aria-label="Branch"
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
-            className="h-11 rounded-2xl border border-[#F7F2E8]/12 bg-[#0B0A10] px-3 text-sm text-[#F7F2E8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+            className="h-11 rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
           >
             <option value="ALL">All branches</option>
             {branches.map((b) => (
@@ -118,9 +118,9 @@ export default function StaffSchoolInvoicePage() {
       </motion.div>
 
       <motion.div variants={fadeUp}>
-        <Card className="border-[#F7F2E8]/10 bg-[#17131D]">
+        <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-4 pt-5">
-            <h2 className="text-sm font-semibold text-[#F7F2E8]/90">New invoice draft</h2>
+            <h2 className="text-sm font-semibold text-dash-fg/90">New invoice draft</h2>
 
             {success && (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-300">
@@ -133,16 +133,16 @@ export default function StaffSchoolInvoicePage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Class / school *</Label>
+                  <Label className="text-dash-fg/70">Class / school *</Label>
                   <Input
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
                     placeholder="e.g. Tabla — St. Xavier's"
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Amount (₹) *</Label>
+                  <Label className="text-dash-fg/70">Amount (₹) *</Label>
                   <Input
                     type="number"
                     min="1"
@@ -150,32 +150,32 @@ export default function StaffSchoolInvoicePage() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="e.g. 9000"
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Tenure</Label>
+                  <Label className="text-dash-fg/70">Tenure</Label>
                   <Input
                     value={tenure}
                     onChange={(e) => setTenure(e.target.value)}
                     placeholder="1 Month / 6 Months"
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Invoice date</Label>
+                  <Label className="text-dash-fg/70">Invoice date</Label>
                   <Input
                     type="date"
                     value={invoiceDate}
                     onChange={(e) => setInvoiceDate(e.target.value)}
-                    className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8]"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#F7F2E8]/70">Branch</Label>
+                  <Label className="text-dash-fg/70">Branch</Label>
                   <select className={selectCls} value={draftBranch} onChange={(e) => setBranch(e.target.value)}>
                     {branches.length === 0 && <option value="">Default</option>}
                     {branches.map((b) => (
@@ -188,21 +188,21 @@ export default function StaffSchoolInvoicePage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[#F7F2E8]/70">Notes (optional)</Label>
+                <Label className="text-dash-fg/70">Notes (optional)</Label>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Anything Sharvil should know"
-                  className="border-[#F7F2E8]/12 bg-[#0B0A10] text-[#F7F2E8] placeholder:text-[#F7F2E8]/30"
+                  className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                 />
               </div>
 
-              <label className="flex items-center gap-3 rounded-2xl border border-[#F7F2E8]/10 bg-white/[0.02] p-4 text-sm text-[#F7F2E8]/80">
+              <label className="flex items-center gap-3 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.02] p-4 text-sm text-dash-fg/80">
                 <input
                   type="checkbox"
                   checked={confirmed}
                   onChange={(e) => setConfirmed(e.target.checked)}
-                  className="h-4 w-4 rounded border-[#F7F2E8]/20 bg-[#0B0A10] accent-[#D6A84F]"
+                  className="h-4 w-4 rounded border-dash-fg/20 bg-dash-sidebar accent-dash-accent"
                 />
                 I have checked the class, amount and tenure before sending.
               </label>
@@ -211,7 +211,7 @@ export default function StaffSchoolInvoicePage() {
                 type="submit"
                 disabled={!valid}
                 loading={submit.isPending}
-                className="w-full bg-[#D6A84F] text-[#08070B] hover:bg-[#E2BD68]"
+                className="w-full bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
               >
                 <FileText className="h-4 w-4" aria-hidden />
                 Send for approval
@@ -222,11 +222,11 @@ export default function StaffSchoolInvoicePage() {
       </motion.div>
 
       <motion.div variants={fadeUp} className="space-y-2">
-        <h2 className="text-sm font-semibold text-[#F7F2E8]/80">Invoices</h2>
+        <h2 className="text-sm font-semibold text-dash-fg/80">Invoices</h2>
         {invoices.isPending ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-[68px] bg-white/[0.04]" />
+              <Skeleton key={i} className="h-[68px] bg-dash-fg/[0.04]" />
             ))}
           </div>
         ) : invoices.isError ? (
@@ -234,30 +234,30 @@ export default function StaffSchoolInvoicePage() {
             {invoices.error?.message?.replace(/\[.*\]$/, "") || "Could not load invoices."}
           </p>
         ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#F7F2E8]/15 bg-white/[0.02] px-6 py-14 text-center">
-            <Plus className="mb-3 h-8 w-8 text-[#F7F2E8]/25" aria-hidden />
-            <p className="text-sm font-medium text-[#F7F2E8]/70">No invoices yet</p>
-            <p className="mt-1 text-xs text-[#F7F2E8]/40">Draft the first one above.</p>
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-14 text-center">
+            <Plus className="mb-3 h-8 w-8 text-dash-fg/25" aria-hidden />
+            <p className="text-sm font-medium text-dash-fg/70">No invoices yet</p>
+            <p className="mt-1 text-xs text-dash-fg/40">Draft the first one above.</p>
           </div>
         ) : (
           <div className="space-y-2">
             {rows.map((inv) => (
               <div
                 key={inv.invoiceId}
-                className="flex items-center gap-4 rounded-2xl border border-[#F7F2E8]/10 bg-[#17131D] p-4"
+                className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-card p-4"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate font-mono text-sm font-semibold text-[#F7F2E8]">{inv.invoiceNo || "—"}</p>
+                    <p className="truncate font-mono text-sm font-semibold text-dash-fg">{inv.invoiceNo || "—"}</p>
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusStyle(inv.status)}`}>
                       {inv.status || "—"}
                     </span>
                   </div>
-                  <p className="mt-1 truncate text-xs text-[#F7F2E8]/50">
+                  <p className="mt-1 truncate text-xs text-dash-fg/50">
                     {[inv.className, inv.branch, formatDateOnly(inv.invoiceDate), inv.tenure].filter(Boolean).join(" · ")}
                   </p>
                 </div>
-                <p className="shrink-0 text-sm font-semibold tabular-nums text-[#F7F2E8]">{formatINR(inv.amount)}</p>
+                <p className="shrink-0 text-sm font-semibold tabular-nums text-dash-fg">{formatINR(inv.amount)}</p>
               </div>
             ))}
           </div>

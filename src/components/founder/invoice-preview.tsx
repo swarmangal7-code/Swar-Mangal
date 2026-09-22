@@ -34,40 +34,40 @@ export function InvoicePreview({
     : "—";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#F7F2E8]/10 bg-[#F7F2E8] text-[#17131D] shadow-soft-lg">
-      <div className="flex items-start justify-between border-b border-[#17131D]/10 p-6">
+    <div className="overflow-hidden rounded-2xl border border-dash-fg/10 bg-dash-fg text-dash-card shadow-soft-lg">
+      <div className="flex items-start justify-between border-b border-dash-card/10 p-6">
         <div>
           <p className="font-display text-lg font-semibold tracking-wide">Swar Mangal</p>
-          <p className="text-xs text-[#17131D]/55">Music Academy</p>
+          <p className="text-xs text-dash-card/55">Music Academy</p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#17131D]/45">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-dash-card/45">
             Tax Invoice
           </p>
           <p className="mt-1 font-mono text-sm font-semibold">{invoiceNo}</p>
-          <p className="text-xs text-[#17131D]/55">{fmtDate}</p>
+          <p className="text-xs text-dash-card/55">{fmtDate}</p>
         </div>
       </div>
 
       <div className="grid gap-4 p-6 sm:grid-cols-2">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#17131D]/45">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-card/45">
             Billed to
           </p>
           <p className="mt-1 text-sm font-semibold">{className || "—"}</p>
-          <p className="text-xs text-[#17131D]/55">{branch || "—"}</p>
+          <p className="text-xs text-dash-card/55">{branch || "—"}</p>
         </div>
         <div className="sm:text-right">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#17131D]/45">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-card/45">
             Amount
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums">{inr.format(amount)}</p>
-          {tenure && <p className="text-xs text-[#17131D]/55">Tenure: {tenure}</p>}
+          {tenure && <p className="text-xs text-dash-card/55">Tenure: {tenure}</p>}
         </div>
       </div>
 
-      <div className="mx-6 mb-6 rounded-xl border border-[#17131D]/10">
-        <div className="flex items-center justify-between border-b border-[#17131D]/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#17131D]/45">
+      <div className="mx-6 mb-6 rounded-xl border border-dash-card/10">
+        <div className="flex items-center justify-between border-b border-dash-card/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-dash-card/45">
           <span>Description</span>
           <span>Amount</span>
         </div>
@@ -77,7 +77,7 @@ export function InvoicePreview({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 border-t border-[#17131D]/10 p-6">
+      <div className="grid grid-cols-2 gap-4 border-t border-dash-card/10 p-6">
         <SignatureBlock owner={owner1} fallback="Owner 1" />
         <SignatureBlock owner={owner2} fallback="Owner 2" />
       </div>
@@ -93,11 +93,11 @@ function SignatureBlock({ owner, fallback }: { owner?: InvoiceOwner; fallback: s
           // eslint-disable-next-line @next/next/no-img-element
           <img src={owner.signatureUrl} alt="" className="max-h-14" />
         ) : (
-          <div className="h-12 w-full border-b border-dashed border-[#17131D]/25" />
+          <div className="h-12 w-full border-b border-dashed border-dash-card/25" />
         )}
       </div>
       <p className="mt-1.5 text-sm font-semibold">{owner?.name ?? fallback}</p>
-      <p className="text-xs text-[#17131D]/55">{owner?.title ?? "Signature"}</p>
+      <p className="text-xs text-dash-card/55">{owner?.title ?? "Signature"}</p>
     </div>
   );
 }
