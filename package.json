@@ -13,7 +13,7 @@
     "sheets:worker": "node sync/worker.mjs",
     "sheets:status": "node sync/worker.mjs --status",
     "test:backend": "node --experimental-strip-types --test backend-tests/*.test.ts",
-    "pages:build": "npx @cloudflare/next-on-pages",
+    "pages:build": "rm -rf src/app/api && npx @cloudflare/next-on-pages",
     "pages:dev": "npx wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat"
   },
   "dependencies": {

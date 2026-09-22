@@ -1,5 +1,0 @@
-# HTTPS with an automatic Let's Encrypt certificate for APP_DOMAIN.
-{$APP_DOMAIN} {
-	encode gzip
-	reverse_proxy app:3000
-}

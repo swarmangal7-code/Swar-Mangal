@@ -6,21 +6,19 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-# Load environment from .env next to this script's parent
+# Load DATABASE_URL from .env next to this script's parent — the same
+# connection string the app itself uses, so the backup can never drift from
+# what's actually being written to (a stray POSTGRES_* var wouldn't).
 if [ -f .env ]; then
   set -a; . ./.env; set +a
 fi
+: "${DATABASE_URL:?DATABASE_URL is not set in /opt/swarmangal/.env}"
 
 BACKUP_DIR="/opt/swarmangal/backups"
 mkdir -p "$BACKUP_DIR"
 
-DB_NAME="${POSTGRES_DB:-swarmangal}"
-DB_USER="${POSTGRES_USER:-swarmangal}"
-DB_HOST="${POSTGRES_HOST:-127.0.0.1}"
-DB_PORT="${POSTGRES_PORT:-5432}"
-
 file="$BACKUP_DIR/swarmangal-$(date +%Y%m%d-%H%M%S).dump"
-pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc -f "$file"
+pg_dump "$DATABASE_URL" -Fc -f "$file"
 
 # Refuse to keep empty dumps
 if [ ! -s "$file" ]; then

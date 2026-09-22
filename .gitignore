@@ -41,6 +41,7 @@ coverage/
 
 # Old prior-project directories
 .next/
+.vercel/
 maestro_app/
 maestro-android/
 

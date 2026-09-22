@@ -64,6 +64,12 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${WA_AKG_DASHBOARD_PORT:-3080}:3000"
+    # host.docker.internal only resolves automatically on Docker Desktop —
+    # on the Linux VPS this is what makes the webhook URL in deploy/README.md
+    # (http://host.docker.internal:3000/api/wa/webhook) reach the PM2 app
+    # running on the host. Needs Docker Engine 20.10+.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   wa_mysql:
