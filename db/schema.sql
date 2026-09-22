@@ -1,5 +1,6 @@
--- Swar Mangal Academy — PostgreSQL schema (Railway-compatible)
--- Plain Postgres: no auth.users, no RLS, no auth.uid(). Runs on Railway Postgres via psql.
+-- Swar Mangal Academy — PostgreSQL schema
+-- Plain Postgres: no auth.users, no RLS, no auth.uid(). Runs on any Postgres
+-- 13+ via psql — Railway, aaPanel's native Postgres plugin, or local dev.
 
 create extension if not exists pgcrypto;
 
