@@ -26,6 +26,13 @@ Near-black, stage-lit ground — a recital hall at night, not a SaaS dashboard.
   SVG), threading through the hero and echoed as a thin static gradient line
   between every section below it — "sound made visible" as a literal,
   physical object rather than an illustration of the idea.
+- **Cinematic layer** (added after a second pinned reference, lusion.co):
+  bloom/glow post-processing, a drifting field of warm light motes and
+  literal music-note glyphs, a cursor-following spotlight, a scroll-tied
+  camera dolly, and a whole-page film-grain + vignette overlay. The hero
+  opens inside this light; the CTA closes the page inside the same light
+  (particles alone, no string) — a deliberate bookend, not a repeated
+  effect.
 
 ## Signature interaction
 
@@ -48,13 +55,22 @@ a static 1px gradient line under reduced motion or when WebGL is
 unavailable — same visual position, zero animated frames, so there is never
 a blank gap, only a quieter version of the same object.
 
-**Performance**: `three` + `@react-three/fiber` are ~250kB and are lazy-
-loaded (`next/dynamic`, `ssr: false`, via the
-`src/components/3d/string-field-lazy.tsx` client-boundary wrapper — App
-Router refuses `ssr:false` directly inside a Server Component) so they never
-block the landing page's initial JS. `three` is imported by named export,
-not `import * as THREE`, so unused parts of the library tree-shake.
-Homepage First Load JS: ~163kB (was 403kB before lazy-loading).
+**Performance**: `three` + `@react-three/fiber` (+ `@react-three/postprocessing`
++ `postprocessing` for bloom) are lazy-loaded (`next/dynamic`, `ssr: false`,
+via `src/components/3d/string-field-lazy.tsx` and `particle-accent-lazy.tsx`
+— the App Router refuses `ssr:false` directly inside a Server Component) so
+none of it blocks the landing page's initial JS. `three` is imported by
+named export, not `import * as THREE`, so unused parts tree-shake. Homepage
+First Load JS: ~163kB (was 403kB before lazy-loading; adding bloom and the
+particle field did not move this number — they live in the same lazy chunk).
+
+Bloom and the particle field (`src/components/3d/particle-field.tsx`) are
+**desktop-only** (`min-width: 768px`), gated in both `string-field.tsx` and
+`particle-accent.tsx` — PRODUCT.md is explicit that this audience skews
+toward mid/low-end Android, and running an EffectComposer pass plus ~150
+points on top of the string roughly doubles frame cost. The string itself
+(the actual signature interaction) still plays at every size; only the
+cinematic dressing scales back.
 
 ## Composition rules (this surface)
 

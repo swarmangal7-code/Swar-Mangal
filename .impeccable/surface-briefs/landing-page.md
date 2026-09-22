@@ -14,10 +14,16 @@ surface); must degrade gracefully on mid/low-end Android under
 `prefers-reduced-motion`; no fabricated testimonials/photos — placeholder
 content stays abstract, never fake-specific.
 
-User-pinned visual reference: lenis.dev (Studio Freight/darkroom.engineering)
-— specifically its scroll-physics smoothness and WebGL 3D interaction work.
-Direction below translates that mechanism into this brand rather than
-copying its content.
+User-pinned visual references: lenis.dev (Studio Freight/darkroom.engineering)
+— scroll-physics smoothness and WebGL 3D interaction — plus, added in a
+follow-up round, lusion.co (Lusion studio) — full cinematic scene work:
+volumetric light/bloom, particle atmosphere, camera movement, film-grade
+polish. Direction below translates both mechanisms into this brand rather
+than copying either's content. The follow-up round's explicit ask ("premium
+like lenis.dev and lusion.co, cinematic experience, 3D animations, premium
+interactions, musical vibe") is why the build now includes bloom, a
+particle/note field, a cursor spotlight, a scroll-tied camera dolly, and a
+whole-page grain/vignette layer on top of the original string.
 
 ## Direction contract
 

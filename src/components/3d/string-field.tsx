@@ -8,12 +8,15 @@ import {
   Line as ThreeLine,
   LineBasicMaterial,
   MathUtils,
+  PerspectiveCamera,
 } from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { useReducedMotion } from "framer-motion";
 
 import { scrollState } from "@/lib/motion/scroll-state";
 import { cn } from "@/lib/utils/cn";
+import { ParticleField } from "@/components/3d/particle-field";
 
 const SEGMENTS = 96;
 const HALF_WIDTH = 6.4;
@@ -89,23 +92,49 @@ function Strand({ offsetY, opacity, color }: { offsetY: number; opacity: number;
   return <primitive object={line} />;
 }
 
-function Scene() {
+function Scene({ cinematic }: { cinematic: boolean }) {
   return (
     <>
       <PerspectiveRig />
       {STRANDS.map((s) => (
         <Strand key={s.offset} offsetY={s.offset} opacity={s.opacity} color={s.color} />
       ))}
+      {cinematic && (
+        <>
+          <ParticleField />
+          {/* mipmapBlur keeps this cheap enough for the GPUs this still
+              runs on — full-res bloom would double the frame cost for a
+              scene that's mostly a thin line and a few hundred points. */}
+          <EffectComposer>
+            <Bloom mipmapBlur intensity={0.65} luminanceThreshold={0.15} luminanceSmoothing={0.3} />
+          </EffectComposer>
+        </>
+      )}
     </>
   );
 }
 
-/** Very slow camera drift — depth without ever feeling like a carousel. */
+/**
+ * Camera work, not just drift: a slow orbital sway at rest, plus a dolly-out
+ * tied to how far the visitor has scrolled past the hero (plain
+ * window.scrollY, not Lenis's whole-page progress — the hero is one
+ * viewport tall, so page-wide progress would barely move within it). The
+ * scene pulls back and widens as you leave, like a camera retreating from
+ * the stage rather than the hero just scrolling out of frame.
+ */
 function PerspectiveRig() {
   useFrame(({ camera, clock }) => {
     const t = clock.getElapsedTime();
+    const heroProgress =
+      typeof window === "undefined" ? 0 : Math.min(Math.max(window.scrollY / window.innerHeight, 0), 1);
+
     camera.position.x = Math.sin(t * 0.05) * 0.4;
-    camera.position.y = Math.cos(t * 0.04) * 0.2;
+    camera.position.y = Math.cos(t * 0.04) * 0.2 + heroProgress * 0.6;
+    camera.position.z = 5.2 + heroProgress * 3.5;
+    if (camera instanceof PerspectiveCamera) {
+      camera.fov = 42 + heroProgress * 10;
+      camera.updateProjectionMatrix();
+    }
     camera.lookAt(0, 0, 0);
   });
   return null;
@@ -114,6 +143,11 @@ function PerspectiveRig() {
 export function StringField({ className }: { className?: string }) {
   const reduced = useReducedMotion();
   const [supported, setSupported] = React.useState(true);
+  // Particles + bloom roughly double the frame cost of the scene. PRODUCT.md
+  // is explicit that this audience skews toward mid/low-end Android — the
+  // string itself (the actual signature interaction) still plays everywhere;
+  // only the cinematic dressing is desktop-only.
+  const [cinematic, setCinematic] = React.useState(false);
 
   React.useEffect(() => {
     try {
@@ -123,6 +157,11 @@ export function StringField({ className }: { className?: string }) {
     } catch {
       setSupported(false);
     }
+    const mq = window.matchMedia("(min-width: 768px)");
+    setCinematic(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setCinematic(e.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
   // Reduced motion / no WebGL: a still, lit gradient reads as "a resting
@@ -150,7 +189,7 @@ export function StringField({ className }: { className?: string }) {
         gl={{ antialias: true, alpha: true, powerPreference: "low-power" }}
         camera={{ position: [0, 0, 5.2], fov: 42 }}
       >
-        <Scene />
+        <Scene cinematic={cinematic} />
       </Canvas>
     </div>
   );

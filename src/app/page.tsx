@@ -4,8 +4,11 @@ import { ArrowRight, MapPin } from "lucide-react";
 
 import { LenisProvider } from "@/components/motion/lenis-provider";
 import { StringFieldLazy as StringField } from "@/components/3d/string-field-lazy";
+import { ParticleAccentLazy as ParticleAccent } from "@/components/3d/particle-accent-lazy";
 import { MagneticButton } from "@/components/3d/tilt-card";
 import { Reveal } from "@/components/motion/reveal";
+import { CinematicOverlay } from "@/components/motion/cinematic-overlay";
+import { CursorSpotlight } from "@/components/motion/cursor-spotlight";
 import { cn } from "@/lib/utils/cn";
 
 const courses = [
@@ -160,6 +163,8 @@ function Hero() {
       <div className="absolute inset-x-0 top-1/2 z-0 h-[36rem] -translate-y-1/2">
         <StringField className="h-full w-full" />
       </div>
+
+      <CursorSpotlight />
 
       <nav aria-label="Primary" className="relative z-20 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
         <Link href="#top" className="flex items-center gap-3">
@@ -376,21 +381,32 @@ function Cta() {
       <StringDivider />
       <div className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28">
         <div className="relative overflow-hidden rounded-3xl border border-[#D6A84F]/20 bg-[radial-gradient(120%_150%_at_50%_-20%,hsla(42,62%,55%,0.14),transparent_55%)] px-6 py-16 text-center md:px-16 md:py-24">
-          <Reveal>
-            <h2 className="font-display text-4xl leading-tight text-[#F7F2E8] md:text-5xl">
-              Begin Your Musical Journey
-            </h2>
-            <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-[#A9A2B0]">
-              Slots are limited per batch. Log in as a student or staff member to view schedules,
-              invoices and progress — all in one place.
-            </p>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <PrimaryButton href="/login">Student / Staff Login</PrimaryButton>
-              <GhostButton href="#courses">Browse Courses</GhostButton>
-            </div>
-          </Reveal>
+          {/* The page's closing 3D moment — see particle-accent.tsx. Desktop
+              only and behind everything (z-0, pointer-events-none via its
+              own canvas wrapper never receiving events), so it never
+              competes with the buttons below for clicks. */}
+          <ParticleAccent className="pointer-events-none absolute inset-0 z-0" />
+          {/* position:absolute descendants paint above static in-flow
+              content regardless of z-index, so the particle layer above
+              would otherwise sit over this text — relative+z-10 opts this
+              whole block back into the stacking order above it. */}
+          <div className="relative z-10">
+            <Reveal>
+              <h2 className="font-display text-4xl leading-tight text-[#F7F2E8] md:text-5xl">
+                Begin Your Musical Journey
+              </h2>
+              <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-[#A9A2B0]">
+                Slots are limited per batch. Log in as a student or staff member to view schedules,
+                invoices and progress — all in one place.
+              </p>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <PrimaryButton href="/login">Student / Staff Login</PrimaryButton>
+                <GhostButton href="#courses">Browse Courses</GhostButton>
+              </div>
+            </Reveal>
+          </div>
         </div>
       </div>
     </section>
@@ -439,6 +455,7 @@ export default function LandingPage() {
         <Cta />
         <Footer />
       </main>
+      <CinematicOverlay />
     </LenisProvider>
   );
 }
