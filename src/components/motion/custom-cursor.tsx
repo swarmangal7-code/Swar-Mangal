@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { motion, useMotionValue, useSpring, useReducedMotion } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
+
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 /**
  * A small circular cursor that expands slightly over anything interactive
@@ -12,7 +14,7 @@ import { motion, useMotionValue, useSpring, useReducedMotion } from "framer-moti
  * anything else for hit-testing (same pattern as `CursorSpotlight`).
  */
 export function CustomCursor() {
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const [active, setActive] = React.useState(false);
   const [hovering, setHovering] = React.useState(false);
   const x = useMotionValue(-100);

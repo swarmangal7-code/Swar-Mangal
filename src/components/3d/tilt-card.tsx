@@ -10,6 +10,7 @@ import {
 } from "framer-motion";
 
 import { cn } from "@/lib/utils/cn";
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 function usePointerFine() {
   const [enabled, setEnabled] = React.useState(false);
@@ -33,6 +34,7 @@ export function TiltCard({
   maxTilt = 5,
   glare = true,
   lift = 0,
+  cinematic = false,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -40,8 +42,16 @@ export function TiltCard({
   glare?: boolean;
   /** Pixels to rise on hover, on top of the tilt — 0 disables it. */
   lift?: number;
+  /**
+   * The landing page (a marketing surface) always plays this regardless of
+   * OS reduced-motion; the dashboard (an app surface, this component's
+   * other caller) keeps respecting it by default. See `useCinematicMotion`.
+   */
+  cinematic?: boolean;
 }) {
-  const reduced = useReducedMotion();
+  const osReduced = useReducedMotion();
+  const cinematicOverride = useCinematicMotion();
+  const reduced = cinematic ? cinematicOverride : osReduced;
   const fine = usePointerFine();
   const rx = useMotionValue(0);
   const ry = useMotionValue(0);
@@ -110,7 +120,9 @@ export function MagneticButton({
   strength?: number;
   radius?: number;
 }) {
-  const reduced = useReducedMotion();
+  // MagneticButton is only ever used on the landing page today — always
+  // cinematic, unlike TiltCard's `cinematic` prop (shared with the dashboard).
+  const reduced = useCinematicMotion();
   const fine = usePointerFine();
   const x = useMotionValue(0);
   const y = useMotionValue(0);

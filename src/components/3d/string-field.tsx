@@ -12,7 +12,7 @@ import {
 } from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { useReducedMotion } from "framer-motion";
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 import { scrollState } from "@/lib/motion/scroll-state";
 import { cn } from "@/lib/utils/cn";
@@ -151,7 +151,7 @@ function PerspectiveRig() {
 }
 
 export function StringField({ className }: { className?: string }) {
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const [supported, setSupported] = React.useState(true);
   // Particles + bloom roughly double the frame cost of the scene. PRODUCT.md
   // is explicit that this audience skews toward mid/low-end Android — the

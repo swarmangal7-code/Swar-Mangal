@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 const HOLD_MS = 650;
 
@@ -15,7 +17,7 @@ const HOLD_MS = 650;
  * session via anchor links, not fresh navigations.
  */
 export function LoadingScreen() {
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const [visible, setVisible] = React.useState(false);
 
   React.useEffect(() => {

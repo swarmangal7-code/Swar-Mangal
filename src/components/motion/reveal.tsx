@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { motion, useInView, useReducedMotion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 
 import { EASE } from "@/lib/motion";
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 import { cn } from "@/lib/utils/cn";
 
 /** Fades content up once it scrolls into view. No-op under reduced motion. */
@@ -18,7 +19,7 @@ export function Reveal({
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-64px 0px" });
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
 
   return (
     <motion.div

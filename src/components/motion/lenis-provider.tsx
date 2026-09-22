@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import Lenis from "lenis";
-import { useReducedMotion } from "framer-motion";
 
 import { scrollState } from "@/lib/motion/scroll-state";
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 /**
  * Real Lenis scroll physics for this surface — inertia/lerp-smoothed
@@ -12,11 +12,11 @@ import { scrollState } from "@/lib/motion/scroll-state";
  * demonstrates. Writes live velocity/progress into `scrollState` for the
  * WebGL string field to read every frame without a React re-render.
  *
- * Off entirely under prefers-reduced-motion: native scroll then behaves
- * exactly as the browser and OS accessibility settings expect.
+ * Always on for this page (see `useCinematicMotion`) — the landing page's
+ * smooth-scroll feel is part of the product, not incidental motion.
  */
 export function LenisProvider({ children }: { children: React.ReactNode }) {
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
 
   React.useEffect(() => {
     if (reduced) return;

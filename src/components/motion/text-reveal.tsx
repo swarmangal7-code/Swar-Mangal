@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { motion, useAnimationFrame, useMotionValue, useReducedMotion, type MotionValue } from "framer-motion";
+import { motion, useAnimationFrame, useMotionValue, type MotionValue } from "framer-motion";
 
 import { EASE } from "@/lib/motion";
 import { scrollState } from "@/lib/motion/scroll-state";
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 /**
  * A cinematic staged reveal for a short sequence of lines (a kicker, a
@@ -25,7 +26,7 @@ export function TextReveal({
   stagger?: number;
   startDelay?: number;
 }) {
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
 
   return (
     <div className={className}>
@@ -58,7 +59,7 @@ export function TextReveal({
  */
 export function useVelocitySkew(scaleFactor = 0.4, max = 6): MotionValue<number> {
   const skew = useMotionValue(0);
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const smoothed = React.useRef(0);
 
   useAnimationFrame(() => {

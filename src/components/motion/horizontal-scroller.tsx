@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -31,7 +32,7 @@ export function HorizontalScroller({
 }) {
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const rowRef = React.useRef<HTMLDivElement>(null);
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const [enabled, setEnabled] = React.useState(false);
   const [travel, setTravel] = React.useState(0);
 

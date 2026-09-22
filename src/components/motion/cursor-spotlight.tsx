@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useMotionValue, useSpring, motion, useReducedMotion } from "framer-motion";
+import { useMotionValue, useSpring, motion } from "framer-motion";
+
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 /**
  * A soft warm light that follows the cursor over its parent — the same
@@ -15,7 +17,7 @@ import { useMotionValue, useSpring, motion, useReducedMotion } from "framer-moti
  * follow) and under reduced motion.
  */
 export function CursorSpotlight() {
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const [active, setActive] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const x = useMotionValue(-9999);

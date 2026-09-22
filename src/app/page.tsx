@@ -263,7 +263,7 @@ function Courses() {
       <HorizontalScroller rowClassName="flex gap-5 px-1 lg:px-0">
         {courses.map((c, i) => (
           <Reveal key={c.name} delay={(i % 3) * 0.06} className="shrink-0 snap-start">
-            <TiltCard maxTilt={4}>
+            <TiltCard maxTilt={4} cinematic>
               <article className="flex h-full w-[19rem] flex-col justify-between rounded-2xl border border-white/10 bg-[#17131D]/70 p-7 transition-colors duration-300 hover:border-[#D6A84F]/35 sm:w-[22rem]">
                 <div>
                   <h3 className="font-display text-4xl leading-tight text-[#F7F2E8]">{c.name}</h3>
@@ -334,7 +334,7 @@ function Branches() {
       <div className="grid gap-5 md:grid-cols-2">
         {branches.map((b, i) => (
           <Reveal key={b.name} delay={i * 0.1}>
-            <TiltCard maxTilt={3} lift={6}>
+            <TiltCard maxTilt={3} lift={6} cinematic>
               <article className="group flex h-full flex-col rounded-2xl border border-white/10 bg-[#17131D]/70 p-7 transition-colors duration-300 hover:border-[#D6A84F]/40">
                 <span className="mb-5 inline-flex w-fit rounded-full border border-[#D6A84F]/25 bg-[#D6A84F]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#E2BD68]">
                   {b.tag}

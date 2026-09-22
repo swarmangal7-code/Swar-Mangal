@@ -3,9 +3,8 @@
 import * as React from "react";
 import { Canvas } from "@react-three/fiber";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { useReducedMotion } from "framer-motion";
-
 import { ParticleField } from "@/components/3d/particle-field";
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 /**
  * The page's closing 3D moment — the hero's dust-and-notes cloud alone,
@@ -15,7 +14,7 @@ import { ParticleField } from "@/components/3d/particle-field";
  * own comment on why) and skipped under reduced motion / no WebGL.
  */
 export function ParticleAccent({ className }: { className?: string }) {
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {

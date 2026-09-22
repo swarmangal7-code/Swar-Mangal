@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
+
+import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 /**
  * Replaces a hard section cut with a continuous, scroll-scrubbed arrival:
@@ -29,7 +31,7 @@ export function SectionTransition({
   // motion.div; reduced motion pins scale/opacity at their resting values
   // instead of removing the element that owns the ref.
   const ref = React.useRef<HTMLDivElement>(null);
-  const reduced = useReducedMotion();
+  const reduced = useCinematicMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "start 0.35"] });
 
   const scale = useTransform(scrollYProgress, [0, 1], reduced ? [1, 1] : [0.97, 1]);
