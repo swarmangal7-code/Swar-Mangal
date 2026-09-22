@@ -5,10 +5,17 @@ import { ArrowRight, MapPin } from "lucide-react";
 import { LenisProvider } from "@/components/motion/lenis-provider";
 import { StringFieldLazy as StringField } from "@/components/3d/string-field-lazy";
 import { ParticleAccentLazy as ParticleAccent } from "@/components/3d/particle-accent-lazy";
-import { MagneticButton } from "@/components/3d/tilt-card";
+import { MagneticButton, TiltCard } from "@/components/3d/tilt-card";
 import { Reveal } from "@/components/motion/reveal";
+import { TextReveal } from "@/components/motion/text-reveal";
+import { HeroTitle } from "@/components/motion/hero-title";
+import { SectionTransition } from "@/components/motion/section-transition";
+import { HorizontalScroller } from "@/components/motion/horizontal-scroller";
 import { CinematicOverlay } from "@/components/motion/cinematic-overlay";
+import { SiteNav } from "@/components/motion/site-nav";
 import { CursorSpotlight } from "@/components/motion/cursor-spotlight";
+import { CustomCursor } from "@/components/motion/custom-cursor";
+import { LoadingScreen } from "@/components/motion/loading-screen";
 import { cn } from "@/lib/utils/cn";
 
 const courses = [
@@ -124,7 +131,9 @@ function Section({ id, tint, children }: { id: string; tint: string; children: R
   return (
     <section id={id} className="relative">
       <StringDivider />
-      <div className={cn("mx-auto w-full max-w-6xl px-6 py-20 md:py-28", tint)}>{children}</div>
+      <SectionTransition className={cn("mx-auto w-full max-w-6xl px-6 py-20 md:py-28", tint)}>
+        {children}
+      </SectionTransition>
     </section>
   );
 }
@@ -166,62 +175,31 @@ function Hero() {
 
       <CursorSpotlight />
 
-      <nav aria-label="Primary" className="relative z-20 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="#top" className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D6A84F]/40 bg-[#D6A84F]/10 font-display text-sm font-semibold text-[#E2BD68]">
-            S
-          </span>
-          <span className="font-display text-lg tracking-[0.08em] text-[#F7F2E8]">Swar Mangal</span>
-        </Link>
-        <div className="hidden items-center gap-8 text-sm text-[#A9A2B0] lg:flex">
-          <a href="#about" className="transition-colors hover:text-[#E2BD68]">
-            About
-          </a>
-          <a href="#courses" className="transition-colors hover:text-[#E2BD68]">
-            Courses
-          </a>
-          <a href="#experience" className="transition-colors hover:text-[#E2BD68]">
-            Experience
-          </a>
-          <a href="#faculty" className="transition-colors hover:text-[#E2BD68]">
-            Faculty
-          </a>
-          <a href="#branches" className="transition-colors hover:text-[#E2BD68]">
-            Find Us
-          </a>
-        </div>
-        <Link
-          href="/login"
-          className="rounded-full border border-[#F7F2E8]/20 px-4 py-1.5 text-sm text-[#F7F2E8] transition-colors hover:border-[#D6A84F]/60 hover:text-[#E2BD68]"
-        >
-          Login
-        </Link>
-      </nav>
-
       {/* pointer-events-none on the whole block: this is what lets the
           string field track the cursor through every bit of "empty" space
           around the type, exactly like plucking past the words rather than
           the words blocking the string. Only the two links opt back in. */}
       <div className="pointer-events-none relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 pb-32 pt-16 text-center">
-        <h1 className="font-display leading-none text-[#F7F2E8]">
-          <span className="block text-[clamp(3.25rem,10vw,6.75rem)] tracking-[0.06em]">Swar</span>
-          <span className="mt-2 block text-[clamp(3.25rem,10vw,6.75rem)] tracking-[0.06em] text-[#E2BD68]">
-            Mangal
-          </span>
-        </h1>
-        <div aria-hidden className="my-8 flex items-center justify-center gap-4">
-          <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#D6A84F]/60 sm:w-20" />
-          <span className="font-display text-xl text-[#D6A84F]">सा</span>
-          <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#D6A84F]/60 sm:w-20" />
-        </div>
-        <p className="max-w-xl text-lg leading-relaxed text-[#A9A2B0] md:text-xl">
-          Where every note finds its expression — Indian classical and Western
-          instruments, taught one-to-one across two Mumbai studios.
-        </p>
-        <div className="pointer-events-auto mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <PrimaryButton href="#about">Explore the Academy</PrimaryButton>
-          <GhostButton href="/login">Student / Staff Login</GhostButton>
-        </div>
+        <HeroTitle />
+        <TextReveal
+          startDelay={0.5}
+          stagger={0.14}
+          lines={[
+            <div key="rule" aria-hidden className="my-8 flex items-center justify-center gap-4">
+              <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#D6A84F]/60 sm:w-20" />
+              <span className="font-display text-xl text-[#D6A84F]">सा</span>
+              <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#D6A84F]/60 sm:w-20" />
+            </div>,
+            <p key="tagline" className="max-w-xl text-lg leading-relaxed text-[#A9A2B0] md:text-xl">
+              Where every note finds its expression — Indian classical and Western
+              instruments, taught one-to-one across two Mumbai studios.
+            </p>,
+            <div key="cta" className="pointer-events-auto mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
+              <PrimaryButton href="#about">Explore the Academy</PrimaryButton>
+              <GhostButton href="/login">Student / Staff Login</GhostButton>
+            </div>,
+          ]}
+        />
       </div>
     </section>
   );
@@ -273,7 +251,8 @@ function About() {
 
 /** A conservatory prospectus listing, not a grid of icon cards — one row per
  *  instrument, name and description sharing a line the way a concert
- *  program does. */
+ *  program does; on desktop, vertical scroll drives the row sideways
+ *  (see HorizontalScroller) — mobile keeps a native swipe list. */
 function Courses() {
   return (
     <Section id="courses" tint="bg-[#0E0C12]">
@@ -281,23 +260,23 @@ function Courses() {
         title="Learn the instrument, not the shortcut"
         blurb="Six disciplines, each taught as a living tradition — technique, theory and repertoire from day one."
       />
-      <ul>
+      <HorizontalScroller rowClassName="flex gap-5 px-1 lg:px-0">
         {courses.map((c, i) => (
-          <li key={c.name} className="border-t border-white/10 py-8 first:border-t-0 md:py-10">
-            <Reveal delay={(i % 3) * 0.06}>
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] md:items-baseline md:gap-10">
-                <div className="flex items-baseline gap-4">
-                  <h3 className="font-display text-3xl text-[#F7F2E8] md:text-4xl">{c.name}</h3>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#D6A84F]/70">
+          <Reveal key={c.name} delay={(i % 3) * 0.06} className="shrink-0 snap-start">
+            <TiltCard maxTilt={4}>
+              <article className="flex h-full w-[19rem] flex-col justify-between rounded-2xl border border-white/10 bg-[#17131D]/70 p-7 transition-colors duration-300 hover:border-[#D6A84F]/35 sm:w-[22rem]">
+                <div>
+                  <h3 className="font-display text-4xl leading-tight text-[#F7F2E8]">{c.name}</h3>
+                  <span className="mt-2 inline-block text-[10px] font-bold uppercase tracking-[0.18em] text-[#D6A84F]/70">
                     {c.level}
                   </span>
                 </div>
-                <p className="max-w-xl text-[15px] leading-relaxed text-[#A9A2B0]">{c.desc}</p>
-              </div>
-            </Reveal>
-          </li>
+                <p className="mt-6 text-[15px] leading-relaxed text-[#A9A2B0]">{c.desc}</p>
+              </article>
+            </TiltCard>
+          </Reveal>
         ))}
-      </ul>
+      </HorizontalScroller>
     </Section>
   );
 }
@@ -355,19 +334,24 @@ function Branches() {
       <div className="grid gap-5 md:grid-cols-2">
         {branches.map((b, i) => (
           <Reveal key={b.name} delay={i * 0.1}>
-            <article className="flex h-full flex-col rounded-2xl border border-white/10 bg-[#17131D]/70 p-7">
-              <span className="mb-5 inline-flex w-fit rounded-full border border-[#D6A84F]/25 bg-[#D6A84F]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#E2BD68]">
-                {b.tag}
-              </span>
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-1.5 h-5 w-5 shrink-0 text-[#D6A84F]" aria-hidden />
-                <div>
-                  <h3 className="font-display text-2xl text-[#F7F2E8]">{b.name}</h3>
-                  <p className="mt-1 text-sm text-[#E2BD68]/80">{b.address}</p>
+            <TiltCard maxTilt={3} lift={6}>
+              <article className="group flex h-full flex-col rounded-2xl border border-white/10 bg-[#17131D]/70 p-7 transition-colors duration-300 hover:border-[#D6A84F]/40">
+                <span className="mb-5 inline-flex w-fit rounded-full border border-[#D6A84F]/25 bg-[#D6A84F]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#E2BD68]">
+                  {b.tag}
+                </span>
+                <div className="flex items-start gap-3">
+                  <MapPin
+                    className="mt-1.5 h-5 w-5 shrink-0 text-[#D6A84F] transition-colors duration-300 group-hover:text-[#E2BD68]"
+                    aria-hidden
+                  />
+                  <div>
+                    <h3 className="font-display text-2xl text-[#F7F2E8]">{b.name}</h3>
+                    <p className="mt-1 text-sm text-[#E2BD68]/80">{b.address}</p>
+                  </div>
                 </div>
-              </div>
-              <p className="mt-5 text-sm leading-relaxed text-[#A9A2B0]">{b.note}</p>
-            </article>
+                <p className="mt-5 text-sm leading-relaxed text-[#A9A2B0]">{b.note}</p>
+              </article>
+            </TiltCard>
           </Reveal>
         ))}
       </div>
@@ -445,6 +429,7 @@ function Footer() {
 export default function LandingPage() {
   return (
     <LenisProvider>
+      <SiteNav />
       <main className="bg-[#08070B] text-[#F7F2E8]">
         <Hero />
         <About />
@@ -456,6 +441,8 @@ export default function LandingPage() {
         <Footer />
       </main>
       <CinematicOverlay />
+      <CustomCursor />
+      <LoadingScreen />
     </LenisProvider>
   );
 }

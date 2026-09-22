@@ -115,7 +115,10 @@ function Scene({ cinematic }: { cinematic: boolean }) {
 }
 
 /**
- * Camera work, not just drift: a slow orbital sway at rest, plus a dolly-out
+ * Camera work, not just drift: a slow orbital sway at rest, a very subtle
+ * pointer-driven parallax (the spec's own words: "mouse movement → very
+ * subtle camera movement → user perceives physical depth" — a fraction of
+ * a unit of offset, not the object chasing the cursor), and a dolly-out
  * tied to how far the visitor has scrolled past the hero (plain
  * window.scrollY, not Lenis's whole-page progress — the hero is one
  * viewport tall, so page-wide progress would barely move within it). The
@@ -123,13 +126,20 @@ function Scene({ cinematic }: { cinematic: boolean }) {
  * the stage rather than the hero just scrolling out of frame.
  */
 function PerspectiveRig() {
+  const pointer = useThree((s) => s.pointer);
+  const smoothedPointer = React.useRef({ x: 0, y: 0 });
+
   useFrame(({ camera, clock }) => {
     const t = clock.getElapsedTime();
     const heroProgress =
       typeof window === "undefined" ? 0 : Math.min(Math.max(window.scrollY / window.innerHeight, 0), 1);
 
-    camera.position.x = Math.sin(t * 0.05) * 0.4;
-    camera.position.y = Math.cos(t * 0.04) * 0.2 + heroProgress * 0.6;
+    // Heavily damped — this is depth cue, not a tracking shot.
+    smoothedPointer.current.x += (pointer.x - smoothedPointer.current.x) * 0.04;
+    smoothedPointer.current.y += (pointer.y - smoothedPointer.current.y) * 0.04;
+
+    camera.position.x = Math.sin(t * 0.05) * 0.4 + smoothedPointer.current.x * 0.35;
+    camera.position.y = Math.cos(t * 0.04) * 0.2 + heroProgress * 0.6 + smoothedPointer.current.y * 0.2;
     camera.position.z = 5.2 + heroProgress * 3.5;
     if (camera instanceof PerspectiveCamera) {
       camera.fov = 42 + heroProgress * 10;

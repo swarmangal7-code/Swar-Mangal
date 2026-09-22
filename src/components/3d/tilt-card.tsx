@@ -32,11 +32,14 @@ export function TiltCard({
   className,
   maxTilt = 5,
   glare = true,
+  lift = 0,
 }: {
   children: React.ReactNode;
   className?: string;
   maxTilt?: number;
   glare?: boolean;
+  /** Pixels to rise on hover, on top of the tilt — 0 disables it. */
+  lift?: number;
 }) {
   const reduced = useReducedMotion();
   const fine = usePointerFine();
@@ -77,6 +80,8 @@ export function TiltCard({
       <motion.div
         onMouseMove={onMove}
         onMouseLeave={onLeave}
+        whileHover={lift ? { y: -lift } : undefined}
+        transition={{ duration: 0.3, ease: "easeOut" }}
         style={{ rotateX: srx, rotateY: sry, transformStyle: "preserve-3d" }}
         className="group/tilt relative h-full w-full"
       >
