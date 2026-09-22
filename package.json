@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"if(process.env.CF_PAGES){require('fs').rmSync('src/app/api',{recursive:true,force:true})}\"",
     "build": "next build",
     "start": "next start",
     "prestart": "node db/apply.mjs",

@@ -167,8 +167,13 @@ The VPS itself never serves this static build; `npm run build` there only
 needs `/api/*` up for the Flutter app and any dev use of the same-origin site.
 
 1. Cloudflare dashboard → Workers & Pages → Create → Pages → connect this repo
-2. Build command: `npm run pages:build` — build output directory:
-   `.vercel/output/static` (already set in `wrangler.toml`)
+2. Build command: Cloudflare's own project settings, not this repo's
+   `package.json`, decide what actually runs — it has been observed running
+   `npx @cloudflare/next-on-pages` directly (ignoring `npm run pages:build`
+   entirely). **Both are safe** — see the `CF_PAGES` mechanism below — but
+   `npm run pages:build` is the one that also works for local testing.
+   Build output directory: `.vercel/output/static` (already set in
+   `wrangler.toml`).
 3. **Required build-time env var** (Pages → Settings → Environment variables):
    ```
    NEXT_PUBLIC_RPC_URL=https://swarmangal.in/api/rpc
@@ -178,9 +183,30 @@ needs `/api/*` up for the Flutter app and any dev use of the same-origin site.
    whole site's RPC calls would just fail.
 4. Deploy. Cloudflare rebuilds automatically on every push to `main`.
 
-`npm run pages:build` runs `rm -rf src/app/api` before the Vercel/next-on-pages
-build — only inside that build's own checkout, never touching what's
-committed — because a static export can't contain server API routes at all.
+### Why `src/app/api` never reaches the Cloudflare build
+
+A static export can't contain server API routes at all, and every route
+under `src/app/api` genuinely needs the Node.js runtime (they use `pg` for
+raw Postgres TCP connections, which Cloudflare's Edge Runtime cannot do) —
+so `next-on-pages` refuses the build outright if it sees them
+("routes were not configured to run with the Edge Runtime").
+
+Since Cloudflare's own dashboard build command can't be relied on to run our
+`pages:build` script (see above), the actual fix lives in a `prebuild` npm
+hook, which fires automatically before **any** invocation of `npm run build`
+— including the one `next-on-pages` itself runs internally — regardless of
+what command started it:
+
+```
+"prebuild": "node -e \"if(process.env.CF_PAGES){require('fs').rmSync('src/app/api',{recursive:true,force:true})}\""
+```
+
+`CF_PAGES` is a build-time env var Cloudflare Pages sets automatically on
+every build, however it was triggered. On the VPS (`CF_PAGES` unset) this is
+a no-op — `/api/*` stays intact for the real Node server. `npm run
+pages:build`'s own `rm -rf src/app/api` is kept too, purely so a developer
+testing this build locally (where `CF_PAGES` is never set) still exercises
+the same Cloudflare-shaped build.
 
 ## Architecture rules
 
