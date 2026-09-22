@@ -24,9 +24,17 @@ export function Reveal({
     <motion.div
       ref={ref}
       className={cn(className)}
-      initial={reduced ? undefined : { opacity: 0, y: 26 }}
+      // `initial` never branches on `reduced`: framer-motion's SSR only ever
+      // renders the `initial` values as static inline styles, so branching
+      // this on a value that's unresolved on the server (useReducedMotion is
+      // null until the client's first effect) is a guaranteed hydration
+      // mismatch for any visitor with the OS preference on. Reduced motion
+      // is expressed by zeroing the transition instead, so it snaps to the
+      // same `animate` target with no visible motion, never a differently
+      // shaped server/client render.
+      initial={{ opacity: 0, y: 26 }}
       animate={reduced || inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 26 }}
-      transition={{ duration: 0.7, ease: EASE, delay }}
+      transition={{ duration: reduced ? 0 : 0.7, ease: EASE, delay: reduced ? 0 : delay }}
     >
       {children}
     </motion.div>
