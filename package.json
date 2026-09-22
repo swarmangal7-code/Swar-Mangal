@@ -75,6 +75,7 @@
       "react": "$react",
       "react-dom": "$react-dom"
     },
-    "@cloudflare/workers-types": "^5.20260921.1"
+    "@cloudflare/workers-types": "^5.20260921.1",
+    "sharp": "0.35.4"
   }
 }
