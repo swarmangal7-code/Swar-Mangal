@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChevronsUpDown, LogOut, Menu, Music2, X } from "lucide-react";
+import { Building2, ChevronsUpDown, Download, LogOut, Menu, Music2, X } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -279,6 +279,22 @@ export function WebShell({ role, children }: WebShellProps) {
             <p className="text-[15px] font-semibold tracking-tight">{pageTitle}</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <a
+              href="/downloads/swar-mangal.apk"
+              download
+              className="hidden items-center gap-2 rounded-full border border-dash-fg/15 bg-dash-fg/[0.04] px-3 py-1.5 text-xs font-medium text-dash-fg/85 transition-colors hover:border-dash-accent/40 hover:text-dash-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 sm:flex"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              <span>Download APK</span>
+            </a>
+            <a
+              href="/downloads/swar-mangal.apk"
+              download
+              aria-label="Download the Swar Mangal app (APK)"
+              className="flex items-center justify-center rounded-full border border-dash-fg/15 bg-dash-fg/[0.04] p-2 text-dash-fg/85 transition-colors hover:border-dash-accent/40 hover:text-dash-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 sm:hidden"
+            >
+              <Download className="h-4 w-4" aria-hidden />
+            </a>
             {branches.length > 1 && <BranchSelector branches={branches} />}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
