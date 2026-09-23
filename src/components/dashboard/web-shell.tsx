@@ -28,6 +28,16 @@ import { useTokenAuth, type TokenRole } from "@/lib/auth/token-auth";
 import { cn } from "@/lib/utils/cn";
 import { founderNav, staffNav, type WebNavSection } from "@/lib/config/web-nav";
 
+// Always points at the VPS's own copy, never a relative same-origin path.
+// This dashboard shell is served from two places — the VPS's Next.js server
+// (where a relative path would work fine) and the Cloudflare Pages static
+// frontend (where it would not: Cloudflare Pages has a hard 25MB per-file
+// limit on static assets, and this APK is ~60MB, so it can never be shipped
+// through Cloudflare's own asset pipeline at all). The VPS has no such
+// limit and already serves the real file, so every visitor downloads from
+// there regardless of which frontend rendered the button.
+const APK_DOWNLOAD_URL = "https://148.113.52.88.nip.io/downloads/swar-mangal.apk";
+
 interface WebShellProps {
   // `role` drives which shell this is. Nav config is resolved here from the
   // shared config instead of passed as a prop because icon components cannot
@@ -280,7 +290,7 @@ export function WebShell({ role, children }: WebShellProps) {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <a
-              href="/downloads/swar-mangal.apk"
+              href={APK_DOWNLOAD_URL}
               download
               className="hidden items-center gap-2 rounded-full border border-dash-fg/15 bg-dash-fg/[0.04] px-3 py-1.5 text-xs font-medium text-dash-fg/85 transition-colors hover:border-dash-accent/40 hover:text-dash-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 sm:flex"
             >
@@ -288,7 +298,7 @@ export function WebShell({ role, children }: WebShellProps) {
               <span>Download APK</span>
             </a>
             <a
-              href="/downloads/swar-mangal.apk"
+              href={APK_DOWNLOAD_URL}
               download
               aria-label="Download the Swar Mangal app (APK)"
               className="flex items-center justify-center rounded-full border border-dash-fg/15 bg-dash-fg/[0.04] p-2 text-dash-fg/85 transition-colors hover:border-dash-accent/40 hover:text-dash-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 sm:hidden"
