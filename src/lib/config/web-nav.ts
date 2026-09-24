@@ -108,6 +108,7 @@ export const staffNav: WebNavSection[] = [
   {
     label: "Academy",
     items: [
+      { title: "Teachers", href: "/staff/teachers", icon: GraduationCap },
       { title: "Timetable", href: "/staff/timetable", icon: CalendarDays },
       { title: "School Invoice", href: "/staff/school-invoice", icon: FileText },
     ],
