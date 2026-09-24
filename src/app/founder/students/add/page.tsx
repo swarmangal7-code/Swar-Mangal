@@ -27,13 +27,19 @@ type AddStudentArg = {
   phone?: string;
   email?: string;
   guardianName?: string;
+  guardianPhone?: string;
   classCode: string;
   feeCycleType: string;
   feeDueDay: number;
   instrument?: string;
   admissionSource?: string;
   teacherId?: string;
+  enrollmentDate?: string;
 };
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 type AddStudentRes = RpcEnvelope & {
   studentId?: string;
@@ -64,6 +70,8 @@ export default function FounderAddStudentPage() {
   const [phone, setPhone] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [guardian, setGuardian] = React.useState("");
+  const [guardianPhone, setGuardianPhone] = React.useState("");
+  const [joiningDate, setJoiningDate] = React.useState(() => todayIso());
   const [instrument, setInstrument] = React.useState("");
   const [classCode, setClassCode] = React.useState<string>("GMC");
   const [plan, setPlan] = React.useState("");
@@ -115,12 +123,14 @@ export default function FounderAddStudentPage() {
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
       guardianName: guardian.trim() || undefined,
+      guardianPhone: guardianPhone.trim() || undefined,
       classCode,
       feeCycleType,
       feeDueDay: dueDayNum,
       instrument: instrument.trim() || undefined,
       admissionSource: source || undefined,
       teacherId: teacherId || undefined,
+      enrollmentDate: joiningDate || undefined,
     });
   }
 
@@ -197,11 +207,31 @@ export default function FounderAddStudentPage() {
                 />
               </Field>
             </div>
-            <Field label="Parent / guardian name">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Parent / guardian name">
+                <Input
+                  value={guardian}
+                  onChange={(e) => setGuardian(e.target.value)}
+                  placeholder="Guardian name"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Guardian contact number">
+                <Input
+                  value={guardianPhone}
+                  onChange={(e) => setGuardianPhone(e.target.value)}
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="98xxxxxx00"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <Field label="Joining date">
               <Input
-                value={guardian}
-                onChange={(e) => setGuardian(e.target.value)}
-                placeholder="Guardian name"
+                value={joiningDate}
+                onChange={(e) => setJoiningDate(e.target.value)}
+                type="date"
                 className={inputClass}
               />
             </Field>

@@ -222,6 +222,24 @@ function DraftCard({ row, onFinalise, busy }: { row: PaymentDraft; onFinalise: (
   );
 }
 
+/** Short, human labels for each approval type — shown on the card so its
+ * kind is legible at a glance instead of only in the tab it came from. */
+const APPROVAL_TYPE_LABEL: Record<string, string> = {
+  PAYMENT_DRAFT: "Fee payment",
+  EXPENSE_DRAFT: "Expense",
+  STUDENT_DRAFT: "Student change",
+  RECEIPT_CORRECTION: "Receipt correction",
+  SCHOOL_INVOICE_DRAFT: "School invoice",
+  PACKAGE_EXTENSION: "Package extension",
+  PAYMENT_PROFILE_CHANGE: "Payment profile change",
+  CLOSURE: "Closure",
+  CLASS_CORRECTION: "Class correction",
+  LATE_FEE_WAIVER: "Late-fee waiver",
+  INSTALMENT_PLAN: "Instalment plan",
+  MANUAL_TERMS_ACCEPTANCE: "Terms acceptance",
+  TEACHER_ADD_REQUEST: "New teacher",
+};
+
 function ApprovalCard({
   item,
   active,
@@ -237,27 +255,29 @@ function ApprovalCard({
 }) {
   const actions = item.actions ?? [];
   const amount = item.amount ? inr(Number(item.amount)) : "";
+  const typeLabel = APPROVAL_TYPE_LABEL[item.type] ?? item.type;
 
   return (
     <Card className={cn("border-dash-fg/10 bg-dash-card transition-colors", active && "border-dash-accent/40")}>
-      <CardContent className="p-4 sm:p-5">
-        <button type="button" onClick={onToggle} className="flex w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60">
+      <CardContent className="space-y-3 p-4 sm:p-5">
+        <button type="button" onClick={onToggle} className="flex w-full items-start gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="lavender">{item.entity || item.type}</Badge>
-              {amount && <Badge variant="outline">{amount}</Badge>}
-            </div>
-            <p className="mt-1.5 text-sm font-semibold text-dash-fg">{item.itemId}</p>
+            <Badge variant="lavender">{typeLabel}</Badge>
+            <p className="mt-1.5 truncate text-sm font-semibold text-dash-fg">{item.entity || item.itemId}</p>
             <p className="text-xs text-dash-fg/45">
-              {fmtDate(item.date)} · {item.branch || "—"}
+              {item.itemId} · {fmtDate(item.date)} · {item.branch || "—"}
             </p>
           </div>
-          <ChevronDown className={cn("h-4 w-4 shrink-0 text-dash-fg/40 transition-transform", active && "rotate-180")} aria-hidden />
+          <div className="flex shrink-0 items-center gap-2">
+            {amount && <span className="text-sm font-bold text-dash-accent">{amount}</span>}
+            <ChevronDown className={cn("h-4 w-4 text-dash-fg/40 transition-transform", active && "rotate-180")} aria-hidden />
+          </div>
         </button>
 
-        {item.reason && <p className="mt-2 text-sm text-dash-fg/75">{item.reason}</p>}
+        {item.reason && <p className="text-sm text-dash-fg/75">{item.reason}</p>}
+        {item.feesPeriod && <p className="text-xs text-dash-fg/45">Period: {item.feesPeriod}</p>}
 
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {item.noStudentLinked && <Badge variant="destructive">NO STUDENT LINKED</Badge>}
           {item.studentId && <Badge variant="outline">{item.studentId}</Badge>}
           {item.flags?.backdated && <Badge variant="peach">BACKDATED</Badge>}
@@ -266,7 +286,6 @@ function ApprovalCard({
           {item.termsStatus && <Badge variant="outline">{item.termsStatus}</Badge>}
           {item.paymentMode && <Badge variant="outline">{item.paymentMode}</Badge>}
         </div>
-        {item.feesPeriod && <p className="mt-2 text-xs text-dash-fg/45">Period: {item.feesPeriod}</p>}
 
         {active && (
           <div className="mt-3 space-y-3 border-t border-dash-fg/10 pt-3">

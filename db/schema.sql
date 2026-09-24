@@ -1004,6 +1004,14 @@ create table if not exists push_log (
 alter table students_acad add column if not exists admission_source text;
 alter table student_drafts add column if not exists admission_source text;
 
+-- Founder request 2026-09-24: a guardian contact number distinct from the
+-- student's own phone (students_acad.phone), and a joining date on
+-- student_drafts (students_acad already has enrollment_date, but the staff
+-- draft path never had a column to carry it into the merge).
+alter table students_acad add column if not exists guardian_phone text;
+alter table student_drafts add column if not exists guardian_phone text;
+alter table student_drafts add column if not exists enrollment_date date;
+
 -- Brief §2.2: a package extension is a staff proposal, the founder decides.
 -- Approval nudges the student's existing fee_cycle_months/next_due_date
 -- fields rather than a separate "package" model, since students_acad has no

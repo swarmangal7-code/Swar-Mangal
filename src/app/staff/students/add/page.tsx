@@ -26,6 +26,7 @@ interface DraftArg extends Record<string, unknown> {
   phone: string;
   email: string;
   guardianName: string;
+  guardianPhone: string;
   instrument: string;
   classCode: string;
   branch: string;
@@ -33,7 +34,12 @@ interface DraftArg extends Record<string, unknown> {
   feeDueDay: number;
   admissionSource: string;
   teacherId: string;
+  enrollmentDate: string;
   clientIntentKey: string;
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 interface DraftResponse extends RpcEnvelope {
@@ -67,6 +73,8 @@ export default function StaffAddStudentPage() {
   const [phone, setPhone] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [guardian, setGuardian] = React.useState("");
+  const [guardianPhone, setGuardianPhone] = React.useState("");
+  const [joiningDate, setJoiningDate] = React.useState(() => todayIso());
   const [instrument, setInstrument] = React.useState("");
   const [classCode, setClassCode] = React.useState("");
   const [plan, setPlan] = React.useState("");
@@ -121,6 +129,7 @@ export default function StaffAddStudentPage() {
       phone: phone.trim(),
       email: email.trim(),
       guardianName: guardian.trim(),
+      guardianPhone: guardianPhone.trim(),
       instrument: instrument.trim(),
       classCode,
       branch,
@@ -128,6 +137,7 @@ export default function StaffAddStudentPage() {
       feeDueDay: dueDayNum,
       admissionSource: source,
       teacherId,
+      enrollmentDate: joiningDate,
       clientIntentKey: intentRef.current,
     });
   };
@@ -181,8 +191,16 @@ export default function StaffAddStudentPage() {
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="parent@example.com" className={inputClass} />
               </Field>
             </div>
-            <Field label="Parent / guardian name">
-              <Input value={guardian} onChange={(e) => setGuardian(e.target.value)} placeholder="Guardian name" className={inputClass} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Parent / guardian name">
+                <Input value={guardian} onChange={(e) => setGuardian(e.target.value)} placeholder="Guardian name" className={inputClass} />
+              </Field>
+              <Field label="Guardian contact number">
+                <Input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} type="tel" inputMode="numeric" placeholder="98xxxxxx00" className={inputClass} />
+              </Field>
+            </div>
+            <Field label="Joining date">
+              <Input value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} type="date" className={inputClass} />
             </Field>
             <Field label="Instrument / course">
               <Input value={instrument} onChange={(e) => setInstrument(e.target.value)} placeholder="Keyboard, Violin, Vocal…" className={inputClass} />

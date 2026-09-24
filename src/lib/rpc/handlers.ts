@@ -224,6 +224,7 @@ interface StudentFields {
   phone: string;
   email: string;
   parentName: string;
+  guardianPhone: string;
   course: string;
   branch: string;
   batch: string;
@@ -232,6 +233,13 @@ interface StudentFields {
   notes: string;
   admissionSource: string;
   teacherId: string;
+  enrollmentDate: string | null;
+}
+
+/** "2026-09-24" only — anything else (blank, malformed) becomes null rather than a bad date literal reaching SQL. */
+function isoDateOrNull(v: unknown): string | null {
+  const t = s(v).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null;
 }
 
 function studentFieldsFrom(arg: Record<string, unknown>): StudentFields {
@@ -242,6 +250,7 @@ function studentFieldsFrom(arg: Record<string, unknown>): StudentFields {
     phone: s(arg["phone"]).trim(),
     email: s(arg["email"]).trim(),
     parentName: s(arg["parentName"] ?? arg["guardianName"]).trim(),
+    guardianPhone: s(arg["guardianPhone"]).trim(),
     course: s(arg["instrument"] ?? arg["course"]).trim(),
     branch: branchFromClient(arg),
     batch: s(arg["batch"]).trim(),
@@ -250,6 +259,10 @@ function studentFieldsFrom(arg: Record<string, unknown>): StudentFields {
     feeDueDay: Number.isInteger(dueDay) && dueDay >= 1 && dueDay <= 31 ? dueDay : null,
     notes: s(arg["notes"]).trim(),
     admissionSource: ADMISSION_SOURCES.includes(admissionSource) ? admissionSource : "",
+    // `joiningDate` is the key the Flutter app already sends (currently always
+    // empty — a vestigial, never-wired field); accepting it here as an alias
+    // means wiring up that screen later needs no server-side change.
+    enrollmentDate: isoDateOrNull(arg["enrollmentDate"] ?? arg["joiningDate"]),
   };
 }
 
@@ -271,11 +284,11 @@ async function createStudent(f: StudentFields, runner: { query: typeof query } =
   const plan = resolvePlan(f.planText);
   await runner.query(
     `insert into students_acad
-       (id, name, guardian_name, phone, email, instrument, branch, batch, fee_plan, status, notes,
-        fee_plan_name, monthly_fee, fee_cycle_months, fee_due_day, next_due_date, admission_source, assigned_teacher_id)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'ACTIVE',$10,$11,$12,$13,$14,$15::date,$16,$17)`,
+       (id, name, guardian_name, guardian_phone, phone, email, instrument, branch, batch, fee_plan, status, notes,
+        fee_plan_name, monthly_fee, fee_cycle_months, fee_due_day, next_due_date, admission_source, assigned_teacher_id, enrollment_date)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'ACTIVE',$11,$12,$13,$14,$15,$16::date,$17,$18,$19::date)`,
     [
-      id, f.name, f.parentName, f.phone, f.email, f.course || "Music", f.branch, f.batch, f.planText, f.notes,
+      id, f.name, f.parentName, f.guardianPhone || null, f.phone, f.email, f.course || "Music", f.branch, f.batch, f.planText, f.notes,
       plan?.name ?? (f.planText || null),
       plan?.amount ?? null,
       plan?.months ?? null,
@@ -284,6 +297,7 @@ async function createStudent(f: StudentFields, runner: { query: typeof query } =
       plan ? todayIso() : null,
       f.admissionSource || null,
       f.teacherId || null,
+      f.enrollmentDate,
     ],
   );
   return id;
@@ -343,11 +357,11 @@ async function saveStudentDraft(arg: Record<string, unknown>, scope: BranchScope
   const draftId = newId("SDRAFT");
   await query(
     `insert into student_drafts
-       (id, status, action, student_id, name, phone, email, parent_name, course, branch, batch, fee_plan, notes, submitted_by, client_intent_key,
-        lifecycle_status, status_reason, admission_source, teacher_id)
-     values ($1,'SUBMITTED',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-    [draftId, editingId ? "EDIT" : "ADD", editingId || null, f.name, f.phone, f.email, f.parentName, f.course, branch, f.batch, f.planText, f.notes, session?.deviceLabel || session?.email || "", intent,
-     lifecycle || null, statusReason || null, f.admissionSource || null, f.teacherId || null],
+       (id, status, action, student_id, name, phone, email, parent_name, guardian_phone, course, branch, batch, fee_plan, notes, submitted_by, client_intent_key,
+        lifecycle_status, status_reason, admission_source, teacher_id, enrollment_date)
+     values ($1,'SUBMITTED',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::date)`,
+    [draftId, editingId ? "EDIT" : "ADD", editingId || null, f.name, f.phone, f.email, f.parentName, f.guardianPhone || null, f.course, branch, f.batch, f.planText, f.notes, session?.deviceLabel || session?.email || "", intent,
+     lifecycle || null, statusReason || null, f.admissionSource || null, f.teacherId || null, f.enrollmentDate],
   );
   await bumpRevisions(["approvals", "tasks"]);
   notifyFounderApproval("Student change", editingId ? "an edit to review" : "a new student to review", draftId);
@@ -374,8 +388,10 @@ async function mergeStudentDraft(arg: Record<string, unknown>, session?: RpcSess
 
     const f: StudentFields = {
       name: s(draft.name), phone: s(draft.phone), email: s(draft.email), parentName: s(draft.parent_name),
+      guardianPhone: s(draft.guardian_phone),
       course: s(draft.course), branch: s(draft.branch), batch: s(draft.batch), planText: s(draft.fee_plan),
       feeDueDay: null, notes: s(draft.notes), admissionSource: s(draft.admission_source), teacherId: s(draft.teacher_id),
+      enrollmentDate: isoDateOrNull(draft.enrollment_date),
     };
     let studentId = s(draft.student_id);
     if (s(draft.action) === "EDIT") {
@@ -384,14 +400,16 @@ async function mergeStudentDraft(arg: Record<string, unknown>, session?: RpcSess
         `update students_acad set
            name = coalesce(nullif($2,''), name), phone = coalesce(nullif($3,''), phone),
            email = coalesce(nullif($4,''), email), guardian_name = coalesce(nullif($5,''), guardian_name),
-           instrument = coalesce(nullif($6,''), instrument), batch = coalesce(nullif($7,''), batch),
-           notes = coalesce(nullif($8,''), notes),
-           fee_plan_name = coalesce($9, fee_plan_name), monthly_fee = coalesce($10, monthly_fee),
-           fee_cycle_months = coalesce($11, fee_cycle_months),
-           admission_source = coalesce(nullif($12,''), admission_source),
-           assigned_teacher_id = coalesce(nullif($13,''), assigned_teacher_id)
+           guardian_phone = coalesce(nullif($6,''), guardian_phone),
+           instrument = coalesce(nullif($7,''), instrument), batch = coalesce(nullif($8,''), batch),
+           notes = coalesce(nullif($9,''), notes),
+           fee_plan_name = coalesce($10, fee_plan_name), monthly_fee = coalesce($11, monthly_fee),
+           fee_cycle_months = coalesce($12, fee_cycle_months),
+           admission_source = coalesce(nullif($13,''), admission_source),
+           assigned_teacher_id = coalesce(nullif($14,''), assigned_teacher_id),
+           enrollment_date = coalesce($15::date, enrollment_date)
          where id = $1`,
-        [studentId, f.name, f.phone, f.email, f.parentName, f.course, f.batch, f.notes, plan?.name ?? null, plan?.amount ?? null, plan?.months ?? null, f.admissionSource, f.teacherId],
+        [studentId, f.name, f.phone, f.email, f.parentName, f.guardianPhone, f.course, f.batch, f.notes, plan?.name ?? null, plan?.amount ?? null, plan?.months ?? null, f.admissionSource, f.teacherId, f.enrollmentDate],
       );
       if (s(draft.lifecycle_status)) {
         await tx.query(
