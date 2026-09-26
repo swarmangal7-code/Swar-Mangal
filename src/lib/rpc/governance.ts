@@ -1494,7 +1494,7 @@ export async function governanceApprovalItems(): Promise<{
       return {
         type: isEdit ? "TEACHER_EDIT_REQUEST" : "TEACHER_ADD_REQUEST",
         itemId: s(r.id),
-        entity: s(r.teacher_name),
+        entity: s(r.teacher_name) || s(r.teacher_id),
         studentId: "",
         noStudentLinked: false,
         paymentMode: "",
