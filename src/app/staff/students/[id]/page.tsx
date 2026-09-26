@@ -175,7 +175,7 @@ export default function StaffStudentProfilePage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild size="sm" className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover">
-                <Link href="/staff/fees">
+                <Link href={`/staff/fees?studentId=${encodeURIComponent(id)}`}>
                   <HandCoins className="h-3.5 w-3.5" aria-hidden /> Collect fee
                 </Link>
               </Button>

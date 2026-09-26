@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Banknote, CheckCircle2, Search, UserRound } from "lucide-react";
 import { toast } from "sonner";
@@ -43,8 +44,18 @@ interface DraftResponse extends RpcEnvelope {
 }
 
 export default function StaffFeesPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <StaffFeesPageInner />
+    </React.Suspense>
+  );
+}
+
+function StaffFeesPageInner() {
   const boot = useStaffBoot();
   const modes = boot.data?.paymentModes?.length ? boot.data.paymentModes : MODE_DEFAULTS;
+  const searchParams = useSearchParams();
+  const presetId = (searchParams.get("studentId") || searchParams.get("student") || "").trim();
 
   const [student, setStudent] = React.useState<Student | null>(null);
   const [amount, setAmount] = React.useState("");
@@ -58,6 +69,25 @@ export default function StaffFeesPage() {
   const [success, setSuccess] = React.useState<DraftResponse | null>(null);
 
   const intentRef = React.useRef(`PDRAFT-${Date.now()}`);
+
+  const presetSearch = useStudentSearch(presetId, { mode: "staff" }, { enabled: !!presetId });
+  const [autoSelectedFor, setAutoSelectedFor] = React.useState("");
+  React.useEffect(() => {
+    if (!presetId || autoSelectedFor === presetId) return;
+    const rows = presetSearch.data?.results ?? presetSearch.data?.rows ?? [];
+    const match = rows.find((r) => r.studentId === presetId);
+    if (match) {
+      setStudent(match);
+      setAutoSelectedFor(presetId);
+    }
+  }, [presetId, presetSearch.data, autoSelectedFor]);
+
+  // The amount owed right now, according to the student's own plan — staff
+  // can still edit it (e.g. multiple cycles overdue), this is just a start.
+  React.useEffect(() => {
+    if (student?.monthlyFee) setAmount(String(student.monthlyFee));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student?.studentId]);
 
   const isCash = mode.toUpperCase().includes("CASH");
   const amountNum = Number(amount);
@@ -115,7 +145,11 @@ export default function StaffFeesPage() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
-          <StudentPicker student={student} onSelect={setStudent} />
+          {presetId && !student && presetSearch.isFetching ? (
+            <Skeleton className="h-24 bg-dash-fg/[0.04]" />
+          ) : (
+            <StudentPicker student={student} onSelect={setStudent} />
+          )}
 
           <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="space-y-4 pt-5">

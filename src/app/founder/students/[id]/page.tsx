@@ -6,7 +6,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, HandCoins, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -189,6 +189,11 @@ export default function FounderStudentProfilePage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button asChild size="sm" className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover">
+                <Link href={`/founder/fees?studentId=${encodeURIComponent(id)}`}>
+                  <HandCoins className="h-3.5 w-3.5" aria-hidden /> Collect fee
+                </Link>
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
                 <Pencil className="h-3.5 w-3.5" aria-hidden /> Edit
               </Button>
