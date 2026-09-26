@@ -388,6 +388,7 @@ export interface Inquiry {
   lastContactedAt: string;
   dormantReason: string;
   formerStudentId: string;
+  formerTeacherId: string;
   created_at: string;
 }
 

@@ -81,6 +81,8 @@ export function teacherStatusTone(status?: string | null): Tone {
       return { label: "Hold", className: "border-amber-400/30 bg-amber-400/10 text-amber-300" };
     case "INACTIVE":
       return { label: "Inactive", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/55" };
+    case "LEFT":
+      return { label: "Left", className: "border-red-400/30 bg-red-400/10 text-red-300" };
     default:
       return { label: status || "—", className: "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/55" };
   }

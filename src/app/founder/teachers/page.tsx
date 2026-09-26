@@ -31,13 +31,14 @@ import { teacherStatusTone } from "../_shared";
 type AddTeacherArg = { teacherName: string; phone: string; primaryRole: string };
 type AddTeacherRes = RpcEnvelope & { teacherId?: string };
 
-type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE" | "HOLD";
+type StatusFilter = "ALL" | "ACTIVE" | "INACTIVE" | "HOLD" | "LEFT";
 
 const FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "ALL", label: "All" },
   { value: "ACTIVE", label: "Active" },
   { value: "INACTIVE", label: "Inactive" },
   { value: "HOLD", label: "Hold" },
+  { value: "LEFT", label: "Left" },
 ];
 
 export default function FounderTeachersPage() {

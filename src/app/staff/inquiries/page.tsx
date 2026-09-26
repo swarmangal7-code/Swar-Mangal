@@ -118,6 +118,8 @@ export default function StaffInquiriesPage() {
                         {r.finalStatus || r.status || "—"}
                       </span>
                       {r.noAnswerCount > 0 && <Badge variant="outline">{r.noAnswerCount} misses</Badge>}
+                      {r.formerStudentId && <Badge variant="peach">Former Student</Badge>}
+                      {r.formerTeacherId && <Badge variant="peach">Former Teacher</Badge>}
                     </div>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 truncate text-xs text-dash-fg/45">
                       <span className="inline-flex items-center gap-1.5">

@@ -538,6 +538,25 @@ async function teacherProfile(arg: Record<string, unknown>, scope: BranchScope):
   });
 }
 
+/**
+ * Mirrors createWinBackLeadIfNeeded (handlers.ts) for teachers: when a
+ * teacher's status becomes LEFT (the founder's "Delete" action), they don't
+ * just disappear — they land in the same Inquiries pipeline as a re-engage
+ * lead, tagged source='Former Teacher' so staff can tell them apart from
+ * former-student leads. Idempotent per teacher.
+ */
+async function createTeacherWinBackLeadIfNeeded(teacherId: string, reason: string): Promise<void> {
+  const already = await queryOne<{ id: string }>(`select id from inquiries where former_teacher_id = $1`, [teacherId]);
+  if (already) return;
+  const teacher = await acadTeacherById(teacherId);
+  if (!teacher) return;
+  await query(
+    `insert into inquiries (id, name, phone, instrument, source, notes, status, created_at, next_contact_date, former_teacher_id, updated_at)
+     values ($1,$2,$3,$4,'Former Teacher',$5,'OPEN',current_date,current_date + 1,$6,now())`,
+    [newId("INQ"), teacher.name, teacher.phone, teacher.instrument, `Left the academy: ${reason}`, teacherId],
+  );
+}
+
 async function updateTeacherStatus(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
   const id = s(arg["teacherId"]);
   const status = s(arg["newStatus"] ?? arg["status"]).toUpperCase();
@@ -546,7 +565,8 @@ async function updateTeacherStatus(arg: Record<string, unknown>, session?: RpcSe
   const before = await acadTeacherById(id);
   if (!before) return { ok: false, code: "NOT_FOUND", error: `No teacher ${id}` };
   await query("update teachers_acad set status = $1 where id = $2", [status, id]);
-  await bumpRevisions(["teachers"]);
+  if (status === "LEFT") await createTeacherWinBackLeadIfNeeded(id, reason || "removed by founder");
+  await bumpRevisions(["teachers", "inquiries"]);
   return ok({ teacherId: id, oldStatus: s(before.status), newStatus: status, message: reason || "updated", changedBy: session?.email ?? "" });
 }
 
@@ -1732,7 +1752,7 @@ async function inquiryQueue(arg: Record<string, unknown>, scope: BranchScope): P
   const rows = await query<Record<string, unknown>>(
     `select id, name, phone, instrument, branch, source, notes, status, created_at::text, next_contact_date::text,
             trial_date::text, drop_reason, converted_student_id, no_answer_count, last_contacted_at::text,
-            dormant_reason, former_student_id
+            dormant_reason, former_student_id, former_teacher_id
      from inquiries order by coalesce(next_contact_date, created_at, current_date), id desc limit 500`,
   );
   const filtered = rows.filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(branch, r.branch));
@@ -1753,6 +1773,7 @@ async function inquiryQueue(arg: Record<string, unknown>, scope: BranchScope): P
     lastContactedAt: s(r.last_contacted_at),
     dormantReason: s(r.dormant_reason),
     formerStudentId: s(r.former_student_id),
+    formerTeacherId: s(r.former_teacher_id),
     created_at: s(r.created_at),
   });
   return ok({
@@ -1768,7 +1789,7 @@ async function inquiryDetail(arg: Record<string, unknown>, scope: BranchScope): 
   const row = await queryOne<Record<string, unknown>>(
     `select id, name, phone, instrument, branch, source, notes, status, created_at::text, next_contact_date::text,
             trial_date::text, drop_reason, converted_student_id, no_answer_count, last_contacted_at::text,
-            dormant_reason, former_student_id
+            dormant_reason, former_student_id, former_teacher_id
      from inquiries where id = $1`,
     [id],
   );
@@ -1798,6 +1819,7 @@ async function inquiryDetail(arg: Record<string, unknown>, scope: BranchScope): 
     lastContactedAt: s(row.last_contacted_at),
     dormantReason: s(row.dormant_reason),
     formerStudentId: s(row.former_student_id),
+    formerTeacherId: s(row.former_teacher_id),
     followups: followups.map((f) => ({
       id: s(f.id),
       action: s(f.action),

@@ -6,7 +6,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, GraduationCap } from "lucide-react";
+import { ArrowLeft, GraduationCap, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,9 @@ export default function FounderTeacherProfilePage() {
   const [statusValue, setStatusValue] = React.useState("ACTIVE");
   const [statusReason, setStatusReason] = React.useState("");
 
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteReason, setDeleteReason] = React.useState("");
+
   const teacher = prof.data?.teacher;
   const students = prof.data?.students ?? [];
 
@@ -100,6 +103,16 @@ export default function FounderTeacherProfilePage() {
       setStatusOpen(false);
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not update status."),
+  });
+
+  const deleteTeacher = useMutationRpc<TeacherStatusArg, RpcEnvelope>("api_updateTeacherStatus", {
+    invalidate: [rpcKeys.root],
+    onSuccess: () => {
+      toast.success("Teacher removed — moved to Inquiries as a lead.");
+      setDeleteOpen(false);
+      setDeleteReason("");
+    },
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not delete teacher."),
   });
 
   if (prof.isError) {
@@ -185,6 +198,17 @@ export default function FounderTeacherProfilePage() {
                 }}
               >
                 Change Status
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-400/30 text-red-300 hover:bg-red-400/10"
+                onClick={() => {
+                  setDeleteReason("");
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete
               </Button>
             </div>
           </CardContent>
@@ -369,6 +393,41 @@ export default function FounderTeacherProfilePage() {
               }
             >
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Delete {teacher.teacherName}?</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
+              This doesn&apos;t erase their records — it marks them LEFT and moves them to
+              Inquiries as a lead, so you can follow up if they ever want to come back. A reason
+              is required.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label className="text-[13px] text-dash-fg/70">Reason *</Label>
+            <Textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Why are they leaving?"
+              className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              loading={deleteTeacher.isPending}
+              disabled={!deleteReason.trim()}
+              onClick={() => deleteTeacher.mutate({ teacherId: id, newStatus: "LEFT", reason: deleteReason.trim() })}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden /> Delete
             </Button>
           </DialogFooter>
         </DialogContent>

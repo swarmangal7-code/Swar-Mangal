@@ -51,6 +51,7 @@ interface InquiryDetailResponse extends RpcEnvelope {
   lastContactedAt: string;
   dormantReason: string;
   formerStudentId: string;
+  formerTeacherId: string;
   followups: Followup[];
 }
 
@@ -183,6 +184,8 @@ export default function StaffInquiryDetailPage() {
                     {data.finalStatus || data.status || "—"}
                   </span>
                   {data.noAnswerCount > 0 && <Badge variant="outline">{data.noAnswerCount} no-answers</Badge>}
+                  {data.formerStudentId && <Badge variant="peach">Former Student</Badge>}
+                  {data.formerTeacherId && <Badge variant="peach">Former Teacher</Badge>}
                 </div>
                 <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-dash-fg/55">
                   <span className="inline-flex items-center gap-1.5">
@@ -197,6 +200,11 @@ export default function StaffInquiryDetailPage() {
             {data.convertedStudentId && (
               <Button asChild size="sm" variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
                 <Link href={`/staff/students/${encodeURIComponent(data.convertedStudentId)}`}>View student</Link>
+              </Button>
+            )}
+            {data.formerTeacherId && (
+              <Button asChild size="sm" variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
+                <Link href={`/staff/teachers/${encodeURIComponent(data.formerTeacherId)}`}>View teacher</Link>
               </Button>
             )}
           </CardContent>

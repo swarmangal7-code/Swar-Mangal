@@ -1377,3 +1377,9 @@ create unique index if not exists teacher_add_requests_intent_unique
 -- the default staff pick when scheduling this student's first class.
 alter table students_acad add column if not exists assigned_teacher_id text;
 alter table student_drafts add column if not exists teacher_id text;
+
+-- Founder request 2026-09-27: "delete teacher" mirrors "delete student" —
+-- setting status to LEFT creates a win-back lead in Inquiries instead of
+-- the teacher just disappearing. Reverse pointer, matching
+-- inquiries.former_student_id.
+alter table inquiries add column if not exists former_teacher_id text;
