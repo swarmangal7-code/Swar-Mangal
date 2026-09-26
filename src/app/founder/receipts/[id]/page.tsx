@@ -20,8 +20,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { API_ORIGIN } from "@/lib/api/rpc-client";
 import { useMutationRpc, useReceipts } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
+import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { fmtDate, inr, todayISO } from "@/lib/utils/cn";
 
@@ -52,9 +54,11 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
   const { id } = React.use(params);
   const receiptNo = decodeURIComponent(id);
 
+  const { token } = useTokenAuth();
   const { data, isFetching, error, refetch } = useReceipts({ receiptNo, limit: 5 });
   const rows = data?.results ?? data?.rows ?? [];
   const receipt = rows.find((r) => r.receiptNo === receiptNo) ?? rows[0];
+  const pdfHref = `${API_ORIGIN}/api/pdf/receipt/${encodeURIComponent(receiptNo)}?token=${encodeURIComponent(token)}`;
 
   const [voidOpen, setVoidOpen] = React.useState(false);
 
@@ -107,14 +111,14 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
 
   const isVoid = (receipt.status ?? "").toUpperCase() === "VOID";
   const studentName = receipt.studentName || receipt.student || "—";
-  const canWhatsApp = !!receipt.pdfUrl && !!receipt.studentId && (receipt.pdfUrl.startsWith("/") || receipt.pdfUrl.startsWith(window.location.origin));
+  const canWhatsApp = !!receipt.studentId;
   const amount = receipt.amount;
 
   const sendWhatsApp = async () => {
-    if (!receipt.pdfUrl || !receipt.studentId) return;
+    if (!receipt.studentId) return;
     toast.loading("Preparing receipt PDF…");
     try {
-      const fileBase64 = await fileToBase64(receipt.pdfUrl);
+      const fileBase64 = await fileToBase64(pdfHref);
       toast.dismiss();
       sendDoc.mutate({
         studentId: receipt.studentId,
@@ -175,17 +179,15 @@ export default function FounderReceiptDetailPage({ params }: { params: Promise<{
             <Card className="border-dash-fg/10 bg-dash-card">
               <CardContent className="space-y-3 pt-5">
                 <div className="flex flex-wrap gap-2">
-                  {receipt.pdfUrl && (
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
-                    >
-                      <a href={receipt.pdfUrl} target="_blank" rel="noreferrer">
-                        <Printer className="h-4 w-4" /> Print PDF
-                      </a>
-                    </Button>
-                  )}
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+                  >
+                    <a href={pdfHref} target="_blank" rel="noreferrer">
+                      <Printer className="h-4 w-4" /> Print PDF
+                    </a>
+                  </Button>
                   {canWhatsApp && (
                     <Button
                       variant="outline"

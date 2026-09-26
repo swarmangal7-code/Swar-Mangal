@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, Download, FileText, Share2 } from "lucide-reac
 import { toast } from "sonner";
 
 import { useTokenAuth } from "@/lib/auth/token-auth";
+import { API_ORIGIN } from "@/lib/api/rpc-client";
 import { useMutationRpc, rpcKeys } from "@/lib/api/rpc-hooks";
 import type { InvoiceOwner, RpcEnvelope } from "@/lib/api/rpc-types";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ function todayIso() {
 }
 
 export default function FounderNewSchoolInvoicePage() {
-  const { session } = useTokenAuth();
+  const { session, token } = useTokenAuth();
   const branches = session?.branches?.length ? [...session.branches] : [];
 
   const [className, setClassName] = React.useState("");
@@ -76,11 +77,7 @@ export default function FounderNewSchoolInvoicePage() {
 
   const handleDownload = () => {
     if (!created) return;
-    if (created.pdfUrl) {
-      window.open(created.pdfUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    window.print();
+    window.open(`${API_ORIGIN}/api/pdf/invoice/${encodeURIComponent(created.invoiceId)}?token=${encodeURIComponent(token)}`, "_blank", "noopener,noreferrer");
   };
 
   const handleShare = async () => {

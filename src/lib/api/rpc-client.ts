@@ -24,11 +24,20 @@ export const RPC_TIMEOUT_MS = 45_000;
 
 /**
  * Resolved RPC gateway URL. In production on Cloudflare Pages this is the
- * VPS backend (e.g. https://swarmangal.in/api/rpc). In dev it falls back
+ * VPS backend (e.g. https://vps.swarmangal.in/api/rpc). In dev it falls back
  * to the same-origin /api/rpc proxy.
  */
 export const RPC_URL =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_RPC_URL) || "/api/rpc";
+
+/**
+ * Origin to build OTHER absolute API links from (PDF downloads, etc.) — same
+ * backend RPC_URL points at, minus the "/api/rpc" suffix. On Cloudflare
+ * Pages, "/api/*" is stripped from the static build entirely (see
+ * next.config's prebuild script), so any API link must be absolute against
+ * the VPS, never a same-origin relative path.
+ */
+export const API_ORIGIN = RPC_URL.replace(/\/api\/rpc\/?$/, "");
 
 export type RpcArg = Record<string, unknown>;
 

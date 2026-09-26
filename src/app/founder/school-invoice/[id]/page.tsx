@@ -8,11 +8,13 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Download, FileText, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { API_ORIGIN } from "@/lib/api/rpc-client";
 import { useRpc } from "@/lib/api/rpc-hooks";
 import type { SchoolInvoiceResponse } from "@/lib/api/rpc-types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InvoicePreview } from "@/components/founder/invoice-preview";
+import { useTokenAuth } from "@/lib/auth/token-auth";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -37,14 +39,11 @@ export default function FounderSchoolInvoiceDetailPage() {
   );
 
   const invoice = invoiceQ.data?.invoice;
+  const { token } = useTokenAuth();
 
   const handleDownload = () => {
     if (!invoice) return;
-    if (invoice.pdfUrl) {
-      window.open(invoice.pdfUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    window.print();
+    window.open(`${API_ORIGIN}/api/pdf/invoice/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`, "_blank", "noopener,noreferrer");
   };
 
   const handleShare = async () => {
