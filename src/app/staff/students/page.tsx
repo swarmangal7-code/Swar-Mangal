@@ -26,7 +26,7 @@ export default function StaffStudentsPage() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const search = useStudentSearch(debounced, { mode: "staff", branch });
+  const search = useStudentSearch(debounced, { mode: "staff", branch }, { enabled: true });
   const rows = search.data?.results ?? search.data?.rows ?? [];
   const searching = debounced.trim().length > 0;
 
@@ -35,7 +35,7 @@ export default function StaffStudentsPage() {
       <motion.div variants={fadeUp}>
         <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Students</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Students</h1>
-        <p className="mt-1 text-sm text-dash-fg/55">Search by name, phone or student ID.</p>
+        <p className="mt-1 text-sm text-dash-fg/55">The full roster — search to narrow it down.</p>
       </motion.div>
 
       <motion.div variants={fadeUp} className="relative">
@@ -55,17 +55,7 @@ export default function StaffStudentsPage() {
             {search.error?.message?.replace(/\[.*\]$/, "") || "Could not search students."}
           </p>
         </motion.div>
-      ) : !searching ? (
-        <motion.div variants={fadeUp}>
-          <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-16 text-center">
-            <Users className="mb-3 h-9 w-9 text-dash-fg/20" aria-hidden />
-            <p className="text-sm font-medium text-dash-fg/70">Search the roster</p>
-            <p className="mt-1 max-w-xs text-xs text-dash-fg/40">
-              Type at least two characters to find a student.
-            </p>
-          </div>
-        </motion.div>
-      ) : search.isFetching && rows.length === 0 ? (
+      ) : search.isPending || (search.isFetching && rows.length === 0) ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-16 bg-dash-fg/[0.04]" />
@@ -74,8 +64,13 @@ export default function StaffStudentsPage() {
       ) : rows.length === 0 ? (
         <motion.div variants={fadeUp}>
           <div className="flex flex-col items-center rounded-2xl border border-dashed border-dash-fg/15 bg-dash-fg/[0.02] px-6 py-14 text-center">
-            <p className="text-sm font-medium text-dash-fg/70">No students matched</p>
-            <p className="mt-1 max-w-xs text-xs text-dash-fg/40">Try a different name or phone number.</p>
+            <Users className="mb-3 h-9 w-9 text-dash-fg/20" aria-hidden />
+            <p className="text-sm font-medium text-dash-fg/70">
+              {searching ? "No students matched" : "No students yet"}
+            </p>
+            <p className="mt-1 max-w-xs text-xs text-dash-fg/40">
+              {searching ? "Try a different name or phone number." : "Add the first student to get started."}
+            </p>
           </div>
         </motion.div>
       ) : (
