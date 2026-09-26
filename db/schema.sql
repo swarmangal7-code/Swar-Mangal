@@ -1383,3 +1383,11 @@ alter table student_drafts add column if not exists teacher_id text;
 -- the teacher just disappearing. Reverse pointer, matching
 -- inquiries.former_student_id.
 alter table inquiries add column if not exists former_teacher_id text;
+
+-- Founder request 2026-09-27: staff can also request an EDIT to an existing
+-- teacher, or — via lifecycle_status='LEFT' — a DELETE, not just propose a
+-- brand new one. Same table, action tells them apart (mirrors student_drafts).
+alter table teacher_add_requests add column if not exists action text not null default 'ADD';
+alter table teacher_add_requests add column if not exists email text;
+alter table teacher_add_requests add column if not exists lifecycle_status text;
+alter table teacher_add_requests add column if not exists status_reason text;

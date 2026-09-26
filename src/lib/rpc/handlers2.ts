@@ -447,51 +447,87 @@ async function addTeacher(arg: Record<string, unknown>): Promise<Record<string, 
  * addTeacher above is founder-direct; this is the staff-facing proposal —
  * staff meet new teachers day to day, so they submit the details and the
  * founder approves, same draft/approve shape as every other staff request.
+ * Also doubles as an EDIT (teacherId given) or, via lifecycleStatus="LEFT",
+ * a DELETE request for an existing teacher — mirrors saveStudentDraft.
  */
 async function requestAddTeacher(arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession): Promise<Record<string, unknown>> {
+  const editingId = s(arg["teacherId"]).trim();
   const name = s(arg["teacherName"] ?? arg["name"]).trim();
   const phone = s(arg["phone"]).trim();
+  const email = s(arg["email"]).trim();
   const primaryRole = s(arg["primaryRole"] ?? arg["instrument"]).trim();
   const branch = s(arg["branch"]).trim();
   const intent = s(arg["clientIntentKey"]).trim() || null;
-  if (!name) return { ok: false, code: "NO_NAME", error: "Teacher name required" };
+  const lifecycle = s(arg["lifecycleStatus"]).trim().toUpperCase();
+  const statusReason = s(arg["statusReason"]).trim();
+
+  if (editingId) {
+    const existing = await acadTeacherById(editingId);
+    if (!existing) return { ok: false, code: "NOT_FOUND", error: `No teacher ${editingId}` };
+  } else if (!name) {
+    return { ok: false, code: "NO_NAME", error: "Teacher name required" };
+  }
+  if (lifecycle) {
+    if (!editingId) return { ok: false, code: "TEACHER_ID_REQUIRED", error: "A status change is for an existing teacher." };
+    if (!statusReason) return { ok: false, code: "REASON_REQUIRED", error: "Say why the status should change." };
+  }
   if (branch && !inScope(scope, branch)) return branchForbidden(recordBranch(branch));
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from teacher_add_requests where client_intent_key = $1`, [intent]);
     if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
   }
   const id = newId("TCHREQ");
+  const action = editingId ? "EDIT" : "ADD";
   await query(
-    `insert into teacher_add_requests (id, teacher_name, phone, primary_role, branch, submitted_by, client_intent_key)
-     values ($1,$2,$3,$4,$5,$6,$7)`,
-    [id, name, phone, primaryRole, branch, session?.deviceLabel || session?.email || "", intent],
+    `insert into teacher_add_requests (id, action, teacher_id, teacher_name, phone, email, primary_role, branch, submitted_by, client_intent_key, lifecycle_status, status_reason)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    [id, action, editingId || null, name, phone, email, primaryRole, branch, session?.deviceLabel || session?.email || "", intent, lifecycle || null, statusReason || null],
   );
   await bumpRevisions(["approvals"]);
-  notifyFounderApproval("New teacher", `${name} — submitted for approval`, id);
-  return ok({ requestId: id, changed: true, note: "Sent to Sharvil for approval." });
+  notifyFounderApproval("Teacher change", editingId ? "an edit to review" : "a new teacher to review", id);
+  return ok({ requestId: id, changed: true, status: "SUBMITTED", note: "Sent to Sharvil for approval." });
 }
 
 async function addTeacherRequestApprove(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
   const id = s(arg["requestId"] ?? arg["itemId"]).trim();
   if (!id) return { ok: false, code: "REQUEST_ID_REQUIRED", error: "Pick the request." };
-  const req = await queryOne<{ id: string; teacher_name: string; phone: string; primary_role: string; status: string }>(
-    `select id, teacher_name, phone, primary_role, status from teacher_add_requests where id = $1`,
+  const req = await queryOne<{
+    id: string; action: string; teacher_id: string; teacher_name: string; phone: string; email: string;
+    primary_role: string; status: string; lifecycle_status: string; status_reason: string;
+  }>(
+    `select id, action, teacher_id, teacher_name, phone, email, primary_role, status, lifecycle_status, status_reason from teacher_add_requests where id = $1`,
     [id],
   );
   if (!req) return { ok: false, code: "NOT_FOUND", error: `No teacher request ${id}` };
-  if (req.status === "APPROVED") return ok({ requestId: id, changed: false, idempotent: true });
+  if (req.status === "APPROVED") return ok({ requestId: id, changed: false, idempotent: true, teacherId: req.teacher_id });
   if (req.status !== "SUBMITTED") return { ok: false, code: "NOT_PENDING", error: `Request is already ${req.status}.` };
-  const instrument = req.primary_role || "Music";
-  const teacherId = await newPersonId("TCH", "teachers_acad", null, instrument);
-  await query(
-    `insert into teachers_acad (id, name, phone, email, instrument, status) values ($1,$2,$3,'',$4,'ACTIVE') on conflict (id) do nothing`,
-    [teacherId, req.teacher_name, req.phone, instrument],
-  );
+
+  let teacherId = req.teacher_id;
+  if (s(req.action) === "EDIT") {
+    await query(
+      `update teachers_acad set
+         name = coalesce(nullif($2,''), name), phone = coalesce(nullif($3,''), phone),
+         email = coalesce(nullif($4,''), email), instrument = coalesce(nullif($5,''), instrument)
+       where id = $1`,
+      [teacherId, req.teacher_name, req.phone, req.email, req.primary_role],
+    );
+    if (s(req.lifecycle_status)) {
+      await query("update teachers_acad set status = $2 where id = $1", [teacherId, req.lifecycle_status]);
+      if (req.lifecycle_status === "LEFT") await createTeacherWinBackLeadIfNeeded(teacherId, req.status_reason || "removed by staff request");
+    }
+  } else {
+    const instrument = req.primary_role || "Music";
+    teacherId = await newPersonId("TCH", "teachers_acad", null, instrument);
+    await query(
+      `insert into teachers_acad (id, name, phone, email, instrument, status) values ($1,$2,$3,$4,$5,'ACTIVE') on conflict (id) do nothing`,
+      [teacherId, req.teacher_name, req.phone, req.email || "", instrument],
+    );
+  }
   await query(
     `update teacher_add_requests set status = 'APPROVED', decided_by = $2, decided_at = now(), teacher_id = $3 where id = $1`,
     [id, session?.email ?? "", teacherId],
   );
-  await bumpRevisions(["approvals", "teachers"]);
+  await bumpRevisions(["approvals", "teachers", "inquiries"]);
   return ok({ requestId: id, changed: true, status: "APPROVED", teacherId });
 }
 
@@ -2054,6 +2090,7 @@ const APPROVAL_DETAIL_TABLE: Record<string, string> = {
   INSTALMENT_PLAN: "instalment_plan_drafts",
   MANUAL_TERMS_ACCEPTANCE: "manual_terms_acceptance_requests",
   TEACHER_ADD_REQUEST: "teacher_add_requests",
+  TEACHER_EDIT_REQUEST: "teacher_add_requests",
 };
 
 async function approvalItemDetail(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -2143,6 +2180,8 @@ async function founderApprovals(): Promise<Record<string, unknown>> {
   }));
 
   const gov = await governanceApprovalItems();
+  const teacherAddItems = gov.teacherAddRequests.filter((r) => r.type === "TEACHER_ADD_REQUEST");
+  const teacherEditItems = gov.teacherAddRequests.filter((r) => r.type === "TEACHER_EDIT_REQUEST");
   const items = [
     ...paymentItems,
     ...expenseItems,
@@ -2171,7 +2210,8 @@ async function founderApprovals(): Promise<Record<string, unknown>> {
     { type: "LATE_FEE_WAIVER", label: "Late-fee waivers to review", items: gov.lateFeeWaivers },
     { type: "INSTALMENT_PLAN", label: "Instalment plans to review", items: gov.instalmentPlans },
     { type: "MANUAL_TERMS_ACCEPTANCE", label: "Manual terms acceptances", items: gov.manualTermsAcceptances },
-    { type: "TEACHER_ADD_REQUEST", label: "New teachers to review", items: gov.teacherAddRequests },
+    { type: "TEACHER_ADD_REQUEST", label: "New teachers to review", items: teacherAddItems },
+    { type: "TEACHER_EDIT_REQUEST", label: "Teacher changes to review", items: teacherEditItems },
   ];
   return ok({
     branch: "CONSOLIDATED",
@@ -2191,7 +2231,8 @@ async function founderApprovals(): Promise<Record<string, unknown>> {
       LATE_FEE_WAIVER: gov.lateFeeWaivers.length,
       INSTALMENT_PLAN: gov.instalmentPlans.length,
       MANUAL_TERMS_ACCEPTANCE: gov.manualTermsAcceptances.length,
-      TEACHER_ADD_REQUEST: gov.teacherAddRequests.length,
+      TEACHER_ADD_REQUEST: teacherAddItems.length,
+      TEACHER_EDIT_REQUEST: teacherEditItems.length,
       SCHOOL_MASTER: 0,
       UNKNOWN_STATUS: 0,
     },

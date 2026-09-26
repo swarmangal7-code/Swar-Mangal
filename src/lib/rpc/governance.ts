@@ -1333,7 +1333,7 @@ export async function governanceApprovalItems(): Promise<{
        where m.status = 'SUBMITTED' order by m.submitted_at`,
     ),
     query<Record<string, unknown>>(
-      `select id, teacher_name, phone, primary_role, branch, submitted_at::text
+      `select id, action, teacher_id, teacher_name, phone, primary_role, branch, submitted_at::text, lifecycle_status, status_reason
        from teacher_add_requests where status = 'SUBMITTED' order by submitted_at`,
     ),
   ]);
@@ -1483,21 +1483,30 @@ export async function governanceApprovalItems(): Promise<{
       termsStatus: "",
       actions: ["details", "approve", "reject"],
     })),
-    teacherAddRequests: teacherAddRequests.map((r) => ({
-      type: "TEACHER_ADD_REQUEST",
-      itemId: s(r.id),
-      entity: s(r.teacher_name),
-      studentId: "",
-      noStudentLinked: false,
-      paymentMode: "",
-      feesPeriod: "",
-      amount: "",
-      branch: s(r.branch),
-      date: d(r.submitted_at),
-      reason: [s(r.primary_role), s(r.phone)].filter(Boolean).join(" · ") || "new teacher",
-      flags: { backdated: false, incomplete: !s(r.phone), junk: false },
-      termsStatus: "",
-      actions: ["details", "approve", "reject"],
-    })),
+    teacherAddRequests: teacherAddRequests.map((r) => {
+      const isEdit = s(r.action) === "EDIT";
+      const isDelete = isEdit && s(r.lifecycle_status) === "LEFT";
+      const reason = isDelete
+        ? `Remove teacher: ${s(r.status_reason) || "no reason given"}`
+        : isEdit
+          ? [s(r.primary_role), s(r.phone)].filter(Boolean).join(" · ") || "edit request"
+          : [s(r.primary_role), s(r.phone)].filter(Boolean).join(" · ") || "new teacher";
+      return {
+        type: isEdit ? "TEACHER_EDIT_REQUEST" : "TEACHER_ADD_REQUEST",
+        itemId: s(r.id),
+        entity: s(r.teacher_name),
+        studentId: "",
+        noStudentLinked: false,
+        paymentMode: "",
+        feesPeriod: "",
+        amount: "",
+        branch: s(r.branch),
+        date: d(r.submitted_at),
+        reason,
+        flags: { backdated: false, incomplete: !isEdit && !s(r.phone), junk: false },
+        termsStatus: "",
+        actions: ["details", "approve", "reject"],
+      };
+    }),
   };
 }

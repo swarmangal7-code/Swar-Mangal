@@ -238,6 +238,7 @@ const APPROVAL_TYPE_LABEL: Record<string, string> = {
   INSTALMENT_PLAN: "Instalment plan",
   MANUAL_TERMS_ACCEPTANCE: "Terms acceptance",
   TEACHER_ADD_REQUEST: "New teacher",
+  TEACHER_EDIT_REQUEST: "Teacher change",
 };
 
 function ApprovalCard({
@@ -488,6 +489,7 @@ function actionCmd(item: ApprovalItem, action: string): Cmd | null {
       case "MANUAL_TERMS_ACCEPTANCE":
         return { key: `${id}-approve`, fn: "api_founder_manualTermsAcceptanceApprove", arg: { requestId: id }, label: "Approved" };
       case "TEACHER_ADD_REQUEST":
+      case "TEACHER_EDIT_REQUEST":
         return { key: `${id}-approve`, fn: "api_founder_addTeacherRequestApprove", arg: { requestId: id }, label: "Approved" };
       default:
         return { key: `${id}-approve`, fn: "api_founder_paymentDraftApprove", arg: { draftId: id }, label: "Approved" };
@@ -525,6 +527,7 @@ function rejectCmd(item: ApprovalItem, reason: string): Cmd {
     case "MANUAL_TERMS_ACCEPTANCE":
       return { key: `${id}-reject`, fn: "api_founder_manualTermsAcceptanceReject", arg: { requestId: id, reason }, label: "Rejected" };
     case "TEACHER_ADD_REQUEST":
+    case "TEACHER_EDIT_REQUEST":
       return { key: `${id}-reject`, fn: "api_founder_addTeacherRequestReject", arg: { requestId: id, reason }, label: "Rejected" };
     default:
       return { key: `${id}-reject`, fn: "api_founder_paymentDraftReject", arg: { draftId: id, comment: reason }, label: "Rejected" };

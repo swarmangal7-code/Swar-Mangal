@@ -6,14 +6,28 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, HandCoins, UserRoundCheck } from "lucide-react";
+import { ArrowLeft, HandCoins, Pencil, Trash2, UserRoundCheck } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useStudentHub, useStudentProfile } from "@/lib/api/rpc-hooks";
+import { Textarea } from "@/components/ui/textarea";
+import { useMutationRpc, useStudentHub, useStudentProfile } from "@/lib/api/rpc-hooks";
+import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { initials } from "@/lib/utils/cn";
@@ -25,6 +39,18 @@ import {
   formatINR,
   studentStatusTone,
 } from "@/app/founder/_shared";
+
+type EditStudentArg = {
+  studentId: string;
+  studentName: string;
+  phone: string;
+  email: string;
+  parentName: string;
+  course: string;
+  lenient: true;
+};
+type DeleteStudentArg = { studentId: string; lifecycleStatus: string; statusReason: string; clientIntentKey: string };
+type DraftRes = RpcEnvelope & { note?: string };
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -50,6 +76,46 @@ export default function StaffStudentProfilePage() {
   const attendance = prof.data?.attendance ?? [];
   const pending = hub.data?.pending?.rows ?? [];
   const statusTone = studentStatusTone(student?.status);
+
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editName, setEditName] = React.useState("");
+  const [editPhone, setEditPhone] = React.useState("");
+  const [editEmail, setEditEmail] = React.useState("");
+  const [editGuardian, setEditGuardian] = React.useState("");
+  const [editInstrument, setEditInstrument] = React.useState("");
+
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteReason, setDeleteReason] = React.useState("");
+  const intentRef = React.useRef(`SDRAFT-${Date.now()}`);
+
+  React.useEffect(() => {
+    if (editOpen && student) {
+      setEditName(student.studentName ?? "");
+      setEditPhone(student.phone ?? "");
+      setEditEmail(student.email ?? "");
+      setEditGuardian(hub.data?.profile?.parentName ?? "");
+      setEditInstrument(student.instrument ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editOpen, student]);
+
+  const saveEdit = useMutationRpc<EditStudentArg, DraftRes>("api_staff_saveStudentDraft", {
+    onSuccess: (res) => {
+      toast.success(res.note ?? "Sent to Sharvil for approval.");
+      setEditOpen(false);
+    },
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not save edit."),
+  });
+
+  const requestDelete = useMutationRpc<DeleteStudentArg, DraftRes>("api_staff_saveStudentDraft", {
+    onSuccess: (res) => {
+      toast.success(res.note ?? "Sent to Sharvil for approval.");
+      setDeleteOpen(false);
+      setDeleteReason("");
+      intentRef.current = `SDRAFT-${Date.now()}`;
+    },
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not send the request."),
+  });
 
   if (prof.isError) {
     return (
@@ -117,6 +183,25 @@ export default function StaffStudentProfilePage() {
                 <Link href="/staff/attendance">
                   <UserRoundCheck className="h-3.5 w-3.5" aria-hidden /> Attendance
                 </Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden /> Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-400/30 text-red-300 hover:bg-red-400/10"
+                onClick={() => {
+                  setDeleteReason("");
+                  setDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete
               </Button>
             </div>
           </CardContent>
@@ -221,6 +306,102 @@ export default function StaffStudentProfilePage() {
           </TabsContent>
         </Tabs>
       </motion.div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Edit student</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
+              Sent to Sharvil for approval — nothing changes until he merges it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-[13px] text-dash-fg/70">Student name</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="border-dash-fg/10 bg-dash-surface text-dash-fg" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-dash-fg/70">Phone</Label>
+              <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="border-dash-fg/10 bg-dash-surface text-dash-fg" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-dash-fg/70">Email</Label>
+              <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="border-dash-fg/10 bg-dash-surface text-dash-fg" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-dash-fg/70">Guardian</Label>
+              <Input value={editGuardian} onChange={(e) => setEditGuardian(e.target.value)} className="border-dash-fg/10 bg-dash-surface text-dash-fg" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] text-dash-fg/70">Instrument</Label>
+              <Input value={editInstrument} onChange={(e) => setEditInstrument(e.target.value)} className="border-dash-fg/10 bg-dash-surface text-dash-fg" />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost">Cancel</Button>
+            </DialogClose>
+            <Button
+              loading={saveEdit.isPending}
+              disabled={!editName.trim()}
+              onClick={() =>
+                saveEdit.mutate({
+                  studentId: id,
+                  studentName: editName.trim(),
+                  phone: editPhone.trim(),
+                  email: editEmail.trim(),
+                  parentName: editGuardian.trim(),
+                  course: editInstrument.trim(),
+                  lenient: true,
+                })
+              }
+            >
+              Send to Sharvil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Request delete for {student.studentName}?</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
+              Sent to Sharvil for approval. Nothing changes until he approves it — this doesn&apos;t
+              erase any records, it moves them to Inquiries as a lead. A reason is required.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label className="text-[13px] text-dash-fg/70">Reason *</Label>
+            <Textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="Why are they leaving?"
+              className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              loading={requestDelete.isPending}
+              disabled={!deleteReason.trim()}
+              onClick={() =>
+                requestDelete.mutate({
+                  studentId: id,
+                  lifecycleStatus: "LEFT",
+                  statusReason: deleteReason.trim(),
+                  clientIntentKey: intentRef.current,
+                })
+              }
+            >
+              <Trash2 className="h-4 w-4" aria-hidden /> Send to Sharvil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
