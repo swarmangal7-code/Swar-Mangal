@@ -165,6 +165,11 @@ function StaffFeesPageInner() {
                     onChange={(e) => setAmount(e.target.value)}
                     className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
+                  {student && (
+                    <p className="text-xs text-dash-fg/40">
+                      Starting estimate from their plan — raise it if more than one cycle is owed.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-dash-fg/70">Mode</Label>

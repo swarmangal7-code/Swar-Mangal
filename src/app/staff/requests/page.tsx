@@ -38,6 +38,7 @@ const TYPE_LABELS: Record<string, string> = {
   RECEIPT_CORRECTION: "Receipt correction",
   SCHOOL_INVOICE_DRAFT: "School invoice",
   TEACHER_ADD_REQUEST: "New teacher",
+  TEACHER_EDIT_REQUEST: "Teacher change",
 };
 
 function statusStyle(status: string) {
@@ -113,7 +114,7 @@ export default function StaffRequestsPage() {
             <Inbox className="mb-3 h-9 w-9 text-dash-fg/25" aria-hidden />
             <p className="text-sm font-medium text-dash-fg/75">Nothing sent yet</p>
             <p className="mt-1 max-w-xs text-xs text-dash-fg/40">
-              Fee payments, expenses and student drafts you submit will show up here.
+              Fee payments, expenses, and student or teacher requests you submit will show up here.
             </p>
           </div>
         </motion.div>

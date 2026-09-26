@@ -456,7 +456,11 @@ async function requestAddTeacher(arg: Record<string, unknown>, scope: BranchScop
   const phone = s(arg["phone"]).trim();
   const email = s(arg["email"]).trim();
   const primaryRole = s(arg["primaryRole"] ?? arg["instrument"]).trim();
-  const branch = s(arg["branch"]).trim();
+  // Teachers carry no branch of their own (teachers_acad has no branch column);
+  // this is only "which staff branch submitted it", used to route the
+  // decision notification back — default to the submitter's own branch so
+  // that notification isn't silently dropped when the caller omits it.
+  const branch = defaultBranch(scope, arg["branch"]);
   const intent = s(arg["clientIntentKey"]).trim() || null;
   const lifecycle = s(arg["lifecycleStatus"]).trim().toUpperCase();
   const statusReason = s(arg["statusReason"]).trim();
@@ -471,7 +475,7 @@ async function requestAddTeacher(arg: Record<string, unknown>, scope: BranchScop
     if (!editingId) return { ok: false, code: "TEACHER_ID_REQUIRED", error: "A status change is for an existing teacher." };
     if (!statusReason) return { ok: false, code: "REASON_REQUIRED", error: "Say why the status should change." };
   }
-  if (branch && !inScope(scope, branch)) return branchForbidden(recordBranch(branch));
+  if (!inScope(scope, branch)) return branchForbidden(recordBranch(branch));
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from teacher_add_requests where client_intent_key = $1`, [intent]);
     if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
@@ -493,9 +497,9 @@ async function addTeacherRequestApprove(arg: Record<string, unknown>, session?: 
   if (!id) return { ok: false, code: "REQUEST_ID_REQUIRED", error: "Pick the request." };
   const req = await queryOne<{
     id: string; action: string; teacher_id: string; teacher_name: string; phone: string; email: string;
-    primary_role: string; status: string; lifecycle_status: string; status_reason: string;
+    primary_role: string; status: string; lifecycle_status: string; status_reason: string; branch: string;
   }>(
-    `select id, action, teacher_id, teacher_name, phone, email, primary_role, status, lifecycle_status, status_reason from teacher_add_requests where id = $1`,
+    `select id, action, teacher_id, teacher_name, phone, email, primary_role, status, lifecycle_status, status_reason, branch from teacher_add_requests where id = $1`,
     [id],
   );
   if (!req) return { ok: false, code: "NOT_FOUND", error: `No teacher request ${id}` };
@@ -528,6 +532,15 @@ async function addTeacherRequestApprove(arg: Record<string, unknown>, session?: 
     [id, session?.email ?? "", teacherId],
   );
   await bumpRevisions(["approvals", "teachers", "inquiries"]);
+  const isEdit = s(req.action) === "EDIT";
+  if (req.branch) {
+    notifyStaffDecision(
+      recordBranch(req.branch),
+      "Teacher change",
+      isEdit ? "approved and applied" : "approved — teacher added",
+      id,
+    );
+  }
   return ok({ requestId: id, changed: true, status: "APPROVED", teacherId });
 }
 
@@ -536,13 +549,14 @@ async function addTeacherRequestReject(arg: Record<string, unknown>, session?: R
   const reason = s(arg["reason"]).trim();
   if (!id) return { ok: false, code: "REQUEST_ID_REQUIRED", error: "Pick the request." };
   if (!reason) return { ok: false, code: "REASON_REQUIRED", error: "Say why this teacher isn't being added." };
-  const rows = await query<{ id: string }>(
+  const rows = await query<{ id: string; branch: string }>(
     `update teacher_add_requests set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch`,
     [id, session?.email ?? "", reason],
   );
   if (!rows.length) return { ok: false, code: "NOT_FOUND", error: `No pending teacher request ${id}` };
   await bumpRevisions(["approvals"]);
+  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Teacher change", "rejected — see the reason", id);
   return ok({ requestId: id, changed: true, status: "REJECTED" });
 }
 
@@ -2314,7 +2328,7 @@ async function staffMyRequests(scope: BranchScope, session?: RpcSession): Promis
        from school_invoice_drafts where submitted_at > now() - interval '60 days' order by submitted_at desc limit 100`,
     ),
     query<Record<string, unknown>>(
-      `select id, status, teacher_name, primary_role, branch, submitted_by, submitted_at::text, decision_note
+      `select id, status, action, teacher_id, teacher_name, primary_role, branch, submitted_by, submitted_at::text, decision_note, lifecycle_status
        from teacher_add_requests where submitted_at > now() - interval '60 days' order by submitted_at desc limit 100`,
     ),
   ]);
@@ -2341,10 +2355,16 @@ async function staffMyRequests(scope: BranchScope, session?: RpcSession): Promis
       type: "SCHOOL_INVOICE_DRAFT", id: s(r.id), status: s(r.status), student: s(r.class_name), category: s(r.final_invoice_no),
       amount: s(r.amount), when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
     })),
-    ...teacherRequests.filter(visible).map((r) => ({
-      type: "TEACHER_ADD_REQUEST", id: s(r.id), status: s(r.status), student: s(r.teacher_name), category: s(r.primary_role),
-      amount: "", when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
-    })),
+    ...teacherRequests.filter(visible).map((r) => {
+      const isEdit = s(r.action) === "EDIT";
+      const isDelete = isEdit && s(r.lifecycle_status) === "LEFT";
+      return {
+        type: isEdit ? "TEACHER_EDIT_REQUEST" : "TEACHER_ADD_REQUEST",
+        id: s(r.id), status: s(r.status), student: s(r.teacher_name) || s(r.teacher_id),
+        category: isDelete ? "Remove teacher" : s(r.primary_role),
+        amount: "", when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+      };
+    }),
   ].sort((a, b) => (a.when < b.when ? 1 : -1));
   return ok({ count: out.length, rows: out, canApprove: false });
 }

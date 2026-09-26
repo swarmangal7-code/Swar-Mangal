@@ -89,7 +89,7 @@ export default function FounderAddStudentPage() {
       ? boot.data.feeCycleTypes
       : ["Monthly", "3 Months", "6 Months", "Yearly"];
   const teacherOptions = (teachers.data?.teachers ?? []).filter(
-    (t) => (t.status ?? "").toUpperCase() !== "INACTIVE",
+    (t) => !["INACTIVE", "LEFT"].includes((t.status ?? "").toUpperCase()),
   );
 
   const feeCycleType = plan || cycle;

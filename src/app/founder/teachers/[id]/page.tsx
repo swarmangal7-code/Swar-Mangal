@@ -178,6 +178,8 @@ export default function FounderTeacherProfilePage() {
               <Button
                 variant="outline"
                 size="sm"
+                disabled={teacher.status === "LEFT"}
+                title={teacher.status === "LEFT" ? "This teacher has left — change their status back to ACTIVE first." : undefined}
                 onClick={() => {
                   setCompPercent(teacher.compensationPercent ?? teacher.academyShare ?? "");
                   setCompFrom(teacher.compensationEffectiveFrom ?? "");

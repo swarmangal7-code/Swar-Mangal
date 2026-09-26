@@ -299,7 +299,7 @@ function ApprovalCard({
               )}
               {actions.includes("merge") && (
                 <Button size="sm" variant="outline" className="border-emerald-400/40 text-emerald-300 hover:bg-emerald-400/10" loading={busy} onClick={() => onAction("merge")}>
-                  Merge
+                  Approve
                 </Button>
               )}
               {actions.includes("finalise") && (
@@ -542,7 +542,7 @@ function confirmMessage(item: ApprovalItem, action: string): string {
     case "void":
       return `Void ${item.receiptNo || item.itemId} permanently? It stays excluded from every total; a new payment issues a new receipt. This cannot be undone.`;
     case "merge":
-      return `Merge "${what}" into the STUDENTS master?`;
+      return `Approve this change for "${what}"?`;
     case "approve":
       if (item.type === "EXPENSE_DRAFT") return `Record "${item.reason}" as a real expense and post it to the cashbook?`;
       return `Approve ${what}?`;

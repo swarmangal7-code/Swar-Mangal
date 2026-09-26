@@ -194,7 +194,7 @@ export default function FounderDashboardPage() {
               value={String(activeStudents)}
               sub="GMC + KMC on the books"
             />
-            <MetricCard label="Teachers" value={String(teacherCount ?? "—")} />
+            <MetricCard label="Teachers" value={String(teacherCount ?? "—")} href="/founder/teachers" />
             <MetricCard
               label="Pending approvals"
               value={String(approvals ?? "—")}

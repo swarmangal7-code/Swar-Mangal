@@ -93,7 +93,7 @@ export default function StaffAddStudentPage() {
   const plans = boot.data?.plans ?? [];
   const cycles = boot.data?.planTypes?.length ? boot.data.planTypes : ["Monthly", "3 Months", "6 Months", "Yearly"];
   const teacherOptions = (teachers.data?.teachers ?? []).filter(
-    (t) => (t.status ?? "").toUpperCase() !== "INACTIVE",
+    (t) => !["INACTIVE", "LEFT"].includes((t.status ?? "").toUpperCase()),
   );
 
   React.useEffect(() => {

@@ -82,7 +82,7 @@ export default function StaffClassesPage() {
   const outcomes = classes.data?.outcomes?.length ? classes.data.outcomes : FALLBACK_OUTCOMES;
   const isSubstitute = outcome === "SUBSTITUTE_DELIVERED";
   const teacherOptions = (teachers.data?.teachers ?? []).filter(
-    (t) => (t.status ?? "").toUpperCase() !== "INACTIVE",
+    (t) => !["INACTIVE", "LEFT"].includes((t.status ?? "").toUpperCase()),
   );
 
   const openDialog = (c: TodaysClass) => {

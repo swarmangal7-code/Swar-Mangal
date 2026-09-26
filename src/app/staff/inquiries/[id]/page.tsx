@@ -237,9 +237,23 @@ export default function StaffInquiryDetailPage() {
           <Card className="border-dash-fg/10 bg-dash-card">
             <CardContent className="space-y-4 pt-5">
               <h2 className="text-sm font-semibold text-dash-fg/90">Log activity</h2>
+              {data.formerTeacherId && (
+                <p className="text-xs text-dash-fg/45">
+                  This is a former teacher, not a student lead — once they&apos;re formally rehired,
+                  Sharvil re-activates them from their teacher profile; use Drop with a note here
+                  to close this out.
+                </p>
+              )}
 
               <div className="flex flex-wrap gap-2">
-                {ACTIONS.filter((a) => (terminal ? a.value === "REOPEN" : true)).map((a) => (
+                {ACTIONS.filter((a) => {
+                  if (terminal) return a.value === "REOPEN";
+                  // A former teacher rejoins the academy, not "trials" and
+                  // "joins" the way a fresh admission lead does — those verbs
+                  // would otherwise route through the student-conversion flow.
+                  if (data.formerTeacherId && ["SCHEDULE_TRIAL", "TRIAL_DONE", "CONVERT"].includes(a.value)) return false;
+                  return true;
+                }).map((a) => (
                   <button
                     key={a.value}
                     type="button"

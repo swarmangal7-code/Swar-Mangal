@@ -9,6 +9,14 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,6 +78,7 @@ function FounderFeesPageInner() {
   const [feeFrom, setFeeFrom] = React.useState("");
   const [feeTo, setFeeTo] = React.useState("");
   const [success, setSuccess] = React.useState<AddFeeResponse | null>(null);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   const requestIdRef = React.useRef(`RCP-${Date.now()}`);
 
@@ -166,6 +175,11 @@ function FounderFeesPageInner() {
                     onChange={(e) => setAmount(e.target.value)}
                     className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
+                  {student && (
+                    <p className="text-xs text-dash-fg/40">
+                      Starting estimate from their plan — raise it if more than one cycle is owed.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-dash-fg/70">Mode</Label>
@@ -247,7 +261,12 @@ function FounderFeesPageInner() {
                   </div>
                 </div>
               ) : (
-                <Button className="w-full bg-dash-accent text-dash-bg hover:bg-dash-accent-hover" onClick={submit} disabled={!valid} loading={addFee.isPending}>
+                <Button
+                  className="w-full bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={!valid}
+                  loading={addFee.isPending}
+                >
                   {addFee.isPending ? "Recording…" : "Record receipt"}
                 </Button>
               )}
@@ -301,6 +320,46 @@ function FounderFeesPageInner() {
           )}
         </div>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="border-dash-fg/10 bg-dash-card">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Record this receipt?</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
+              This is a real, locked receipt — it cannot be edited or deleted from the app afterward.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.02] p-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-dash-fg/55">Student</span>
+              <span className="font-medium text-dash-fg">{student?.studentName}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-dash-fg/55">Amount</span>
+              <span className="text-base font-semibold text-dash-accent">{inr(amountNum)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-dash-fg/55">Mode</span>
+              <span className="font-medium text-dash-fg">{mode}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+              loading={addFee.isPending}
+              onClick={() => {
+                setConfirmOpen(false);
+                submit();
+              }}
+            >
+              Confirm & record
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

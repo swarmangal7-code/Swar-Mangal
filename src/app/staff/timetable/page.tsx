@@ -104,7 +104,10 @@ export default function StaffTimetablePage() {
   const sorted = [...entries].sort((a, b) => (a.startTime < b.startTime ? -1 : a.startTime > b.startTime ? 1 : 0));
   const dayEntries = sorted.filter((e) => e.dayOfWeek === selectedDay);
   const times = Array.from(new Set(sorted.map((e) => e.startTime))).sort();
-  const teachers = teachersQ.data?.teachers?.map((t) => ({ teacherId: t.teacherId, teacherName: t.teacherName })) ?? [];
+  const teachers =
+    teachersQ.data?.teachers
+      ?.filter((t) => !["INACTIVE", "LEFT"].includes((t.status ?? "").toUpperCase()))
+      .map((t) => ({ teacherId: t.teacherId, teacherName: t.teacherName })) ?? [];
 
   const dialogBranches = React.useMemo(() => {
     const set = new Set<string>();
