@@ -360,6 +360,8 @@ export interface TimetableEntry {
   teacherId: string;
   teacherName: string;
   status: string;
+  substituteTeacherId: string;
+  substituteTeacherName: string;
 }
 
 export interface TimetableResponse extends RpcEnvelope {

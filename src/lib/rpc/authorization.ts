@@ -162,11 +162,12 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_founder_revokeDeviceToken: FOUNDER,
 
   // ------------------------------------------------------------ timetable
-  // Brief P6.1: the timetable is the founder's; staff read it.
+  // Founder request 2026-09-26: staff can add/edit/delete timetable slots
+  // too, not just read them (was founder-only under brief P6.1).
   api_timetableList: STAFF,
-  api_timetableCreate: FOUNDER,
-  api_timetableUpdate: FOUNDER,
-  api_timetableDelete: FOUNDER,
+  api_timetableCreate: STAFF,
+  api_timetableUpdate: STAFF,
+  api_timetableDelete: STAFF,
 
   // ------------------------------------------------- periods / corrections
   // Brief §11.7, P6.7: closing a service month is founder-only.

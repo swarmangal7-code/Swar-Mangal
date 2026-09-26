@@ -1214,7 +1214,7 @@ async function timetableList(arg: Record<string, unknown>, scope: BranchScope): 
   // by a migration (db/apply.mjs).
   const rows = (
     await query<Record<string, unknown>>(
-      `select id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status from timetable order by day_of_week, start_time`,
+      `select id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name from timetable order by day_of_week, start_time`,
     )
   ).filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(branch, r.branch));
   return ok({
@@ -1228,6 +1228,8 @@ async function timetableList(arg: Record<string, unknown>, scope: BranchScope): 
       teacherId: s(r.teacher_id),
       teacherName: s(r.teacher_name),
       status: s(r.status),
+      substituteTeacherId: s(r.substitute_teacher_id),
+      substituteTeacherName: s(r.substitute_teacher_name),
     })),
     seeded: rows.length > 0,
   });
@@ -1238,12 +1240,19 @@ async function timetableCreate(arg: Record<string, unknown>, scope: BranchScope)
   if (!inScope(scope, branch)) return branchForbidden(branch);
   const id = newId("TT");
   await query(
-    `insert into timetable (id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9) on conflict (id) do nothing`,
-    [id, branch, n(arg["dayOfWeek"]), s(arg["startTime"]), s(arg["endTime"]), s(arg["className"]), s(arg["teacherId"]), s(arg["teacherName"]), s(arg["status"]).toUpperCase() || "ENABLED"],
+    `insert into timetable (id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) on conflict (id) do nothing`,
+    [id, branch, n(arg["dayOfWeek"]), s(arg["startTime"]), s(arg["endTime"]), s(arg["className"]), s(arg["teacherId"]), s(arg["teacherName"]), s(arg["status"]).toUpperCase() || "ENABLED", s(arg["substituteTeacherId"]) || null, s(arg["substituteTeacherName"]) || null],
   );
   await bumpRevisions(["timetable", "sessions"]);
-  return ok({ entry: { id, branch, dayOfWeek: n(arg["dayOfWeek"]), startTime: s(arg["startTime"]), endTime: s(arg["endTime"]), className: s(arg["className"]), teacherId: s(arg["teacherId"]), teacherName: s(arg["teacherName"]), status: s(arg["status"]).toUpperCase() || "ENABLED" }, note: "created" });
+  return ok({
+    entry: {
+      id, branch, dayOfWeek: n(arg["dayOfWeek"]), startTime: s(arg["startTime"]), endTime: s(arg["endTime"]), className: s(arg["className"]),
+      teacherId: s(arg["teacherId"]), teacherName: s(arg["teacherName"]), status: s(arg["status"]).toUpperCase() || "ENABLED",
+      substituteTeacherId: s(arg["substituteTeacherId"]), substituteTeacherName: s(arg["substituteTeacherName"]),
+    },
+    note: "created",
+  });
 }
 
 async function timetableUpdate(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
@@ -1255,8 +1264,12 @@ async function timetableUpdate(arg: Record<string, unknown>, scope: BranchScope)
   const nextBranch = recordBranch(s(arg["branch"] ?? cur.branch));
   if (!inScope(scope, nextBranch)) return branchForbidden(nextBranch);
   await query(
-    `update timetable set branch=$2, day_of_week=$3, start_time=$4, end_time=$5, class_name=$6, teacher_id=$7, teacher_name=$8, status=$9 where id=$1`,
-    [id, nextBranch, n(arg["dayOfWeek"] ?? cur.day_of_week), s(arg["startTime"] ?? cur.start_time), s(arg["endTime"] ?? cur.end_time), s(arg["className"] ?? cur.class_name), s(arg["teacherId"] ?? cur.teacher_id), s(arg["teacherName"] ?? cur.teacher_name), s(arg["status"] ?? cur.status).toUpperCase()],
+    `update timetable set branch=$2, day_of_week=$3, start_time=$4, end_time=$5, class_name=$6, teacher_id=$7, teacher_name=$8, status=$9, substitute_teacher_id=$10, substitute_teacher_name=$11 where id=$1`,
+    [
+      id, nextBranch, n(arg["dayOfWeek"] ?? cur.day_of_week), s(arg["startTime"] ?? cur.start_time), s(arg["endTime"] ?? cur.end_time), s(arg["className"] ?? cur.class_name),
+      s(arg["teacherId"] ?? cur.teacher_id), s(arg["teacherName"] ?? cur.teacher_name), s(arg["status"] ?? cur.status).toUpperCase(),
+      s(arg["substituteTeacherId"] ?? cur.substitute_teacher_id) || null, s(arg["substituteTeacherName"] ?? cur.substitute_teacher_name) || null,
+    ],
   );
   await bumpRevisions(["timetable", "sessions"]);
   return ok({ entry: { ...cur, ...arg, id }, note: "updated" });

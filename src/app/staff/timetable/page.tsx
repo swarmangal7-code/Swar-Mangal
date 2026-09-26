@@ -2,40 +2,121 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTimetable } from "@/lib/api/rpc-hooks";
+import { rpcKeys, useMutationRpc, useTeachers, useTimetable } from "@/lib/api/rpc-hooks";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
+import type { RpcEnvelope, TimetableEntry } from "@/lib/api/rpc-types";
+import {
+  DAYS,
+  DAY_LABELS,
+  fmt12,
+  TimeSlotCard,
+  TimetableDialog,
+  type TimetableWriteArg,
+} from "@/components/dashboard/timetable-dialog";
 
-const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-function fmt12(time: string) {
-  if (!time) return "";
-  const [h, m] = time.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 === 0 ? 12 : h % 12;
-  return `${hour}:${String(m ?? 0).padStart(2, "0")} ${suffix}`;
+interface RpcResult extends RpcEnvelope {
+  note?: string;
 }
 
 export default function StaffTimetablePage() {
   const { session } = useTokenAuth();
   const branches = session?.branches ?? [];
-  const [branch, setBranch] = React.useState(branches.length === 1 ? branches[0] : "ALL");
+  const singleBranch = branches.length === 1 ? branches[0] : undefined;
+
+  const [branch, setBranch] = React.useState(singleBranch ?? "ALL");
   const [selectedDay, setSelectedDay] = React.useState(() => (new Date().getDay() + 6) % 7);
 
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [dialogMode, setDialogMode] = React.useState<"create" | "edit">("create");
+  const [editingEntry, setEditingEntry] = React.useState<TimetableEntry | null>(null);
+  const [deleting, setDeleting] = React.useState<TimetableEntry | null>(null);
+
   const timetable = useTimetable(branch);
+  const teachersQ = useTeachers();
+
+  const createMut = useMutationRpc<TimetableWriteArg, RpcResult>("api_timetableCreate", {
+    invalidate: [rpcKeys.timetable(branch), rpcKeys.teachers()],
+  });
+  const updateMut = useMutationRpc<TimetableWriteArg & { id: string }, RpcResult>(
+    "api_timetableUpdate",
+    { invalidate: [rpcKeys.timetable(branch)] },
+  );
+  const deleteMut = useMutationRpc<{ id: string }, RpcResult>("api_timetableDelete", {
+    invalidate: [rpcKeys.timetable(branch)],
+  });
+
+  const openCreate = (day?: number) => {
+    setDialogMode("create");
+    setEditingEntry(null);
+    if (day !== undefined) setSelectedDay(day);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (entry: TimetableEntry) => {
+    setDialogMode("edit");
+    setEditingEntry(entry);
+    setSelectedDay(entry.dayOfWeek);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = async (values: TimetableWriteArg) => {
+    try {
+      if (dialogMode === "create") {
+        const res = await createMut.mutateAsync(values);
+        toast.success(res.note ?? "Class added to the timetable.");
+      } else if (editingEntry) {
+        const res = await updateMut.mutateAsync({ id: editingEntry.id, ...values });
+        toast.success(res.note ?? "Class updated.");
+      }
+      setDialogOpen(false);
+      setEditingEntry(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the class.");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    try {
+      const res = await deleteMut.mutateAsync({ id: deleting.id });
+      toast.success(res.note ?? "Class removed from the timetable.");
+      setDeleting(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the class.");
+    }
+  };
+
   const entries = timetable.data?.entries ?? [];
   const sorted = [...entries].sort((a, b) => (a.startTime < b.startTime ? -1 : a.startTime > b.startTime ? 1 : 0));
   const dayEntries = sorted.filter((e) => e.dayOfWeek === selectedDay);
   const times = Array.from(new Set(sorted.map((e) => e.startTime))).sort();
+  const teachers = teachersQ.data?.teachers?.map((t) => ({ teacherId: t.teacherId, teacherName: t.teacherName })) ?? [];
+
+  const dialogBranches = React.useMemo(() => {
+    const set = new Set<string>();
+    if (singleBranch) set.add(singleBranch);
+    else if (branch !== "ALL") set.add(branch);
+    for (const b of branches) set.add(b);
+    if (set.size === 0) set.add("KANDIVALI");
+    return Array.from(set);
+  }, [singleBranch, branch, branches]);
 
   return (
-    <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
+    <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6 pb-24">
       <motion.div variants={fadeUp} className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Academy</p>
@@ -107,29 +188,23 @@ export default function StaffTimetablePage() {
                 <CalendarDays className="mb-3 h-8 w-8 text-dash-fg/25" aria-hidden />
                 <p className="text-sm font-medium text-dash-fg/70">No classes on {DAY_LABELS[selectedDay]}</p>
                 <p className="mt-1 text-xs text-dash-fg/40">Nothing scheduled here.</p>
+                <Button
+                  onClick={() => openCreate(selectedDay)}
+                  size="sm"
+                  className="mt-4 bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Add class
+                </Button>
               </div>
             ) : (
               dayEntries.map((entry) => (
-                <div key={entry.id} className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-card p-4">
-                  <div className="min-w-[64px] text-center">
-                    <p className="text-sm font-bold tabular-nums text-dash-fg">{fmt12(entry.startTime)}</p>
-                    {entry.endTime && <p className="text-[10px] text-dash-fg/40">to {fmt12(entry.endTime)}</p>}
-                  </div>
-                  <div className="h-8 w-px bg-dash-fg/10" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-dash-fg">{entry.className}</p>
-                      {entry.status !== "ENABLED" && (
-                        <Badge variant="outline" className="border-dash-fg/20 text-dash-fg/50">
-                          Disabled
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-dash-fg/50">
-                      {[entry.teacherName || "No teacher assigned", entry.branch].filter(Boolean).join(" · ")}
-                    </p>
-                  </div>
-                </div>
+                <TimeSlotCard
+                  key={entry.id}
+                  entry={entry}
+                  onEdit={() => openEdit(entry)}
+                  onDelete={() => setDeleting(entry)}
+                />
               ))
             )}
           </motion.div>
@@ -156,13 +231,20 @@ export default function StaffTimetablePage() {
                       return (
                         <div key={i} className="space-y-1 border-b border-l border-dash-fg/10 p-1.5">
                           {cell.map((entry) => (
-                            <div
+                            <button
                               key={entry.id}
-                              className="rounded-xl border border-dash-accent/20 bg-dash-accent/10 px-2 py-1.5"
+                              type="button"
+                              onClick={() => openEdit(entry)}
+                              className="w-full rounded-xl border border-dash-accent/20 bg-dash-accent/10 px-2 py-1.5 text-left transition-colors hover:border-dash-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
                             >
                               <p className="truncate text-xs font-semibold text-dash-fg">{entry.className}</p>
                               <p className="truncate text-[10px] text-dash-fg/50">{entry.teacherName}</p>
-                            </div>
+                              {entry.substituteTeacherName && (
+                                <p className="truncate text-[10px] text-amber-300">
+                                  Sub: {entry.substituteTeacherName}
+                                </p>
+                              )}
+                            </button>
                           ))}
                         </div>
                       );
@@ -172,20 +254,56 @@ export default function StaffTimetablePage() {
               </div>
             </motion.div>
           )}
-
-          {entries.length === 0 && (
-            <motion.div variants={fadeUp}>
-              <Button
-                variant="outline"
-                onClick={() => timetable.refetch()}
-                className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
-              >
-                Refresh
-              </Button>
-            </motion.div>
-          )}
         </>
       )}
+
+      <button
+        type="button"
+        onClick={() => openCreate()}
+        className="fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-dash-accent text-dash-bg shadow-soft-lg transition-transform hover:bg-dash-accent-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-dash-bg"
+        aria-label="Add class"
+      >
+        {createMut.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" aria-hidden />}
+      </button>
+
+      <TimetableDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        mode={dialogMode}
+        entry={editingEntry}
+        branches={dialogBranches}
+        defaultBranch={singleBranch ?? "KANDIVALI"}
+        defaultDay={selectedDay}
+        teachers={teachers}
+        saving={createMut.isPending || updateMut.isPending}
+        onSubmit={handleSubmit}
+      />
+
+      <Dialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <DialogContent className="max-w-sm border-dash-fg/10 bg-dash-card text-dash-fg">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Delete this class?</DialogTitle>
+            <DialogDescription className="text-dash-fg/45">
+              <span className="font-medium text-dash-fg">{deleting?.className}</span> on{" "}
+              {deleting ? DAY_LABELS[deleting.dayOfWeek] : ""} at{" "}
+              {deleting ? fmt12(deleting.startTime) : ""} will be removed from the timetable. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setDeleting(null)}
+              className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} loading={deleteMut.isPending}>
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

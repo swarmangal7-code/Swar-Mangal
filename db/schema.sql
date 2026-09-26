@@ -522,6 +522,13 @@ create table if not exists timetable (
   status text default 'ENABLED'
 );
 
+-- Founder request 2026-09-26: a substitute teacher on a recurring slot, for
+-- when the assigned teacher is unavailable. Applies to the slot itself
+-- (not a single date) — the primary teacher stays on record, the substitute
+-- is just noted alongside it.
+alter table timetable add column if not exists substitute_teacher_id text;
+alter table timetable add column if not exists substitute_teacher_name text;
+
 create table if not exists scheduled_sessions (
   id text primary key,
   session_date text,
