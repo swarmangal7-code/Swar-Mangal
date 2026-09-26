@@ -1,6 +1,6 @@
 import { query, queryOne, withTransaction } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, nextDocNo, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary } from "@/lib/rpc/shared";
+import { s, n, d, newId, newPersonId, nextDocNo, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary } from "@/lib/rpc/shared";
 import { schoolInvoiceSeries } from "@/lib/rpc/numbering";
 import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, type FeeState } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
@@ -433,10 +433,11 @@ async function listTeachers(): Promise<Record<string, unknown>> {
 async function addTeacher(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
   const name = s(arg["name"] ?? arg["teacherName"]).trim();
   if (!name) return { ok: false, code: "NO_NAME", error: "Teacher name required" };
-  const id = newId("TCH");
+  const instrument = s(arg["instrument"] ?? arg["primaryRole"]) || "Music";
+  const id = await newPersonId("TCH", "teachers_acad", null, instrument);
   await query(
     `insert into teachers_acad (id, name, phone, email, instrument, status) values ($1,$2,$3,$4,$5,'ACTIVE') on conflict (id) do nothing`,
-    [id, name, s(arg["phone"]), s(arg["email"]), s(arg["instrument"] ?? arg["primaryRole"]) || "Music"],
+    [id, name, s(arg["phone"]), s(arg["email"]), instrument],
   );
   await bumpRevisions(["teachers"]);
   return ok({ teacherId: id, teacherName: name, note: "teacher created" });
@@ -480,10 +481,11 @@ async function addTeacherRequestApprove(arg: Record<string, unknown>, session?: 
   if (!req) return { ok: false, code: "NOT_FOUND", error: `No teacher request ${id}` };
   if (req.status === "APPROVED") return ok({ requestId: id, changed: false, idempotent: true });
   if (req.status !== "SUBMITTED") return { ok: false, code: "NOT_PENDING", error: `Request is already ${req.status}.` };
-  const teacherId = newId("TCH");
+  const instrument = req.primary_role || "Music";
+  const teacherId = await newPersonId("TCH", "teachers_acad", null, instrument);
   await query(
     `insert into teachers_acad (id, name, phone, email, instrument, status) values ($1,$2,$3,'',$4,'ACTIVE') on conflict (id) do nothing`,
-    [teacherId, req.teacher_name, req.phone, req.primary_role || "Music"],
+    [teacherId, req.teacher_name, req.phone, instrument],
   );
   await query(
     `update teacher_add_requests set status = 'APPROVED', decided_by = $2, decided_at = now(), teacher_id = $3 where id = $1`,

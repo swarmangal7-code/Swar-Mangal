@@ -20,6 +20,61 @@ export function newId(prefix: string): string {
   return `${prefix}-${Date.now()}-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
+const MONTH_ABBR = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+/** "OCT-26" for the given ISO date, or today when no date is given. */
+function monthYearCode(iso?: string | null): string {
+  const dt = iso ? new Date(`${iso}T00:00:00Z`) : new Date();
+  const valid = Number.isNaN(dt.getTime()) ? new Date() : dt;
+  return `${MONTH_ABBR[valid.getUTCMonth()]}-${String(valid.getUTCFullYear()).slice(-2)}`;
+}
+
+/**
+ * Founder request 2026-09-27: student/teacher IDs read as
+ * MON-YY + [T for teacher] + instrument-letter-code + serial, e.g. a
+ * student joining October 2026 for Vocals is OCT-26V1; a teacher joining
+ * the same month for Vocals is OCT-26TV1. The letter code starts as just
+ * the instrument's first letter and only grows (V -> VI -> ...) when a
+ * DIFFERENT instrument already claimed that exact code this period —
+ * found by checking what instrument existing ids with that code recorded,
+ * not from a separate lookup table.
+ */
+export async function newPersonId(
+  kind: "STU" | "TCH",
+  table: "students_acad" | "teachers_acad",
+  joinIso: string | null | undefined,
+  instrument: string,
+  runner: { query: typeof query } = { query },
+): Promise<string> {
+  const period = monthYearCode(joinIso);
+  const infix = kind === "TCH" ? "T" : "";
+  const name = (instrument || "Music").trim().toUpperCase();
+  const letters = name.replace(/[^A-Z]/g, "") || "X";
+
+  let code = letters.slice(0, 1);
+  for (let len = 1; len <= letters.length; len++) {
+    const candidate = letters.slice(0, len);
+    const rows = await runner.query<{ instrument: string | null }>(
+      `select instrument from ${table} where id ~ $1`,
+      [`^${period}${infix}${candidate}[0-9]+$`],
+    );
+    const collides = rows.some((r) => (r.instrument || "Music").trim().toUpperCase() !== name);
+    code = candidate;
+    if (!collides) break;
+  }
+
+  const prefix = `${period}${infix}${code}`;
+  const row = await runner.query<{ last_no: number }>(
+    `insert into doc_counters (series, last_no)
+     values ($1, coalesce((select max(substring(id from '([0-9]+)$')::int)
+                           from ${table} where id ~ $2), 0) + 1)
+     on conflict (series) do update set last_no = doc_counters.last_no + 1
+     returning last_no`,
+    [`PID-${table}-${prefix}`, `^${prefix}[0-9]+$`],
+  );
+  return `${prefix}${row[0]!.last_no}`;
+}
+
 // Existing documents a series continues from, when its counter row is new.
 const DOC_SOURCES = {
   receipt: { table: "receipts", column: "receipt_no" },

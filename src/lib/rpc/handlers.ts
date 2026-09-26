@@ -1,6 +1,6 @@
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, nextDocNo, bumpRevisions, acadStudents, acadStudentById, studentToRpc, studentsToRpc } from "@/lib/rpc/shared";
+import { s, n, d, newId, newPersonId, nextDocNo, bumpRevisions, acadStudents, acadStudentById, studentToRpc, studentsToRpc } from "@/lib/rpc/shared";
 import { receiptSeries } from "@/lib/rpc/numbering";
 import {
   advanceCycle,
@@ -280,7 +280,7 @@ async function phoneMatches(phone: string, exceptId = ""): Promise<{ studentId: 
 
 /** The one place a student row is created (founder add, or a merged staff draft). */
 async function createStudent(f: StudentFields, runner: { query: typeof query } = { query }): Promise<string> {
-  const id = newId("STU");
+  const id = await newPersonId("STU", "students_acad", f.enrollmentDate, f.course, runner);
   const plan = resolvePlan(f.planText);
   await runner.query(
     `insert into students_acad
