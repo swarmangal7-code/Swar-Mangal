@@ -323,7 +323,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
           ),
           if (staff) ...[
             const SizedBox(height: AppSpace.s3),
-            Text('Sent to Sharvil for approval — not added until approved.', style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
+            Text('Sent for approval — not added until approved.', style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
           ],
           const SizedBox(height: AppSpace.s3),
           ValueListenableBuilder<String?>(
@@ -367,7 +367,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                           if (!ctx.mounted) return;
                           Navigator.pop(ctx);
                           if (staff && ctx.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((m['note'] ?? 'Sent to Sharvil for approval.').toString())));
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((m['note'] ?? 'Sent for approval.').toString())));
                           }
                           _load();
                         }

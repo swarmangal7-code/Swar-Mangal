@@ -53,7 +53,7 @@ export default function StaffTeachersPage() {
 
   const requestTeacher = useMutationRpc<RequestTeacherArg, RequestTeacherRes>("api_staff_requestAddTeacher", {
     onSuccess: (res) => {
-      toast.success(res.note ?? "Sent to Sharvil for approval.");
+      toast.success(res.note ?? "Sent for approval.");
       setOpen(false);
       setName("");
       setPhone("");
@@ -180,7 +180,7 @@ export default function StaffTeachersPage() {
           <DialogHeader>
             <DialogTitle className="text-dash-fg">Request a new teacher</DialogTitle>
             <DialogDescription className="text-dash-fg/50">
-              Sent to Sharvil — he adds the teacher to the panel.
+              Sent for approval — he adds the teacher to the panel.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
@@ -225,7 +225,7 @@ export default function StaffTeachersPage() {
                 })
               }
             >
-              Send to Sharvil
+              Send for approval
             </Button>
           </DialogFooter>
         </DialogContent>

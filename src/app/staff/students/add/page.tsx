@@ -105,8 +105,8 @@ export default function StaffAddStudentPage() {
 
   const saveDraft = useMutationRpc<DraftArg, DraftResponse>("api_staff_saveStudentDraft", {
     onSuccess: (res) => {
-      toast.success(res.note ?? "Sent to Sharvil for approval.");
-      setFeedback({ ok: true, message: res.note ?? "Sent to Sharvil for approval." });
+      toast.success(res.note ?? "Sent for approval.");
+      setFeedback({ ok: true, message: res.note ?? "Sent for approval." });
       intentRef.current = `SDRAFT-${Date.now()}`;
     },
     onError: (err) => {
@@ -305,7 +305,7 @@ export default function StaffAddStudentPage() {
             Cancel
           </button>
           <Button type="submit" loading={saveDraft.isPending} disabled={!valid} className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover">
-            Send to Sharvil
+            Send for approval
           </Button>
         </div>
       </motion.form>

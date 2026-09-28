@@ -330,7 +330,7 @@ async function saveStudentDraft(arg: Record<string, unknown>, scope: BranchScope
 
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from student_drafts where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil for approval." });
+    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
 
   let branch = f.branch;
@@ -370,7 +370,7 @@ async function saveStudentDraft(arg: Record<string, unknown>, scope: BranchScope
     status: "SUBMITTED",
     duplicateWarning: { hasDuplicates: matches.length > 0, matches },
     // Brief pattern B: never "Saved" — the founder has not decided yet.
-    note: "Sent to Sharvil for approval.",
+    note: "Sent for approval.",
   });
 }
 
@@ -760,7 +760,7 @@ async function prepareReceiptDraft(arg: Record<string, unknown>, scope: BranchSc
   const intentKey = s(arg["clientIntentKey"] ?? arg["requestId"]).trim() || null;
   if (intentKey) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from payment_drafts where client_intent_key = $1`, [intentKey]);
-    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, persisted: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, persisted: true, note: "Already sent for approval." });
   }
   const incomplete = await incompleteStudentRefusal(student.id);
   if (incomplete) return incomplete;
@@ -822,7 +822,7 @@ async function prepareReceiptDraft(arg: Record<string, unknown>, scope: BranchSc
     receiptNo: "",
     persisted: true,
     // Brief pattern B: a proposal, not a saved payment.
-    note: "Sent to Sharvil for approval.",
+    note: "Sent for approval.",
   });
 }
 

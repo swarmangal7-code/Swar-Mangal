@@ -69,7 +69,7 @@ export default function StaffExpensesPage() {
   const submit = useMutationRpc<DraftArg, DraftResponse>("api_staff_submitExpenseDraft", {
     onSuccess: (res) => {
       setSuccess(res);
-      toast.success(res.note ?? "Sent to Sharvil for approval.");
+      toast.success(res.note ?? "Sent for approval.");
       intentRef.current = `EDRAFT-${Date.now()}`;
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not send the expense."),
@@ -129,7 +129,7 @@ export default function StaffExpensesPage() {
           <Card className="border-emerald-400/30 bg-emerald-400/5">
             <CardContent className="flex flex-wrap items-center gap-3 pt-5 text-sm text-emerald-300">
               <CheckCircle2 className="h-5 w-5" aria-hidden />
-              <span>{success.note ?? "Sent to Sharvil for approval."}</span>
+              <span>{success.note ?? "Sent for approval."}</span>
               {success.draftId && <span className="font-mono text-xs text-emerald-200/70">{success.draftId}</span>}
               <Button asChild size="sm" variant="outline" className="ml-auto border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
                 <Link href="/staff/requests">

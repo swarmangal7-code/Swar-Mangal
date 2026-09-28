@@ -66,7 +66,7 @@ export default function StaffSchoolInvoicePage() {
   const submit = useMutationRpc<DraftArg, DraftResponse>("api_staff_submitSchoolInvoiceDraft", {
     onSuccess: (res) => {
       setSuccess(res);
-      toast.success(res.note ?? "Sent to Sharvil.");
+      toast.success(res.note ?? "Sent for approval.");
       intentRef.current = `SIDRAFT-${Date.now()}`;
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not send the draft."),
@@ -125,7 +125,7 @@ export default function StaffSchoolInvoicePage() {
             {success && (
               <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-300">
                 <CheckCircle2 className="h-5 w-5" aria-hidden />
-                <span>{success.note ?? "Sent to Sharvil."}</span>
+                <span>{success.note ?? "Sent for approval."}</span>
                 {success.draftId && <span className="font-mono text-xs text-emerald-200/70">{success.draftId}</span>}
               </div>
             )}

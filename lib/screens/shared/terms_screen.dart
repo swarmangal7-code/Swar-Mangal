@@ -100,7 +100,7 @@ class _TermsScreenState extends State<TermsScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => reasonCtrl.text.trim().isEmpty ? null : Navigator.pop(ctx, reasonCtrl.text.trim()),
-            child: const Text('Send to Sharvil'),
+            child: const Text('Send for approval'),
           ),
         ],
       ),
@@ -120,7 +120,7 @@ class _TermsScreenState extends State<TermsScreen> {
       if (!mounted) return;
       setState(() {
         _busyManual = false;
-        _manualResult = (m['note'] ?? (m['ok'] == true ? 'Sent to Sharvil.' : 'Could not send.')).toString();
+        _manualResult = (m['note'] ?? (m['ok'] == true ? 'Sent for approval.' : 'Could not send.')).toString();
       });
       if (m['ok'] == true) _load();
     } on ApiException catch (e) {

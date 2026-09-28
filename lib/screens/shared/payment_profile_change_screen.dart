@@ -68,7 +68,7 @@ class _PaymentProfileChangeScreenState extends State<PaymentProfileChangeScreen>
       setState(() {
         _busy = false;
         _ok = m['ok'] == true;
-        _result = m['ok'] == true ? (m['note'] ?? 'Sent to Sharvil.').toString() : (m['error'] ?? 'Could not save.').toString();
+        _result = m['ok'] == true ? (m['note'] ?? 'Sent for approval.').toString() : (m['error'] ?? 'Could not save.').toString();
         if (demo && _ok == true) _result = '$_result (DEMO — not persisted)';
       });
     } on ApiException catch (e) {
@@ -115,7 +115,7 @@ class _PaymentProfileChangeScreenState extends State<PaymentProfileChangeScreen>
           const SizedBox(height: AppSpace.s4),
           FilledButton(
             onPressed: _busy ? null : _submit,
-            child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Send to Sharvil'),
+            child: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Send for approval'),
           ),
           if (_result != null) ...[
             const SizedBox(height: AppSpace.s3),

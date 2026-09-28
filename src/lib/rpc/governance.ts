@@ -295,7 +295,7 @@ async function requestReceiptCorrection(arg: Record<string, unknown>, scope: Bra
   if (!reason) return refuse("REASON_REQUIRED", "Say what is wrong on the receipt, so Sharvil can void and reissue it.");
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from receipt_corrections where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ id: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ id: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const receipt = await queryOne<{ status: string; branch: string }>(`select status, branch from receipts where receipt_no = $1`, [receiptNo]);
   if (!receipt) return refuse("NOT_FOUND", `No receipt ${receiptNo}`);
@@ -311,7 +311,7 @@ async function requestReceiptCorrection(arg: Record<string, unknown>, scope: Bra
   );
   await bumpRevisions(["approvals", "tasks"]);
   notifyFounderApproval("Receipt correction", `a request about ${receiptNo}`, id);
-  return ok({ id, receiptNo, status: "SUBMITTED", note: "Sent to Sharvil. The receipt stays as it is until he decides." });
+  return ok({ id, receiptNo, status: "SUBMITTED", note: "Sent for approval. The receipt stays as it is until he decides." });
 }
 
 async function voidReceipt(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -409,7 +409,7 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   if (locked) return locked;
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from school_invoice_drafts where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const id = newId("SIDRAFT");
   await query(
@@ -419,7 +419,7 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   );
   await bumpRevisions(["invoices", "approvals", "tasks"]);
   notifyFounderApproval("School invoice", "a draft invoice to issue", id);
-  return ok({ draftId: id, status: "SUBMITTED", persisted: true, note: "Sent to Sharvil. He allocates the invoice number when he finalises it." });
+  return ok({ draftId: id, status: "SUBMITTED", persisted: true, note: "Sent for approval. He allocates the invoice number when he finalises it." });
 }
 
 async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -487,7 +487,7 @@ async function submitPackageExtensionRequest(arg: Record<string, unknown>, scope
   if (!inScope(scope, branch)) return branchForbidden(branch);
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from package_extension_requests where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const newMonthlyFee = arg["newMonthlyFee"] != null && n(arg["newMonthlyFee"]) > 0 ? n(arg["newMonthlyFee"]) : null;
   const newFeePlanName = s(arg["newFeePlanName"]).trim() || null;
@@ -499,7 +499,7 @@ async function submitPackageExtensionRequest(arg: Record<string, unknown>, scope
   );
   await bumpRevisions(["approvals", "tasks"]);
   notifyFounderApproval("Package extension", `${extraMonths} month(s) for ${student.name}`, id);
-  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent to Sharvil." });
+  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent for approval." });
 }
 
 async function packageExtensionApprove(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -567,7 +567,7 @@ async function submitPaymentProfileChangeRequest(arg: Record<string, unknown>, s
   // staff account can propose a change, the founder alone decides.
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from payment_profile_change_requests where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const id = newId("PPCHG");
   await query(
@@ -577,7 +577,7 @@ async function submitPaymentProfileChangeRequest(arg: Record<string, unknown>, s
   );
   await bumpRevisions(["approvals"]);
   notifyFounderApproval("Payment profile change", `${entityId} → ${requestedLabel}`, id);
-  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent to Sharvil." });
+  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent for approval." });
 }
 
 async function paymentProfileChangeApprove(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -697,7 +697,7 @@ async function proposeClosure(arg: Record<string, unknown>, scope: BranchScope, 
   }
   if (intent) {
     const earlier = await queryOne<{ id: string; state: string }>(`select id, state from closure_calendar where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ closureId: earlier.id, state: earlier.state, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ closureId: earlier.id, state: earlier.state, idempotent: true, note: "Already sent for approval." });
   }
   const id = newId("CLOSURE");
   await query(
@@ -707,7 +707,7 @@ async function proposeClosure(arg: Record<string, unknown>, scope: BranchScope, 
   );
   await bumpRevisions(["approvals"]);
   notifyFounderApproval("Closure", `${scopeVal === "ACADEMY" ? "academy-wide" : branch} ${fromDate}–${toDate}`, id);
-  return ok({ closureId: id, state: "PROPOSED", persisted: true, note: "Sent to Sharvil. Classes stay as expected until he authorises it." });
+  return ok({ closureId: id, state: "PROPOSED", persisted: true, note: "Sent for approval. Classes stay as expected until he authorises it." });
 }
 
 async function authoriseClosure(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -807,7 +807,7 @@ async function requestClassCorrection(arg: Record<string, unknown>, scope: Branc
   if (!reason) return refuse("REASON_REQUIRED", "Say what is wrong with how this class was answered.");
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from class_outcome_corrections where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ id: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ id: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const row = await queryOne<Record<string, unknown>>(`select * from scheduled_sessions where id = $1`, [eventId]);
   if (!row) return refuse("NOT_FOUND", `No class ${eventId}`);
@@ -823,7 +823,7 @@ async function requestClassCorrection(arg: Record<string, unknown>, scope: Branc
   );
   await bumpRevisions(["approvals"]);
   notifyFounderApproval("Class correction", `a request about ${eventId}`, id);
-  return ok({ id, eventId, status: "SUBMITTED", note: "Sent to Sharvil. The class stays answered as it is until he decides." });
+  return ok({ id, eventId, status: "SUBMITTED", note: "Sent for approval. The class stays answered as it is until he decides." });
 }
 
 async function approveClassCorrection(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -885,7 +885,7 @@ async function submitLateFeeWaiverRequest(arg: Record<string, unknown>, scope: B
   const newNextDueDate = /^\d{4}-\d{2}-\d{2}$/.test(s(arg["newNextDueDate"])) ? s(arg["newNextDueDate"]) : null;
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from late_fee_waiver_requests where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const id = newId("WAIVER");
   await query(
@@ -895,7 +895,7 @@ async function submitLateFeeWaiverRequest(arg: Record<string, unknown>, scope: B
   );
   await bumpRevisions(["approvals"]);
   notifyFounderApproval("Late-fee waiver", `for ${student.name}`, id);
-  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent to Sharvil." });
+  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent for approval." });
 }
 
 async function lateFeeWaiverApprove(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -956,7 +956,7 @@ async function submitInstalmentPlanDraft(arg: Record<string, unknown>, scope: Br
   if (existing) return refuse("PLAN_ALREADY_ACTIVE", `${student.name} already has an active instalment plan.`);
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from instalment_plan_drafts where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const id = newId("INSTDRAFT");
   await query(
@@ -966,7 +966,7 @@ async function submitInstalmentPlanDraft(arg: Record<string, unknown>, scope: Br
   );
   await bumpRevisions(["approvals"]);
   notifyFounderApproval("Instalment plan", `${instalmentCount} instalments for ${student.name}`, id);
-  return ok({ draftId: id, status: "SUBMITTED", persisted: true, note: "Sent to Sharvil." });
+  return ok({ draftId: id, status: "SUBMITTED", persisted: true, note: "Sent for approval." });
 }
 
 async function instalmentPlanDraftApprove(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
@@ -1088,7 +1088,7 @@ async function requestManualTermsAcceptance(arg: Record<string, unknown>, scope:
   if (!inScope(scope, branch)) return branchForbidden(branch);
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from manual_terms_acceptance_requests where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const id = newId("MTERMS");
   await query(
@@ -1098,7 +1098,7 @@ async function requestManualTermsAcceptance(arg: Record<string, unknown>, scope:
   );
   await bumpRevisions(["approvals"]);
   notifyFounderApproval("Manual terms acceptance", `for ${student.name}`, id);
-  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent to Sharvil. This is an approval item, not a tick box." });
+  return ok({ requestId: id, status: "SUBMITTED", persisted: true, note: "Sent for approval. This is an approval item, not a tick box." });
 }
 
 async function manualTermsAcceptanceApprove(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {

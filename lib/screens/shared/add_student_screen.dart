@@ -154,7 +154,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             ? !widget.staff && _editing
                 ? 'Edit draft created — merge it from Approvals to update the student.'
                 : widget.staff
-                ? 'Sent to Sharvil for approval.${dup ? ' A possible duplicate was flagged for review.' : ''}'
+                ? 'Sent for approval.${dup ? ' A possible duplicate was flagged for review.' : ''}'
                     ' It appears in the student list once merged.'
                 : dup
                     ? 'Student added. A student with this phone may already exist — check before collecting fees.'

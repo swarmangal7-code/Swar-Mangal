@@ -100,7 +100,7 @@ function StaffFeesPageInner() {
   const prepare = useMutationRpc<DraftArg, DraftResponse>("api_staff_prepareReceiptDraft", {
     onSuccess: (res) => {
       setSuccess(res);
-      toast.success(res.note ?? "Sent to Sharvil for approval.");
+      toast.success(res.note ?? "Sent for approval.");
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not send the draft."),
   });
@@ -243,7 +243,7 @@ function StaffFeesPageInner() {
                   <div className="flex items-center gap-2 text-emerald-300">
                     <CheckCircle2 className="h-5 w-5" aria-hidden />
                     <p className="text-sm font-semibold">
-                      {success.note ?? "Sent to Sharvil for approval."}
+                      {success.note ?? "Sent for approval."}
                     </p>
                   </div>
                   {success.draftId && <p className="font-mono text-xs text-emerald-200/70">{success.draftId}</p>}

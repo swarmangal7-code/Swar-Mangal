@@ -245,7 +245,7 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => reasonCtrl.text.trim().isEmpty ? null : Navigator.pop(ctx, reasonCtrl.text.trim()),
-            child: const Text('Send to Sharvil'),
+            child: const Text('Send for approval'),
           ),
         ],
       ),
@@ -261,7 +261,7 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text((m['note'] ?? (m['ok'] == true ? 'Sent to Sharvil.' : 'Could not send.')).toString())));
+        ..showSnackBar(SnackBar(content: Text((m['note'] ?? (m['ok'] == true ? 'Sent for approval.' : 'Could not send.')).toString())));
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));

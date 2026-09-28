@@ -165,7 +165,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _draftNote = m['ok'] == true ? (m['note'] ?? 'Sent to Sharvil.').toString() : null;
+        _draftNote = m['ok'] == true ? (m['note'] ?? 'Sent for approval.').toString() : null;
         _error = m['ok'] == true ? null : (m['error'] ?? 'Could not send the invoice.').toString();
       });
     } on ApiException catch (e) {
@@ -290,7 +290,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
             ),
             const SizedBox(height: AppSpace.s3),
             LoadingButton(
-              label: 'Send to Sharvil',
+              label: 'Send for approval',
               icon: Icons.send_outlined,
               busy: _busy,
               onPressed: _previewed ? _sendDraft : null,

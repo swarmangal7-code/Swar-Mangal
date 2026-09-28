@@ -85,7 +85,7 @@ export default function StaffTeacherProfilePage() {
 
   const saveEdit = useMutationRpc<TeacherDraftArg, TeacherDraftRes>("api_staff_requestAddTeacher", {
     onSuccess: (res) => {
-      toast.success(res.note ?? "Sent to Sharvil for approval.");
+      toast.success(res.note ?? "Sent for approval.");
       setEditOpen(false);
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not save edit."),
@@ -93,7 +93,7 @@ export default function StaffTeacherProfilePage() {
 
   const requestDelete = useMutationRpc<TeacherDeleteArg, TeacherDraftRes>("api_staff_requestAddTeacher", {
     onSuccess: (res) => {
-      toast.success(res.note ?? "Sent to Sharvil for approval.");
+      toast.success(res.note ?? "Sent for approval.");
       setDeleteOpen(false);
       setDeleteReason("");
       intentRef.current = `TCHREQ-${Date.now()}`;
@@ -235,7 +235,7 @@ export default function StaffTeacherProfilePage() {
           <DialogHeader>
             <DialogTitle className="text-dash-fg">Edit teacher</DialogTitle>
             <DialogDescription className="text-dash-fg/50">
-              Sent to Sharvil for approval — nothing changes until he approves it.
+              Sent for approval — nothing changes until he approves it.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
@@ -274,7 +274,7 @@ export default function StaffTeacherProfilePage() {
                 })
               }
             >
-              Send to Sharvil
+              Send for approval
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -285,7 +285,7 @@ export default function StaffTeacherProfilePage() {
           <DialogHeader>
             <DialogTitle className="text-dash-fg">Request delete for {teacher.teacherName}?</DialogTitle>
             <DialogDescription className="text-dash-fg/50">
-              Sent to Sharvil for approval. Nothing changes until he approves it — this doesn&apos;t
+              Sent for approval. Nothing changes until he approves it — this doesn&apos;t
               erase any records, it moves them to Inquiries as a lead. A reason is required.
             </DialogDescription>
           </DialogHeader>
@@ -315,7 +315,7 @@ export default function StaffTeacherProfilePage() {
                 })
               }
             >
-              <Trash2 className="h-4 w-4" aria-hidden /> Send to Sharvil
+              <Trash2 className="h-4 w-4" aria-hidden /> Send for approval
             </Button>
           </DialogFooter>
         </DialogContent>

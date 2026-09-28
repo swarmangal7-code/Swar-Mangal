@@ -105,7 +105,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => reasonCtl.text.trim().isEmpty ? null : Navigator.pop(ctx, reasonCtl.text.trim()),
-            child: const Text('Send to Sharvil'),
+            child: const Text('Send for approval'),
           ),
         ],
       ),
@@ -123,7 +123,7 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
       });
       final m = res as Map<String, dynamic>;
       if (!mounted) return;
-      setState(() => _correctionNote = m['ok'] == true ? (m['note'] ?? 'Sent to Sharvil.').toString() : (m['error'] ?? 'Could not send the request.').toString());
+      setState(() => _correctionNote = m['ok'] == true ? (m['note'] ?? 'Sent for approval.').toString() : (m['error'] ?? 'Could not send the request.').toString());
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);

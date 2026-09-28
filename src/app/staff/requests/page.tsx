@@ -73,7 +73,7 @@ export default function StaffRequestsPage() {
         <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Connect</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">My Requests</h1>
         <p className="mt-1 text-sm text-dash-fg/55">
-          Everything you have sent to Sharvil, and where it stands.
+          Everything you have sent for approval, and where it stands.
         </p>
       </motion.div>
 

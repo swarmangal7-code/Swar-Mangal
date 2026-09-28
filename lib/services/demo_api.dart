@@ -439,7 +439,7 @@ class DemoApiClient extends ApiClient {
           'draftId': 'SIDRAFT-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'status': 'SUBMITTED',
           'persisted': true,
-          'note': 'Sent to Sharvil. He allocates the invoice number when he finalises it.',
+          'note': 'Sent for approval. He allocates the invoice number when he finalises it.',
         };
       case 'api_founder_finaliseSchoolInvoiceDraft':
         return {
@@ -458,7 +458,7 @@ class DemoApiClient extends ApiClient {
           'requestId': 'PKGEXT-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'status': 'SUBMITTED',
           'persisted': true,
-          'note': 'Sent to Sharvil.',
+          'note': 'Sent for approval.',
         };
       case 'api_founder_packageExtensionApprove':
         return {'ok': true, 'requestId': a['requestId'] ?? '', 'changed': true, 'note': 'demo — package not really extended'};
@@ -470,7 +470,7 @@ class DemoApiClient extends ApiClient {
           'requestId': 'PPCHG-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'status': 'SUBMITTED',
           'persisted': true,
-          'note': 'Sent to Sharvil.',
+          'note': 'Sent for approval.',
         };
       case 'api_founder_paymentProfileChangeApprove':
         return {'ok': true, 'requestId': a['requestId'] ?? '', 'changed': true, 'note': 'demo — profile not really changed'};
@@ -482,7 +482,7 @@ class DemoApiClient extends ApiClient {
           'closureId': 'CLOSURE-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'state': 'PROPOSED',
           'persisted': true,
-          'note': 'Sent to Sharvil. Classes stay as expected until he authorises it.',
+          'note': 'Sent for approval. Classes stay as expected until he authorises it.',
         };
       case 'api_founder_authoriseClosure':
         return {'ok': true, 'closureId': a['closureId'] ?? '', 'changed': true, 'note': 'demo — no real classes affected'};
@@ -496,7 +496,7 @@ class DemoApiClient extends ApiClient {
           'id': 'CCORR-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'eventId': a['eventId'] ?? '',
           'status': 'SUBMITTED',
-          'note': 'Sent to Sharvil. The class stays answered as it is until he decides.',
+          'note': 'Sent for approval. The class stays answered as it is until he decides.',
         };
       case 'api_founder_approveClassCorrection':
         return {'ok': true, 'id': a['correctionId'] ?? '', 'changed': true, 'note': 'demo — class re-opened'};
@@ -508,7 +508,7 @@ class DemoApiClient extends ApiClient {
           'requestId': 'WAIVER-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'status': 'SUBMITTED',
           'persisted': true,
-          'note': 'Sent to Sharvil.',
+          'note': 'Sent for approval.',
         };
       case 'api_founder_lateFeeWaiverApprove':
         return {'ok': true, 'requestId': a['requestId'] ?? '', 'changed': true, 'note': 'demo — no real waiver applied'};
@@ -520,7 +520,7 @@ class DemoApiClient extends ApiClient {
           'draftId': 'INSTDRAFT-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'status': 'SUBMITTED',
           'persisted': true,
-          'note': 'Sent to Sharvil.',
+          'note': 'Sent for approval.',
         };
       case 'api_founder_instalmentPlanDraftApprove':
         return {'ok': true, 'draftId': a['draftId'] ?? '', 'changed': true, 'planId': 'INSTPLAN-DEMO-1', 'note': 'demo — no real plan created'};
@@ -543,7 +543,7 @@ class DemoApiClient extends ApiClient {
           'requestId': 'MTERMS-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'status': 'SUBMITTED',
           'persisted': true,
-          'note': 'Sent to Sharvil. This is an approval item, not a tick box.',
+          'note': 'Sent for approval. This is an approval item, not a tick box.',
         };
       case 'api_founder_manualTermsAcceptanceApprove':
         return {'ok': true, 'requestId': a['requestId'] ?? '', 'changed': true, 'status': 'APPROVED'};
@@ -595,7 +595,7 @@ class DemoApiClient extends ApiClient {
           'ok': true,
           'requestId': 'TCHREQ-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'changed': true,
-          'note': 'Sent to Sharvil for approval.',
+          'note': 'Sent for approval.',
         };
       case 'api_founder_addTeacherRequestApprove':
         return {'ok': true, 'requestId': a['requestId'] ?? '', 'changed': true, 'status': 'APPROVED', 'teacherId': 'T-DEMO-NEW'};
@@ -653,7 +653,7 @@ class DemoApiClient extends ApiClient {
           'id': 'RCORR-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'receiptNo': a['receiptNo'] ?? '',
           'status': 'SUBMITTED',
-          'note': 'Sent to Sharvil. The receipt stays as it is until he decides. (DEMO — not persisted)',
+          'note': 'Sent for approval. The receipt stays as it is until he decides. (DEMO — not persisted)',
         };
       case 'api_founder_voidReceipt':
         return {

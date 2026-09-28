@@ -64,7 +64,7 @@ class _PauseMembershipScreenState extends State<PauseMembershipScreen> {
       setState(() {
         _busy = false;
         _ok = m['ok'] == true;
-        _result = m['ok'] == true ? (m['note'] ?? 'Sent to Sharvil for approval.').toString() : (m['error'] ?? 'Could not save.').toString();
+        _result = m['ok'] == true ? (m['note'] ?? 'Sent for approval.').toString() : (m['error'] ?? 'Could not save.').toString();
         if (demo && _ok == true) _result = '$_result (DEMO — not persisted)';
       });
     } on ApiException catch (e) {

@@ -501,7 +501,7 @@ async function requestAddTeacher(arg: Record<string, unknown>, scope: BranchScop
   if (!inScope(scope, branch)) return branchForbidden(recordBranch(branch));
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from teacher_add_requests where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ requestId: earlier.id, status: earlier.status, idempotent: true, note: "Already sent for approval." });
   }
   const id = newId("TCHREQ");
   const action = editingId ? "EDIT" : "ADD";
@@ -512,7 +512,7 @@ async function requestAddTeacher(arg: Record<string, unknown>, scope: BranchScop
   );
   await bumpRevisions(["approvals"]);
   notifyFounderApproval("Teacher change", editingId ? "an edit to review" : "a new teacher to review", id);
-  return ok({ requestId: id, changed: true, status: "SUBMITTED", note: "Sent to Sharvil for approval." });
+  return ok({ requestId: id, changed: true, status: "SUBMITTED", note: "Sent for approval." });
 }
 
 async function addTeacherRequestApprove(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
@@ -1145,7 +1145,7 @@ async function submitExpenseDraft(arg: Record<string, unknown>, scope: BranchSco
   const intent = s(arg["clientIntentKey"] ?? arg["requestId"]).trim() || null;
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from expense_drafts where client_intent_key = $1`, [intent]);
-    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, persisted: true, note: "Already sent to Sharvil." });
+    if (earlier) return ok({ draftId: earlier.id, status: earlier.status, idempotent: true, persisted: true, note: "Already sent for approval." });
   }
   const id = newId("EDRAFT");
   await query(
@@ -1162,7 +1162,7 @@ async function submitExpenseDraft(arg: Record<string, unknown>, scope: BranchSco
   );
   await bumpRevisions(["expenses", "approvals", "tasks"]);
   notifyFounderApproval("Expense", "an expense draft to approve", id);
-  return ok({ draftId: id, persisted: true, status: "SUBMITTED", amount, note: "Sent to Sharvil for approval." });
+  return ok({ draftId: id, persisted: true, status: "SUBMITTED", amount, note: "Sent for approval." });
 }
 
 /** Founder approves: the draft becomes a real expense plus a cashbook outflow. */
