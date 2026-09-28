@@ -378,6 +378,40 @@ export interface TimetableResponse extends RpcEnvelope {
   seeded: boolean;
 }
 
+export interface TimetableWeekEntry extends TimetableEntry {
+  weekStart: string;
+  date: string;
+  overridden: boolean;
+  cancelledThisWeek: boolean;
+}
+
+export interface TimetableWeekResponse extends RpcEnvelope {
+  weekStart: string;
+  weekEnd: string;
+  entries: TimetableWeekEntry[];
+}
+
+export interface TimetableSessionDetailResponse extends RpcEnvelope {
+  slot: {
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    className: string;
+    teacherId: string;
+    teacherName: string;
+    branch: string;
+  };
+  teacherAttendance: {
+    recorded: boolean;
+    outcome: string;
+    deliveredBy: string;
+    reason: string;
+    recordedBy: string;
+  };
+  students: { studentId: string; name: string; status: string }[];
+}
+
 // -------------------------------------------------------------- inquiries
 
 export interface Inquiry {

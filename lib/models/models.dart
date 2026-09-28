@@ -1692,6 +1692,88 @@ class TimetableEntry {
   }
 }
 
+/// One calendar-week instance of a recurring `TimetableEntry`, resolved to a
+/// real date by `api_timetableWeek`. `overridden` means this week's fields
+/// were changed via a "this week only" edit — the base slot is unchanged.
+class TimetableWeekEntry extends TimetableEntry {
+  const TimetableWeekEntry({
+    required super.id,
+    required super.branch,
+    required super.dayOfWeek,
+    required super.startTime,
+    required super.endTime,
+    required super.className,
+    super.teacherId,
+    super.teacherName,
+    super.status,
+    this.substituteTeacherName = '',
+    required this.weekStart,
+    required this.date,
+    this.overridden = false,
+  });
+  factory TimetableWeekEntry.fromApi(Map<String, dynamic> b) => TimetableWeekEntry(
+        id: _s(b['id']),
+        branch: _s(b['branch']),
+        dayOfWeek: (b['dayOfWeek'] as num?)?.toInt() ?? 0,
+        startTime: _s(b['startTime']),
+        endTime: _s(b['endTime']),
+        className: _s(b['className']),
+        teacherId: _s(b['teacherId']),
+        teacherName: _s(b['teacherName']),
+        status: _s(b['status']).toUpperCase().isEmpty ? 'ENABLED' : _s(b['status']).toUpperCase(),
+        substituteTeacherName: _s(b['substituteTeacherName']),
+        weekStart: _s(b['weekStart']),
+        date: _s(b['date']),
+        overridden: b['overridden'] == true,
+      );
+  final String substituteTeacherName;
+  final String weekStart;
+  final String date;
+  final bool overridden;
+}
+
+class TimetableSessionStudent {
+  const TimetableSessionStudent({required this.studentId, required this.name, required this.status});
+  factory TimetableSessionStudent.fromApi(Map<String, dynamic> b) => TimetableSessionStudent(
+        studentId: _s(b['studentId']),
+        name: _s(b['name']),
+        status: _s(b['status']),
+      );
+  final String studentId;
+  final String name;
+  final String status;
+}
+
+class TimetableSessionDetail {
+  const TimetableSessionDetail({
+    required this.teacherName,
+    required this.recorded,
+    required this.outcome,
+    required this.deliveredBy,
+    required this.reason,
+    required this.students,
+  });
+  factory TimetableSessionDetail.fromApi(Map<String, dynamic> b) {
+    final ta = (b['teacherAttendance'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return TimetableSessionDetail(
+      teacherName: _s((b['slot'] as Map?)?['teacherName']),
+      recorded: ta['recorded'] == true,
+      outcome: _s(ta['outcome']),
+      deliveredBy: _s(ta['deliveredBy']),
+      reason: _s(ta['reason']),
+      students: ((b['students'] as List?) ?? const [])
+          .map((e) => TimetableSessionStudent.fromApi((e as Map).cast<String, dynamic>()))
+          .toList(),
+    );
+  }
+  final String teacherName;
+  final bool recorded;
+  final String outcome;
+  final String deliveredBy;
+  final String reason;
+  final List<TimetableSessionStudent> students;
+}
+
 /// Timetable edit validation — time ordering + required fields.
 class TimetableValidator {
   TimetableValidator._();

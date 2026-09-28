@@ -105,6 +105,10 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return timetableUpdate(arg, scope);
     case "api_timetableDelete":
       return timetableDelete(arg, scope);
+    case "api_timetableWeek":
+      return timetableWeek(arg, scope);
+    case "api_timetableSessionDetail":
+      return timetableSessionDetail(arg, scope);
     case "api_staff_attendanceRoster":
       return attendanceRoster(arg, scope);
     case "api_staff_markAttendance":
@@ -1358,6 +1362,32 @@ async function timetableUpdate(arg: Record<string, unknown>, scope: BranchScope)
   if (!inScope(scope, cur.branch)) return branchForbidden(recordBranch(cur.branch));
   const nextBranch = recordBranch(s(arg["branch"] ?? cur.branch));
   if (!inScope(scope, nextBranch)) return branchForbidden(nextBranch);
+
+  const editScope = s(arg["scope"]).toUpperCase() === "THIS_WEEK" ? "THIS_WEEK" : "ALL_WEEKS";
+  if (editScope === "THIS_WEEK") {
+    // A week-scoped edit never touches the recurring base row — it writes an
+    // override for just that week, so every other week (past or future)
+    // keeps showing what the base row already said.
+    const weekStart = isoDate(arg["weekStart"]) || mondayOf(todayIso());
+    await query(
+      `insert into timetable_overrides (id, timetable_id, week_start, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, substitute_teacher_id, substitute_teacher_name, status)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       on conflict (timetable_id, week_start) do update set
+         day_of_week = excluded.day_of_week, start_time = excluded.start_time, end_time = excluded.end_time,
+         class_name = excluded.class_name, teacher_id = excluded.teacher_id, teacher_name = excluded.teacher_name,
+         substitute_teacher_id = excluded.substitute_teacher_id, substitute_teacher_name = excluded.substitute_teacher_name,
+         status = excluded.status`,
+      [
+        `TTO-${id}-${weekStart}`, id, weekStart, n(arg["dayOfWeek"] ?? cur.day_of_week), s(arg["startTime"] ?? cur.start_time), s(arg["endTime"] ?? cur.end_time),
+        s(arg["className"] ?? cur.class_name), s(arg["teacherId"] ?? cur.teacher_id), s(arg["teacherName"] ?? cur.teacher_name),
+        s(arg["substituteTeacherId"] ?? cur.substitute_teacher_id) || null, s(arg["substituteTeacherName"] ?? cur.substitute_teacher_name) || null,
+        s(arg["status"] ?? cur.status).toUpperCase() || "ENABLED",
+      ],
+    );
+    await bumpRevisions(["timetable", "sessions"]);
+    return ok({ entry: { ...cur, ...arg, id }, note: "updated for this week only" });
+  }
+
   await query(
     `update timetable set branch=$2, day_of_week=$3, start_time=$4, end_time=$5, class_name=$6, teacher_id=$7, teacher_name=$8, status=$9, substitute_teacher_id=$10, substitute_teacher_name=$11 where id=$1`,
     [
@@ -1372,11 +1402,131 @@ async function timetableUpdate(arg: Record<string, unknown>, scope: BranchScope)
 
 async function timetableDelete(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const id = s(arg["id"]);
+  const editScope = s(arg["scope"]).toUpperCase() === "THIS_WEEK" ? "THIS_WEEK" : "ALL_WEEKS";
   const before = await queryOne<{ id: string; branch: string }>(`select id, branch from timetable where id = $1`, [id]);
   if (before && !inScope(scope, before.branch)) return branchForbidden(recordBranch(before.branch));
-  if (before) await query(`delete from timetable where id = $1`, [id]);
+  if (before && editScope === "THIS_WEEK") {
+    const weekStart = isoDate(arg["weekStart"]) || mondayOf(todayIso());
+    await query(
+      `insert into timetable_overrides (id, timetable_id, week_start, status)
+       values ($1,$2,$3,'CANCELLED')
+       on conflict (timetable_id, week_start) do update set status = 'CANCELLED'`,
+      [`TTO-${id}-${weekStart}`, id, weekStart],
+    );
+  } else if (before) {
+    await query(`delete from timetable_overrides where timetable_id = $1`, [id]);
+    await query(`delete from timetable where id = $1`, [id]);
+  }
   if (before) await bumpRevisions(["timetable", "sessions"]);
-  return ok({ deleted: before != null, note: "deleted" });
+  return ok({ deleted: before != null && editScope === "ALL_WEEKS", cancelledThisWeek: before != null && editScope === "THIS_WEEK", note: editScope === "THIS_WEEK" ? "removed for this week only" : "deleted" });
+}
+
+/** Monday (day 0) of the calendar week containing `date`. */
+function mondayOf(date: string): string {
+  return addDays(date, -mondayIndex(date));
+}
+
+/**
+ * The Timetable-as-calendar read: every recurring slot, resolved to real
+ * dates for one specific calendar week, with any this-week-only override
+ * merged on top (or excluded if cancelled for that week). The base
+ * `timetable` row itself is never touched by a week-scoped edit.
+ */
+async function timetableWeek(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const branch = s(arg["branch"] ?? "ALL").toUpperCase();
+  const weekStart = isoDate(arg["weekStart"]) || mondayOf(todayIso());
+  const [base, overrides] = await Promise.all([
+    query<Record<string, unknown>>(
+      `select id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name from timetable`,
+    ),
+    query<Record<string, unknown>>(`select * from timetable_overrides where week_start = $1`, [weekStart]),
+  ]);
+  const overrideById = new Map(overrides.map((o) => [s(o.timetable_id), o]));
+  const rows = base
+    .filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(branch, r.branch))
+    .map((r) => {
+      const ov = overrideById.get(s(r.id));
+      const merged = ov ? { ...r, ...Object.fromEntries(Object.entries(ov).filter(([k, v]) => v !== null && !["id", "timetable_id", "week_start", "created_at"].includes(k))) } : r;
+      const dayOfWeek = n(merged.day_of_week);
+      return {
+        id: s(r.id),
+        branch: s(r.branch),
+        weekStart,
+        date: addDays(weekStart, dayOfWeek),
+        dayOfWeek,
+        startTime: s(merged.start_time),
+        endTime: s(merged.end_time),
+        className: s(merged.class_name),
+        teacherId: s(merged.teacher_id),
+        teacherName: s(merged.teacher_name),
+        status: s(merged.status),
+        substituteTeacherId: s(merged.substitute_teacher_id),
+        substituteTeacherName: s(merged.substitute_teacher_name),
+        overridden: !!ov,
+        cancelledThisWeek: ov?.status === "CANCELLED",
+      };
+    })
+    .filter((r) => !r.cancelledThisWeek)
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+  return ok({ weekStart, weekEnd: addDays(weekStart, 6), entries: rows });
+}
+
+/**
+ * Click-through detail for one calendar session: teacher attendance (from
+ * the existing Today's Classes outcome/reason model — unaffected by
+ * week-scoped edits since it is keyed by the base timetable id + real
+ * date) plus the student roster for that slot's instrument/branch, each
+ * marked PRESENT/ABSENT/etc if already recorded for this specific session.
+ */
+async function timetableSessionDetail(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const timetableId = s(arg["timetableId"]);
+  const date = isoDate(arg["date"]);
+  if (!timetableId || !date) return { ok: false, code: "BAD_ARGS", error: "timetableId and date are required." };
+  const base = await queryOne<Record<string, unknown>>(`select * from timetable where id = $1`, [timetableId]);
+  if (!base) return { ok: false, code: "NOT_FOUND", error: `No timetable slot ${timetableId}` };
+  if (!inScope(scope, base.branch)) return branchForbidden(recordBranch(base.branch));
+
+  const eventId = `E-${date}-${timetableId}`;
+  const [session, students, marks] = await Promise.all([
+    queryOne<Record<string, unknown>>(`select * from scheduled_sessions where id = $1`, [eventId]),
+    acadStudents(),
+    query<{ student_id: string; status: string }>(
+      `select student_id, status from attendance_acad where timetable_id = $1 and session_date = $2`,
+      [timetableId, date],
+    ),
+  ]);
+  const statusOf = new Map(marks.map((m) => [m.student_id, s(m.status).toUpperCase()]));
+  const roster = students.filter(
+    (x) =>
+      s(x.status).toUpperCase() === "ACTIVE" &&
+      recordBranch(x.branch) === recordBranch(s(base.branch)) &&
+      s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase(),
+  );
+
+  return ok({
+    slot: {
+      id: timetableId,
+      date,
+      startTime: s(base.start_time),
+      endTime: s(base.end_time),
+      className: s(base.class_name),
+      teacherId: s(base.teacher_id),
+      teacherName: s(base.teacher_name),
+      branch: s(base.branch),
+    },
+    teacherAttendance: {
+      recorded: !!session,
+      outcome: s(session?.outcome),
+      deliveredBy: s(session?.delivered_by),
+      reason: s(session?.late_reason ?? session?.evidence_reason),
+      recordedBy: s(session?.recorded_by),
+    },
+    students: (await studentsToRpc(roster)).map((st) => ({
+      studentId: st.studentId,
+      name: st.studentName,
+      status: statusOf.get(st.studentId) ?? "NOT_MARKED",
+    })),
+  });
 }
 
 // -------------------------------------------------------- attendance / today
@@ -1443,6 +1593,10 @@ async function markAttendance(arg: Record<string, unknown>, scope: BranchScope, 
   }
   const lockedAttendance = await closedMonthRefusal(date);
   if (lockedAttendance) return lockedAttendance;
+  // Set when marking is launched from a Timetable session's click-through,
+  // so this mark is findable by that specific slot later (api_timetableSessionDetail)
+  // rather than only by student+date.
+  const timetableId = s(arg["timetableId"]).trim() || null;
   const students = new Map<string, Awaited<ReturnType<typeof acadStudentById>>>();
   for (const e of entries) {
     const student = await acadStudentById(e.studentId);
@@ -1463,12 +1617,12 @@ async function markAttendance(arg: Record<string, unknown>, scope: BranchScope, 
     // adding a second row.
     await query(
       `insert into attendance_acad (id, session_date, student_id, student_name, teacher_id, teacher_name, instrument, status,
-                                    backdated_reason, recorded_by, recorded_at)
-       values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,now())
+                                    backdated_reason, recorded_by, recorded_at, timetable_id)
+       values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11)
        on conflict (id) do update set status = excluded.status, backdated_reason = coalesce(excluded.backdated_reason, attendance_acad.backdated_reason),
-         recorded_by = excluded.recorded_by, recorded_at = now()`,
+         recorded_by = excluded.recorded_by, recorded_at = now(), timetable_id = coalesce(excluded.timetable_id, attendance_acad.timetable_id)`,
       [`ATT-${e.studentId}-${date}`, date, e.studentId, student!.name, s(teacher?.teacher_id), s(teacher?.teacher_name), s(student!.instrument), e.status.toUpperCase(),
-       backdatedReason || null, session?.deviceLabel || session?.email || ""],
+       backdatedReason || null, session?.deviceLabel || session?.email || "", timetableId],
     );
   }
   await bumpRevisions(["attendance", "sessions", "tasks", "dashboard"]);

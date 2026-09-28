@@ -26,14 +26,32 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
   @override
   Future<void> reloadFromSync() => _load();
 
-  List<TimetableEntry> _rows = [];
+  List<TimetableWeekEntry> _rows = [];
   List<Teacher> _teachers = [];
   String? _error;
   bool _busy = true;
   int _day = DateTime.now().weekday - 1; // ISO: 0=Mon
   bool _weekly = false;
+  late String _weekStart = _mondayOf(DateTime.now());
 
   bool get canEdit => TimetablePolicy.canEdit(staff: widget.staff);
+
+  static String _mondayOf(DateTime d) {
+    final monday = d.subtract(Duration(days: d.weekday - 1));
+    return '${monday.year.toString().padLeft(4, '0')}-${monday.month.toString().padLeft(2, '0')}-${monday.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _addDays(String iso, int days) {
+    final d = DateTime.parse(iso).add(Duration(days: days));
+    return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  String _weekRangeLabel() {
+    final start = DateTime.parse(_weekStart);
+    final end = DateTime.parse(_addDays(_weekStart, 6));
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${start.day} ${months[start.month - 1]} – ${end.day} ${months[end.month - 1]}';
+  }
 
   @override
   void initState() {
@@ -50,12 +68,12 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
     });
     try {
       final results = await Future.wait([
-        auth.service!.timetableList(branch: auth.branch ?? 'ALL'),
+        auth.service!.timetableWeek(branch: auth.branch ?? 'ALL', weekStart: _weekStart),
         auth.service!.listTeachers(),
       ]);
       if (!mounted) return;
       setState(() {
-        _rows = results[0] as List<TimetableEntry>;
+        _rows = (results[0] as ({String weekStart, String weekEnd, List<TimetableWeekEntry> entries})).entries;
         _teachers = results.length > 1 ? results[1] as List<Teacher> : const <Teacher>[];
         _busy = false;
       });
@@ -74,14 +92,19 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
     }
   }
 
-  List<TimetableEntry> get _dayRows {
+  void _shiftWeek(int days) {
+    setState(() => _weekStart = _addDays(_weekStart, days));
+    _load();
+  }
+
+  List<TimetableWeekEntry> get _dayRows {
     final day = _rows.where((e) => e.dayOfWeek == _day).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
     return day;
   }
 
-  List<(int, List<TimetableEntry>)> get _weeklyViewData {
-    final out = <(int, List<TimetableEntry>)>[];
+  List<(int, List<TimetableWeekEntry>)> get _weeklyViewData {
+    final out = <(int, List<TimetableWeekEntry>)>[];
     for (var d = 0; d < 7; d++) {
       final list = _rows.where((e) => e.dayOfWeek == d).toList()
         ..sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -125,10 +148,32 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
               label: const Text('Add class'),
             )
           : null,
-      body: RefreshScaffold(
-        onRefresh: _load,
-        child: _weekly ? _weeklyView() : _dayView(),
-      ),
+      body: Column(children: [
+        _weekNav(),
+        Expanded(
+          child: RefreshScaffold(
+            onRefresh: _load,
+            child: _weekly ? _weeklyView() : _dayView(),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _weekNav() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.s4, vertical: 6),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _shiftWeek(-7)),
+        TextButton(
+          onPressed: () {
+            setState(() => _weekStart = _mondayOf(DateTime.now()));
+            _load();
+          },
+          child: Text(_weekRangeLabel(), style: const TextStyle(fontWeight: FontWeight.w700)),
+        ),
+        IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _shiftWeek(7)),
+      ]),
     );
   }
 
@@ -212,37 +257,66 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
     );
   }
 
-  Widget _card(TimetableEntry e) {
+  Widget _card(TimetableWeekEntry e) {
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpace.s3),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.s4),
-        child: Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${e.timeLabelStart} — ${e.timeLabelEnd}',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-              Text(e.className, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-              Text(e.teacherName.isNotEmpty ? e.teacherName : 'No teacher assigned',
-                  style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
-            ]),
-          ),
-          if (e.teacherId.isNotEmpty) TagChip(e.teacherId, color: AppColors.adaptive(context, AppColors.focus)),
-          if (canEdit)
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, size: 20, color: AppColors.adaptive(context, AppColors.muted)),
-              onSelected: (v) {
-                if (v == 'edit') _edit(e);
-                if (v == 'del') _delete(e);
-                if (v == 'toggle') _toggle(e);
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                PopupMenuItem(value: 'toggle', child: Text(e.enabled ? 'Disable' : 'Enable')),
-                const PopupMenuItem(value: 'del', child: Text('Delete')),
-              ],
+      child: InkWell(
+        onTap: () => _viewSession(e),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.s4),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${e.timeLabelStart} — ${e.timeLabelEnd}',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                Text(e.className, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(e.teacherName.isNotEmpty ? e.teacherName : 'No teacher assigned',
+                    style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
+                if (e.overridden)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text('Changed this week', style: TextStyle(fontSize: 11, color: AppColors.adaptive(context, AppColors.primary))),
+                  ),
+              ]),
             ),
-        ]),
+            if (e.teacherId.isNotEmpty) TagChip(e.teacherId, color: AppColors.adaptive(context, AppColors.focus)),
+            if (canEdit)
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, size: 20, color: AppColors.adaptive(context, AppColors.muted)),
+                onSelected: (v) {
+                  if (v == 'edit') _edit(e);
+                  if (v == 'del') _delete(e);
+                  if (v == 'toggle') _toggle(e);
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(value: 'toggle', child: Text(e.enabled ? 'Disable' : 'Enable')),
+                  const PopupMenuItem(value: 'del', child: Text('Delete')),
+                ],
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _viewSession(TimetableWeekEntry e) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _SessionDetailSheet(
+        entry: e,
+        loader: () => auth.service!.timetableSessionDetail(timetableId: e.id, date: e.date),
+        onEdit: () {
+          Navigator.pop(ctx);
+          _edit(e);
+        },
+        onDelete: () {
+          Navigator.pop(ctx);
+          _delete(e);
+        },
       ),
     );
   }
@@ -250,7 +324,7 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
   Future<void> _edit(TimetableEntry entry) async {
     final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => _TimetableForm(entry: entry, teachers: _teachers),
+      builder: (_) => _TimetableForm(entry: entry, teachers: _teachers, weekStart: _weekStart),
     );
     if (saved == true) await _load();
   }
@@ -258,20 +332,21 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
   Future<void> _delete(TimetableEntry e) async {
     final auth = context.read<AuthProvider>();
     if (auth.service == null) return;
-    final ok = await showDialog<bool>(
+    final scope = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete class?'),
+        title: const Text('Remove this class?'),
         content: Text('${e.className} ${e.timeLabelStart}—${e.timeLabelEnd}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 'THIS_WEEK'), child: const Text('This week only')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, 'ALL_WEEKS'), child: const Text('All weeks')),
         ],
       ),
     );
-    if (ok != true || !mounted) return;
+    if (scope == null || !mounted) return;
     try {
-      await auth.service!.timetableDelete(e.id);
+      await auth.service!.timetableDelete(e.id, {'scope': scope, 'weekStart': _weekStart});
       await _load();
     } on ApiException catch (e2) {
       if (!mounted) return;
@@ -302,9 +377,11 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
 }
 
 class _TimetableForm extends StatefulWidget {
-  const _TimetableForm({required this.entry, required this.teachers});
+  const _TimetableForm({required this.entry, required this.teachers, required this.weekStart});
   final TimetableEntry? entry;
   final List<Teacher> teachers;
+  final String weekStart;
+  bool get isEdit => (entry?.id ?? '').isNotEmpty;
   @override
   State<_TimetableForm> createState() => _TimetableFormState();
 }
@@ -317,6 +394,7 @@ class _TimetableFormState extends State<_TimetableForm> {
   late int _day;
   late String _status;
   String? _teacherId;
+  String _editScope = 'THIS_WEEK';
   bool _busy = false;
   String? _error;
 
@@ -387,10 +465,14 @@ class _TimetableFormState extends State<_TimetableForm> {
       _error = null;
     });
     try {
-      if (widget.entry == null) {
+      if (!widget.isEdit) {
         await auth.service!.timetableCreate(base);
       } else {
-        await auth.service!.timetableUpdate(widget.entry!.id, base);
+        await auth.service!.timetableUpdate(widget.entry!.id, {
+          ...base,
+          'scope': _editScope,
+          'weekStart': widget.weekStart,
+        });
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -412,7 +494,7 @@ class _TimetableFormState extends State<_TimetableForm> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.entry == null ? 'Add class' : 'Edit class'),
+      title: Text(widget.isEdit ? 'Edit class' : 'Add class'),
       content: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           TextFormField(
@@ -485,6 +567,28 @@ class _TimetableFormState extends State<_TimetableForm> {
             const Text('Enabled', style: TextStyle(fontSize: 13)),
             Switch.adaptive(value: _status == 'ENABLED', onChanged: (v) => setState(() => _status = v ? 'ENABLED' : 'DISABLED')),
           ]),
+          if (widget.isEdit) ...[
+            const SizedBox(height: AppSpace.s2),
+            Text('APPLY TO', style: AppType.eyebrow.copyWith(fontSize: 10)),
+            RadioListTile<String>(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              value: 'THIS_WEEK',
+              groupValue: _editScope,
+              onChanged: (v) => setState(() => _editScope = v!),
+              title: const Text('This week only', style: TextStyle(fontSize: 13)),
+              subtitle: const Text('Other weeks stay unchanged.', style: TextStyle(fontSize: 11)),
+            ),
+            RadioListTile<String>(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              value: 'ALL_WEEKS',
+              groupValue: _editScope,
+              onChanged: (v) => setState(() => _editScope = v!),
+              title: const Text('All weeks', style: TextStyle(fontSize: 13)),
+              subtitle: const Text('Changes the recurring schedule going forward.', style: TextStyle(fontSize: 11)),
+            ),
+          ],
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: AppSpace.s2),
@@ -498,9 +602,133 @@ class _TimetableFormState extends State<_TimetableForm> {
           onPressed: _busy ? null : _save,
           child: _busy
               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : Text(widget.entry == null ? 'Add class' : 'Save changes'),
+              : Text(widget.isEdit ? 'Save changes' : 'Add class'),
         ),
       ],
+    );
+  }
+}
+const _outcomeLabels = {
+  'HELD': 'Held by the assigned teacher',
+  'TEACHER_CANCELLED': 'Teacher was absent / cancelled',
+  'ACADEMY_CANCELLED': 'Cancelled by the academy',
+  'SUBSTITUTE_DELIVERED': 'Delivered by a substitute',
+  'RESCHEDULED': 'Rescheduled',
+};
+
+const _attendanceLabels = {
+  'PRESENT': 'Present',
+  'ABSENT': 'Absent',
+  'LATE': 'Late',
+  'EXCUSED': 'Excused',
+  'NOT_MARKED': 'Not marked',
+};
+
+/// Founder request 2026-09-28: tapping a calendar session shows teacher
+/// attendance (with the reason if absent) and student attendance by name.
+class _SessionDetailSheet extends StatefulWidget {
+  const _SessionDetailSheet({required this.entry, required this.loader, required this.onEdit, required this.onDelete});
+  final TimetableWeekEntry entry;
+  final Future<TimetableSessionDetail> Function() loader;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  @override
+  State<_SessionDetailSheet> createState() => _SessionDetailSheetState();
+}
+
+class _SessionDetailSheetState extends State<_SessionDetailSheet> {
+  late final Future<TimetableSessionDetail> _future = widget.loader();
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) => Padding(
+        padding: const EdgeInsets.all(AppSpace.s4),
+        child: FutureBuilder<TimetableSessionDetail>(
+          future: _future,
+          builder: (context, snap) {
+            return ListView(
+              controller: scrollController,
+              children: [
+                Text(widget.entry.className, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                Text(
+                  '${widget.entry.date} · ${widget.entry.timeLabelStart}–${widget.entry.timeLabelEnd}',
+                  style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)),
+                ),
+                const SizedBox(height: AppSpace.s4),
+                if (snap.connectionState != ConnectionState.done)
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 32), child: Center(child: CircularProgressIndicator()))
+                else if (snap.hasError)
+                  ErrorView(snap.error.toString())
+                else ...[
+                  const SectionTitle('Teacher'),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpace.s3),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(snap.data!.teacherName.isNotEmpty ? snap.data!.teacherName : 'No teacher assigned',
+                            style: const TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        if (snap.data!.recorded) ...[
+                          Text(
+                            (_outcomeLabels[snap.data!.outcome] ?? snap.data!.outcome) +
+                                (snap.data!.deliveredBy.isNotEmpty ? ' — ${snap.data!.deliveredBy}' : ''),
+                            style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)),
+                          ),
+                          if (snap.data!.reason.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text('Reason: ${snap.data!.reason}',
+                                  style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.warnFg))),
+                            ),
+                        ] else
+                          Text('Not yet recorded for this date.',
+                              style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
+                      ]),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.s3),
+                  SectionTitle('Students (${snap.data!.students.length})'),
+                  if (snap.data!.students.isEmpty)
+                    Text('No students matched to this class yet.',
+                        style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)))
+                  else
+                    for (final st in snap.data!.students)
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        child: ListTile(
+                          dense: true,
+                          title: Text(st.name),
+                          trailing: StatusBadge(_attendanceLabels[st.status] ?? st.status),
+                        ),
+                      ),
+                ],
+                const SizedBox(height: AppSpace.s4),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onDelete,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Remove'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpace.s2),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: widget.onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Edit'),
+                    ),
+                  ),
+                ]),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 }

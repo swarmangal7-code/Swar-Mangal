@@ -188,8 +188,29 @@ class ApiService {
   Future<dynamic> timetableUpdate(String id, Map<String, dynamic> form) =>
       _api.call('api_timetableUpdate', {'id': id, ...form});
 
-  Future<dynamic> timetableDelete(String id) =>
-      _api.call('api_timetableDelete', {'id': id});
+  Future<dynamic> timetableDelete(String id, [Map<String, dynamic>? form]) =>
+      _api.call('api_timetableDelete', {'id': id, ...?form});
+
+  /// One calendar week's worth of sessions — the base recurring pattern
+  /// resolved to real dates, with any "this week only" edits merged in.
+  Future<({String weekStart, String weekEnd, List<TimetableWeekEntry> entries})> timetableWeek({
+    String branch = 'ALL',
+    required String weekStart,
+  }) async {
+    final b = (await _api.call('api_timetableWeek', {'branch': branch, 'weekStart': weekStart})) as Map;
+    final entries = ((b['entries'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => TimetableWeekEntry.fromApi(e.cast<String, dynamic>()))
+        .toList();
+    return (weekStart: (b['weekStart'] ?? '').toString(), weekEnd: (b['weekEnd'] ?? '').toString(), entries: entries);
+  }
+
+  /// Click-through for one session: teacher attendance (with a reason if
+  /// absent) and the student roster for that slot, by name.
+  Future<TimetableSessionDetail> timetableSessionDetail({required String timetableId, required String date}) async {
+    final b = (await _api.call('api_timetableSessionDetail', {'timetableId': timetableId, 'date': date})) as Map;
+    return TimetableSessionDetail.fromApi(b.cast<String, dynamic>());
+  }
 
 // -------------------------------------------------------------- teachers
   Future<List<Teacher>> listTeachers() async {

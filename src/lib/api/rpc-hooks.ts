@@ -33,6 +33,8 @@ import type {
   TeacherListResponse,
   TeacherProfileResponse,
   TimetableResponse,
+  TimetableWeekResponse,
+  TimetableSessionDetailResponse,
   TodaysClassesResponse,
 } from "./rpc-types";
 
@@ -52,6 +54,7 @@ export const rpcKeys = {
   receipts: (query?: Record<string, unknown>) => ["rpc", "api_searchReceipt", query ?? null] as const,
   cashbook: (branch?: string, month?: string) => ["rpc", "api_cashbookReport", branch ?? "ALL", month ?? ""] as const,
   timetable: (branch?: string) => ["rpc", "api_timetableList", branch ?? "ALL"] as const,
+  timetableWeek: (branch?: string, weekStart?: string) => ["rpc", "api_timetableWeek", branch ?? "ALL", weekStart ?? ""] as const,
   inquiries: (branch?: string) => ["rpc", "api_staff_inquiryQueue", branch ?? "ALL"] as const,
   approvals: () => ["rpc", "api_founder_approvalsList"] as const,
   paymentDrafts: () => ["rpc", "api_founder_listPaymentDrafts"] as const,
@@ -228,6 +231,26 @@ export function useCashbook(branch?: string, month?: string, options?: QueryOpti
 
 export function useTimetable(branch?: string, options?: QueryOptions<TimetableResponse>) {
   return useRpc<TimetableResponse>("api_timetableList", { branch: branch ?? "ALL" }, options);
+}
+
+export function useTimetableWeek(branch: string | undefined, weekStart: string, options?: QueryOptions<TimetableWeekResponse>) {
+  return useRpc<TimetableWeekResponse>(
+    "api_timetableWeek",
+    { branch: branch ?? "ALL", weekStart },
+    { enabled: weekStart.length > 0, ...options },
+  );
+}
+
+export function useTimetableSessionDetail(
+  timetableId: string,
+  date: string,
+  options?: QueryOptions<TimetableSessionDetailResponse>,
+) {
+  return useRpc<TimetableSessionDetailResponse>(
+    "api_timetableSessionDetail",
+    { timetableId, date },
+    { enabled: !!timetableId && !!date, ...options },
+  );
 }
 
 // ---------------------------------------------------------------- inquiries

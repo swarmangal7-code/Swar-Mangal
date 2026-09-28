@@ -172,6 +172,8 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_timetableCreate: STAFF,
   api_timetableUpdate: STAFF,
   api_timetableDelete: STAFF,
+  api_timetableWeek: STAFF,
+  api_timetableSessionDetail: STAFF,
 
   // ------------------------------------------------- periods / corrections
   // Brief §11.7, P6.7: closing a service month is founder-only.

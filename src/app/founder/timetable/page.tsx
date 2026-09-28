@@ -1,12 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, Loader2, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useTokenAuth } from "@/lib/auth/token-auth";
-import { rpcKeys, useMutationRpc, useTeachers, useTimetable } from "@/lib/api/rpc-hooks";
-import type { RpcEnvelope, TimetableEntry } from "@/lib/api/rpc-types";
+import { rpcKeys, useMutationRpc, useTeachers, useTimetableWeek } from "@/lib/api/rpc-hooks";
+import type { RpcEnvelope, TimetableWeekEntry } from "@/lib/api/rpc-types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
   DAYS,
   DAY_LABELS,
   fmt12,
+  SessionDetailDialog,
   TimeSlotCard,
   TimetableDialog,
   type TimetableWriteArg,
@@ -29,6 +30,26 @@ import {
 
 interface RpcResult extends RpcEnvelope {
   note?: string;
+}
+
+/** Monday (YYYY-MM-DD) of the week containing `date`. */
+function mondayOf(date: Date): string {
+  const idx = (date.getDay() + 6) % 7;
+  const d = new Date(date);
+  d.setDate(d.getDate() - idx);
+  return d.toISOString().slice(0, 10);
+}
+function addDaysIso(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function fmtWeekRange(weekStart: string) {
+  const end = addDaysIso(weekStart, 6);
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const s = new Date(`${weekStart}T12:00:00Z`).toLocaleDateString("en-IN", opts);
+  const e = new Date(`${end}T12:00:00Z`).toLocaleDateString("en-IN", opts);
+  return `${s} – ${e}`;
 }
 
 export default function FounderTimetablePage() {
@@ -41,28 +62,31 @@ export default function FounderTimetablePage() {
 
   const [branch, setBranch] = React.useState(singleBranch ?? "ALL");
   const [view, setView] = React.useState<"day" | "week">("week");
+  const [weekStart, setWeekStart] = React.useState(() => mondayOf(new Date()));
   const [selectedDay, setSelectedDay] = React.useState(
     () => (new Date().getDay() + 6) % 7,
   );
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogMode, setDialogMode] = React.useState<"create" | "edit">("create");
-  const [editingEntry, setEditingEntry] = React.useState<TimetableEntry | null>(null);
-  const [deleting, setDeleting] = React.useState<TimetableEntry | null>(null);
+  const [editingEntry, setEditingEntry] = React.useState<TimetableWeekEntry | null>(null);
+  const [deleting, setDeleting] = React.useState<TimetableWeekEntry | null>(null);
+  const [viewing, setViewing] = React.useState<TimetableWeekEntry | null>(null);
 
-  const timetable = useTimetable(branch);
+  const timetable = useTimetableWeek(branch, weekStart);
   const teachersQ = useTeachers();
 
   const createMut = useMutationRpc<TimetableWriteArg, RpcResult>("api_timetableCreate", {
-    invalidate: [rpcKeys.timetable(branch), rpcKeys.teachers()],
+    invalidate: [["rpc", "api_timetableWeek"], rpcKeys.teachers()],
   });
   const updateMut = useMutationRpc<TimetableWriteArg & { id: string }, RpcResult>(
     "api_timetableUpdate",
-    { invalidate: [rpcKeys.timetable(branch)] },
+    { invalidate: [["rpc", "api_timetableWeek"]] },
   );
-  const deleteMut = useMutationRpc<{ id: string }, RpcResult>("api_timetableDelete", {
-    invalidate: [rpcKeys.timetable(branch)],
-  });
+  const deleteMut = useMutationRpc<{ id: string; scope: "THIS_WEEK" | "ALL_WEEKS"; weekStart: string }, RpcResult>(
+    "api_timetableDelete",
+    { invalidate: [["rpc", "api_timetableWeek"]] },
+  );
 
   const openCreate = (day?: number) => {
     setDialogMode("create");
@@ -71,7 +95,8 @@ export default function FounderTimetablePage() {
     setDialogOpen(true);
   };
 
-  const openEdit = (entry: TimetableEntry) => {
+  const openEdit = (entry: TimetableWeekEntry) => {
+    setViewing(null);
     setDialogMode("edit");
     setEditingEntry(entry);
     setSelectedDay(entry.dayOfWeek);
@@ -94,14 +119,15 @@ export default function FounderTimetablePage() {
     }
   };
 
-  const confirmDelete = async () => {
+  const runDelete = async (scope: "THIS_WEEK" | "ALL_WEEKS") => {
     if (!deleting) return;
     try {
-      const res = await deleteMut.mutateAsync({ id: deleting.id });
-      toast.success(res.note ?? "Class removed from the timetable.");
+      const res = await deleteMut.mutateAsync({ id: deleting.id, scope, weekStart });
+      toast.success(res.note ?? "Removed from the timetable.");
       setDeleting(null);
+      setViewing(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not delete the class.");
+      toast.error(e instanceof Error ? e.message : "Could not remove the class.");
     }
   };
 
@@ -170,6 +196,31 @@ export default function FounderTimetablePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-xl border border-dash-fg/15 bg-dash-fg/[0.04] p-1">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label="Previous week"
+              onClick={() => setWeekStart((w) => addDaysIso(w, -7))}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </Button>
+            <button
+              type="button"
+              onClick={() => setWeekStart(mondayOf(new Date()))}
+              className="px-2 text-xs font-semibold text-dash-fg"
+            >
+              {fmtWeekRange(weekStart)}
+            </button>
+            <Button
+              variant="ghost"
+              size="iconSm"
+              aria-label="Next week"
+              onClick={() => setWeekStart((w) => addDaysIso(w, 7))}
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
           {branches.length > 1 && (
             <select
               aria-label="Branch"
@@ -216,6 +267,7 @@ export default function FounderTimetablePage() {
               }`}
             >
               <span className="text-[11px] font-bold tracking-wide">{d}</span>
+              <span className="text-[10px] text-dash-fg/40">{addDaysIso(weekStart, i).slice(-2)}</span>
               <span className={`text-[10px] ${count ? "text-dash-fg/50" : "text-dash-fg/25"}`}>
                 {count ? `${count} class${count === 1 ? "" : "es"}` : "—"}
               </span>
@@ -249,6 +301,7 @@ export default function FounderTimetablePage() {
             <TimeSlotCard
               key={entry.id}
               entry={entry}
+              onView={() => setViewing(entry)}
               onEdit={() => openEdit(entry)}
               onDelete={() => setDeleting(entry)}
             />
@@ -294,7 +347,7 @@ export default function FounderTimetablePage() {
                           <button
                             key={entry.id}
                             type="button"
-                            onClick={() => openEdit(entry)}
+                            onClick={() => setViewing(entry)}
                             className="w-full rounded-xl border border-dash-accent/20 bg-dash-accent/10 px-2 py-1.5 text-left transition-colors hover:border-dash-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
                           >
                             <p className="truncate text-xs font-semibold text-dash-fg">
@@ -339,6 +392,7 @@ export default function FounderTimetablePage() {
         onOpenChange={setDialogOpen}
         mode={dialogMode}
         entry={editingEntry}
+        weekStart={weekStart}
         branches={dialogBranches}
         defaultBranch={singleBranch ?? "KANDIVALI"}
         defaultDay={selectedDay}
@@ -347,17 +401,48 @@ export default function FounderTimetablePage() {
         onSubmit={handleSubmit}
       />
 
+      {viewing && (
+        <SessionDetailDialog
+          open={!!viewing}
+          onOpenChange={(open) => !open && setViewing(null)}
+          timetableId={viewing.id}
+          date={viewing.date}
+          className={viewing.className}
+          onEdit={() => openEdit(viewing)}
+          onDelete={() => setDeleting(viewing)}
+        />
+      )}
+
       <Dialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <DialogContent className="max-w-sm border-dash-fg/10 bg-dash-card text-dash-fg">
           <DialogHeader>
-            <DialogTitle className="text-dash-fg">Delete this class?</DialogTitle>
+            <DialogTitle className="text-dash-fg">Remove this class?</DialogTitle>
             <DialogDescription className="text-dash-fg/45">
               <span className="font-medium text-dash-fg">{deleting?.className}</span> on{" "}
               {deleting ? DAY_LABELS[deleting.dayOfWeek] : ""} at{" "}
-              {deleting ? fmt12(deleting.startTime) : ""} will be removed from the timetable.
-              This cannot be undone.
+              {deleting ? fmt12(deleting.startTime) : ""}.
             </DialogDescription>
           </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="outline"
+              onClick={() => runDelete("THIS_WEEK")}
+              loading={deleteMut.isPending}
+              className="justify-start border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Remove this week only
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => runDelete("ALL_WEEKS")}
+              loading={deleteMut.isPending}
+              className="justify-start"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Remove for all weeks
+            </Button>
+          </div>
           <DialogFooter>
             <Button
               variant="ghost"
@@ -365,14 +450,6 @@ export default function FounderTimetablePage() {
               className="border-dash-fg/10 text-dash-fg/70 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
               Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              loading={deleteMut.isPending}
-            >
-              <Trash2 className="h-4 w-4" aria-hidden />
-              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

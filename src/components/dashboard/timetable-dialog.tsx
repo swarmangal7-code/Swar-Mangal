@@ -14,7 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { TimetableEntry } from "@/lib/api/rpc-types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTimetableSessionDetail } from "@/lib/api/rpc-hooks";
+import type { TimetableEntry, TimetableWeekEntry } from "@/lib/api/rpc-types";
 
 export const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
 export const DAY_LABELS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
@@ -43,6 +45,8 @@ export interface TimetableWriteArg {
   status: string;
   substituteTeacherId: string;
   substituteTeacherName: string;
+  scope?: "THIS_WEEK" | "ALL_WEEKS";
+  weekStart?: string;
   [key: string]: unknown;
 }
 
@@ -51,6 +55,8 @@ interface TimetableDialogProps {
   onOpenChange: (open: boolean) => void;
   mode: "create" | "edit";
   entry: TimetableEntry | null;
+  /** The calendar week currently being viewed — required to offer "this week only". */
+  weekStart?: string;
   branches: string[];
   defaultBranch: string;
   defaultDay: number;
@@ -64,6 +70,7 @@ export function TimetableDialog({
   onOpenChange,
   mode,
   entry,
+  weekStart,
   branches,
   defaultBranch,
   defaultDay,
@@ -79,6 +86,7 @@ export function TimetableDialog({
   const [branch, setBranch] = React.useState(defaultBranch);
   const [status, setStatus] = React.useState("ENABLED");
   const [substituteTeacherId, setSubstituteTeacherId] = React.useState("");
+  const [editScope, setEditScope] = React.useState<"THIS_WEEK" | "ALL_WEEKS">("THIS_WEEK");
 
   React.useEffect(() => {
     if (!open) return;
@@ -90,6 +98,7 @@ export function TimetableDialog({
     setBranch(entry?.branch ?? defaultBranch);
     setStatus(entry?.status ?? "ENABLED");
     setSubstituteTeacherId(entry?.substituteTeacherId ?? "");
+    setEditScope("THIS_WEEK");
   }, [open, entry, defaultDay, defaultBranch]);
 
   const selectedTeacher = teachers.find((t) => t.teacherId === teacherId);
@@ -112,6 +121,7 @@ export function TimetableDialog({
       status,
       substituteTeacherId,
       substituteTeacherName: selectedSubstitute?.teacherName ?? "",
+      ...(mode === "edit" ? { scope: editScope, weekStart } : {}),
     });
   };
 
@@ -268,6 +278,40 @@ export function TimetableDialog({
               teacher who isn&apos;t listed, add them from the Teachers page first.
             </p>
           </div>
+
+          {mode === "edit" && (
+            <div className="rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-3">
+              <p className="mb-2 text-xs font-medium text-dash-fg/70">Apply this change to</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label className="flex flex-1 cursor-pointer items-start gap-2 rounded-xl border border-dash-fg/10 p-2.5 text-xs has-[:checked]:border-dash-accent has-[:checked]:bg-dash-accent/10">
+                  <input
+                    type="radio"
+                    name="tt-scope"
+                    checked={editScope === "THIS_WEEK"}
+                    onChange={() => setEditScope("THIS_WEEK")}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block font-medium text-dash-fg">This week only</span>
+                    <span className="block text-dash-fg/45">Other weeks, past and future, stay unchanged.</span>
+                  </span>
+                </label>
+                <label className="flex flex-1 cursor-pointer items-start gap-2 rounded-xl border border-dash-fg/10 p-2.5 text-xs has-[:checked]:border-dash-accent has-[:checked]:bg-dash-accent/10">
+                  <input
+                    type="radio"
+                    name="tt-scope"
+                    checked={editScope === "ALL_WEEKS"}
+                    onChange={() => setEditScope("ALL_WEEKS")}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block font-medium text-dash-fg">All weeks</span>
+                    <span className="block text-dash-fg/45">Changes the recurring schedule going forward.</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="mt-2">
@@ -293,15 +337,26 @@ export function TimetableDialog({
 
 export function TimeSlotCard({
   entry,
+  onView,
   onEdit,
   onDelete,
 }: {
-  entry: TimetableEntry;
+  entry: TimetableEntry | TimetableWeekEntry;
+  onView?: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const overridden = "overridden" in entry && entry.overridden;
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-4">
+    <div
+      role={onView ? "button" : undefined}
+      tabIndex={onView ? 0 : undefined}
+      onClick={onView}
+      onKeyDown={(e) => {
+        if (onView && (e.key === "Enter" || e.key === " ")) onView();
+      }}
+      className={`flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-4 ${onView ? "cursor-pointer transition-colors hover:border-dash-accent/40" : ""}`}
+    >
       <div className="min-w-[54px] text-center">
         <p className="text-sm font-bold tabular-nums text-dash-fg">{fmt12(entry.startTime)}</p>
         {entry.endTime && (
@@ -320,6 +375,7 @@ export function TimeSlotCard({
           {entry.substituteTeacherName && (
             <Badge variant="peach">Sub: {entry.substituteTeacherName}</Badge>
           )}
+          {overridden && <Badge variant="outline" className="border-dash-accent/30 text-dash-accent">Changed this week</Badge>}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-dash-fg/50">
           <span>{entry.teacherName || "No teacher assigned"}</span>
@@ -332,13 +388,24 @@ export function TimeSlotCard({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button variant="ghost" size="iconSm" onClick={onEdit} aria-label="Edit class">
+        <Button
+          variant="ghost"
+          size="iconSm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          aria-label="Edit class"
+        >
           <Pencil className="h-4 w-4" aria-hidden />
         </Button>
         <Button
           variant="ghost"
           size="iconSm"
-          onClick={onDelete}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
           aria-label="Delete class"
           className="text-red-300/70 hover:text-red-300"
         >
@@ -346,5 +413,131 @@ export function TimeSlotCard({
         </Button>
       </div>
     </div>
+  );
+}
+
+const ATTENDANCE_LABEL: Record<string, string> = {
+  PRESENT: "Present",
+  ABSENT: "Absent",
+  LATE: "Late",
+  EXCUSED: "Excused",
+  NOT_MARKED: "Not marked",
+};
+
+const OUTCOME_LABEL: Record<string, string> = {
+  HELD: "Held by the assigned teacher",
+  TEACHER_CANCELLED: "Teacher was absent / cancelled",
+  ACADEMY_CANCELLED: "Cancelled by the academy",
+  SUBSTITUTE_DELIVERED: "Delivered by a substitute",
+  RESCHEDULED: "Rescheduled",
+};
+
+/**
+ * Founder request 2026-09-28: clicking a calendar session shows teacher
+ * attendance (with the reason if absent) and student attendance by name.
+ */
+export function SessionDetailDialog({
+  open,
+  onOpenChange,
+  timetableId,
+  date,
+  className,
+  onEdit,
+  onDelete,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  timetableId: string;
+  date: string;
+  className: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const detail = useTimetableSessionDetail(timetableId, date, { enabled: open && !!timetableId && !!date });
+  const d = detail.data;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md border-dash-fg/10 bg-dash-card text-dash-fg">
+        <DialogHeader>
+          <DialogTitle className="text-dash-fg">{className || "Session"}</DialogTitle>
+          <DialogDescription className="text-dash-fg/45">{date}</DialogDescription>
+        </DialogHeader>
+
+        {detail.isPending ? (
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full bg-dash-fg/[0.05]" />
+            <Skeleton className="h-24 w-full bg-dash-fg/[0.05]" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-3">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-dash-fg/40">Teacher</p>
+              <p className="text-sm font-semibold text-dash-fg">{d?.slot.teacherName || "No teacher assigned"}</p>
+              {d?.teacherAttendance.recorded ? (
+                <>
+                  <p className="mt-1 text-xs text-dash-fg/60">
+                    {OUTCOME_LABEL[d.teacherAttendance.outcome] ?? d.teacherAttendance.outcome}
+                    {d.teacherAttendance.deliveredBy ? ` — ${d.teacherAttendance.deliveredBy}` : ""}
+                  </p>
+                  {d.teacherAttendance.reason && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Reason: {d.teacherAttendance.reason}</p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-1 text-xs text-dash-fg/45">Not yet recorded for this date.</p>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-dash-fg/40">
+                Students {d?.students.length ? `(${d.students.length})` : ""}
+              </p>
+              {!d?.students.length ? (
+                <p className="text-xs text-dash-fg/45">No students matched to this class yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {d.students.map((st) => (
+                    <div
+                      key={st.studentId}
+                      className="flex items-center justify-between rounded-xl border border-dash-fg/10 bg-dash-fg/[0.02] px-3 py-2 text-sm"
+                    >
+                      <span className="text-dash-fg">{st.name}</span>
+                      <Badge
+                        variant="outline"
+                        className={
+                          st.status === "PRESENT"
+                            ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                            : st.status === "ABSENT"
+                              ? "border-red-500/30 text-red-500"
+                              : undefined
+                        }
+                      >
+                        {ATTENDANCE_LABEL[st.status] ?? st.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="mt-2">
+          <Button
+            variant="ghost"
+            onClick={onDelete}
+            className="text-red-400 hover:bg-red-500/10 hover:text-red-400"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden />
+            Remove
+          </Button>
+          <Button variant="outline" onClick={onEdit} className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
+            <Pencil className="h-4 w-4" aria-hidden />
+            Edit
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

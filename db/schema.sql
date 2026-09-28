@@ -1406,3 +1406,34 @@ insert into instrument_options (name) values
   ('Drums'), ('Flute'), ('Harmonium'), ('Ukulele')
 on conflict (name) do nothing;
 alter table teacher_add_requests add column if not exists status_reason text;
+
+-- Founder request 2026-09-28: Timetable becomes a real weekly calendar.
+-- Editing/removing a slot defaults to THIS WEEK only via an override row
+-- keyed by (timetable_id, week_start) — the recurring base row in
+-- `timetable` is untouched, so past and other weeks keep showing what they
+-- always showed. "Apply to all weeks" bypasses this table entirely and
+-- updates/deletes the base row directly, exactly as timetableUpdate/Delete
+-- already did before this change.
+create table if not exists timetable_overrides (
+  id text primary key,
+  timetable_id text not null references timetable(id) on delete cascade,
+  week_start date not null,
+  day_of_week int,
+  start_time text,
+  end_time text,
+  class_name text,
+  teacher_id text,
+  teacher_name text,
+  substitute_teacher_id text,
+  substitute_teacher_name text,
+  status text,
+  created_at timestamptz not null default now(),
+  unique (timetable_id, week_start)
+);
+
+-- Links an attendance mark to the specific class slot it was taken for, so
+-- a Timetable session click can show exactly who was marked for THAT
+-- session rather than the whole day's branch roster. Nullable/additive —
+-- older marks (and the whole-day Attendance screen, which stays unchanged)
+-- simply have no slot.
+alter table attendance_acad add column if not exists timetable_id text;
