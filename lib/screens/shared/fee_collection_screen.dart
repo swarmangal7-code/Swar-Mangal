@@ -50,6 +50,7 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
     // The date money came in: today unless changed. (It used to prefill the
     // student's next DUE date, which is usually in the future.)
     _dueDate.text = _today();
+    if (_student?.monthlyFee.isNotEmpty == true) _amount.text = _student!.monthlyFee;
     if (widget.staff && _student != null) _loadInstalmentPlan();
   }
 
@@ -69,6 +70,17 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
     } catch (_) {
       // Non-critical lookup — a failure here should never block a payment.
     }
+  }
+
+  /// Amount owed right now, according to the student's own admission/fee
+  /// plan — still fully editable after, for cases like multiple overdue
+  /// cycles. Mirrors the web Fee Collection page's prefill behaviour.
+  void _selectStudent(Student picked) {
+    setState(() {
+      _student = picked;
+      if (picked.monthlyFee.isNotEmpty) _amount.text = picked.monthlyFee;
+    });
+    if (widget.staff) _loadInstalmentPlan();
   }
 
   void _useInstalment() {
@@ -392,8 +404,7 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
                 MaterialPageRoute(builder: (_) => _PickerScreen(staff: widget.staff)),
               );
               if (picked != null && mounted) {
-                setState(() => _student = picked);
-                if (widget.staff) _loadInstalmentPlan();
+                _selectStudent(picked);
               }
             },
             icon: const Icon(Icons.person_search),

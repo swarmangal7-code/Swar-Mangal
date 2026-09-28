@@ -88,6 +88,7 @@ class Student {
     required this.status,
     this.admissionSource,
     this.teacherId = '',
+    this.monthlyFee = '',
   });
   factory Student.fromApi(Map<String, dynamic> b) => Student(
         studentId: _s(b['studentId'] ?? b['id']),
@@ -110,6 +111,7 @@ class Student {
         status: _s(b['status']),
         admissionSource: _s(b['admissionSource']).isEmpty ? null : _s(b['admissionSource']),
         teacherId: _s(b['teacherId']),
+        monthlyFee: _s(b['monthlyFee']),
       );
 
   final String studentId;
@@ -132,6 +134,7 @@ class Student {
   final String status;
   final String? admissionSource;
   final String teacherId;
+  final String monthlyFee;
 
   bool get operational => status.isEmpty || status.toUpperCase() == 'ACTIVE';
 }
