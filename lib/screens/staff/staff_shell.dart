@@ -6,12 +6,14 @@ import '../../state/auth_provider.dart';
 import '../shell/shell_nav.dart';
 import 'screens/staff_dashboard.dart';
 import '../shared/add_student_screen.dart';
+import '../shared/demo_students_screen.dart';
 import '../shared/attendance_screen.dart';
 import '../shared/expenses_screen.dart';
 import '../shared/fee_collection_screen.dart';
 import '../shared/inquiries_screen.dart';
 import '../shared/receipts_screen.dart';
 import '../shared/students_screen.dart';
+import '../shared/teachers_screen.dart';
 import '../shared/todays_classes_screen.dart';
 import '../shared/my_requests_screen.dart';
 import '../shared/timetable_screen.dart';
@@ -43,10 +45,10 @@ class StaffShell extends StatelessWidget {
         ),
         sections: const [
           (label: 'Today', keys: ['today', 'todayClasses']),
-          (label: 'Students', keys: ['students', 'addStudent', 'attendance']),
+          (label: 'Students', keys: ['students', 'addStudent', 'demoStudents', 'attendance']),
           (label: 'Money', keys: ['addFee', 'receipts', 'expenses']),
           (label: 'Connect', keys: ['inquiries', 'requests']),
-          (label: 'Academy', keys: ['timetable', 'schoolInvoice']),
+          (label: 'Academy', keys: ['teachers', 'timetable', 'schoolInvoice']),
           (label: '', keys: ['about']),
         ],
         buildBody: (context, key) {
@@ -57,6 +59,8 @@ class StaffShell extends StatelessWidget {
               return const StudentsScreen(staff: true);
             case 'addStudent':
               return const AddStudentScreen(staff: true);
+            case 'demoStudents':
+              return const DemoStudentsScreen(staff: true);
             case 'attendance':
               return const AttendanceScreen();
             case 'addFee':
@@ -69,6 +73,8 @@ class StaffShell extends StatelessWidget {
               return const InquiriesScreen();
             case 'requests':
               return const MyRequestsScreen();
+            case 'teachers':
+              return const TeachersScreen(staff: true);
             case 'timetable':
               return const TimetableScreen(staff: true);
             case 'schoolInvoice':

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:swar_mangal/config.dart';
 import 'package:swar_mangal/core/url_config.dart';
 
 void main() {
@@ -36,18 +37,24 @@ void main() {
   });
 
   group('resolveEffectiveUrl', () {
+    // The point of these is "the persisted value is ignored and the
+    // configured production URL is used" — not which host production is
+    // currently on, which changes on every redeploy. Asserting the literal
+    // host is what made these go stale.
     test('ignores persisted placeholder, falls back to production', () {
       final url = resolveEffectiveUrl(
         persistedUrl: 'https://script.google.com/macros/s/REPLACE_WITH/exec',
         staff: false,
       );
-      expect(url, contains('railway.app'));
+      expect(url, AppConfig.founderApiUrl);
       expect(url.contains('REPLACE_WITH'), isFalse);
+      expect(url.contains('script.google.com'), isFalse);
     });
 
     test('ignores persisted malformed URL', () {
       final url = resolveEffectiveUrl(persistedUrl: 'not a url', staff: true);
-      expect(url, contains('railway.app'));
+      expect(url, AppConfig.staffApiUrl);
+      expect(RpcUrlValidator.isValid(url), isTrue);
     });
 
     test('uses persisted valid custom URL', () {
@@ -58,7 +65,7 @@ void main() {
 
     test('uses configured production when no persisted value', () {
       final url = resolveEffectiveUrl(persistedUrl: null, staff: false);
-      expect(url, contains('api/rpc'));
+      expect(url, AppConfig.founderApiUrl);
     });
   });
 }

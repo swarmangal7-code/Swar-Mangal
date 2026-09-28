@@ -4,9 +4,9 @@
 //  * school invoice drafts (P11: only the founder allocates an SMI- number).
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, nextDocNo, bumpRevisions } from "@/lib/rpc/shared";
+import { s, n, d, newId, nextDocSeq, bumpRevisions, schoolByIdOrCode } from "@/lib/rpc/shared";
 import { randomBytes } from "crypto";
-import { schoolInvoiceSeries } from "@/lib/rpc/numbering";
+import { schoolInvoiceSeries, formatSchoolInvoiceNo } from "@/lib/rpc/numbering";
 import { normalizeEmail, isValidEmail } from "@/lib/email/otp";
 import { todayIso, addMonths, splitInstalments } from "@/lib/rpc/fees";
 import {
@@ -402,6 +402,16 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   if (amount <= 0) return refuse("BAD_AMOUNT", "Enter the invoice amount.");
   if (!className) return refuse("CLASS_REQUIRED", "Enter the school class this invoice is for.");
   if (arg["previewConfirmed"] !== true) return refuse("PREVIEW_REQUIRED", "Check the preview and confirm it before sending.");
+  const schoolRef = s(arg["schoolId"] ?? arg["schoolCode"] ?? arg["school"]).trim();
+  const school = await schoolByIdOrCode(schoolRef);
+  if (!school) {
+    return refuse(
+      schoolRef ? "SCHOOL_NOT_FOUND" : "SCHOOL_REQUIRED",
+      schoolRef
+        ? `No school "${schoolRef}". Add it first — every school invoice names one.`
+        : "Pick the school this invoice is for.",
+    );
+  }
   const branch = defaultBranch(scope, arg["branch"]);
   if (!inScope(scope, branch)) return branchForbidden(branch);
   const invoiceDate = /^\d{4}-\d{2}-\d{2}$/.test(s(arg["invoiceDate"])) ? s(arg["invoiceDate"]) : todayIso();
@@ -413,9 +423,9 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   }
   const id = newId("SIDRAFT");
   await query(
-    `insert into school_invoice_drafts (id, branch, class_name, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key)
-     values ($1,$2,$3,$4,$5,$6::date,$7,true,$8,$9)`,
-    [id, branch, className, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent],
+    `insert into school_invoice_drafts (id, branch, class_name, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key, school_id)
+     values ($1,$2,$3,$4,$5,$6::date,$7,true,$8,$9,$10)`,
+    [id, branch, className, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent, school.id],
   );
   await bumpRevisions(["invoices", "approvals", "tasks"]);
   notifyFounderApproval("School invoice", "a draft invoice to issue", id);
@@ -436,11 +446,20 @@ async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session:
     const locked = await closedMonthRefusal(invoiceDate, tx);
     if (locked) return locked;
     const invoiceId = newId("SINV");
-    const invoiceNo = await nextDocNo(tx, "schoolInvoice", schoolInvoiceSeries(new Date(`${invoiceDate}T12:00:00+05:30`)));
+    const series = schoolInvoiceSeries(new Date(`${invoiceDate}T12:00:00+05:30`));
+    const school = await schoolByIdOrCode(s(draft.school_id));
+    if (!school) {
+      return refuse("SCHOOL_REQUIRED", `This draft names no usable school (${s(draft.school_id) || "blank"}). Reject it and ask staff to pick a school.`);
+    }
+    // Same rule as raising it directly: one run per financial year across all
+    // schools, with the school code appended. A staff draft must never consume
+    // a different numbering scheme from a founder-raised invoice.
+    const seqNo = await nextDocSeq(tx, "schoolInvoice", series);
+    const invoiceNo = formatSchoolInvoiceNo(series, seqNo, school.code);
     await tx.query(
-      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status)
-       values ($1,$2,$3,$4,$5,$6,$7,'FINAL')`,
-      [invoiceId, invoiceNo, invoiceDate, s(draft.branch), s(draft.class_name), n(draft.amount), s(draft.tenure)],
+      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id)
+       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8)`,
+      [invoiceId, invoiceNo, invoiceDate, s(draft.branch), s(draft.class_name), n(draft.amount), s(draft.tenure), school.id],
     );
     await tx.query(
       `update school_invoice_drafts set status = 'FINALISED', decided_by = $2, decided_at = now(), final_invoice_id = $3, final_invoice_no = $4 where id = $1`,
@@ -1298,8 +1317,10 @@ export async function governanceApprovalItems(): Promise<{
        where c.status = 'SUBMITTED' order by c.requested_at`,
     ),
     query<Record<string, unknown>>(
-      `select id, branch, class_name, amount, tenure, invoice_date::text, submitted_by, submitted_at::text, notes
-       from school_invoice_drafts where status = 'SUBMITTED' order by submitted_at`,
+      `select d.id, d.branch, d.class_name, d.amount, d.tenure, d.invoice_date::text, d.submitted_by, d.submitted_at::text, d.notes,
+              sc.code as school_code, sc.name as school_name
+       from school_invoice_drafts d left join schools sc on sc.id = d.school_id
+       where d.status = 'SUBMITTED' order by d.submitted_at`,
     ),
     query<Record<string, unknown>>(
       `select p.id, p.student_id, p.extra_months, p.reason, p.branch, p.submitted_at::text, s.name as student_name
@@ -1358,7 +1379,9 @@ export async function governanceApprovalItems(): Promise<{
     invoices: invoices.map((r) => ({
       type: "SCHOOL_INVOICE_DRAFT",
       itemId: s(r.id),
-      entity: s(r.class_name),
+      // The school is the party being billed, so it leads the label — a
+      // founder approving a queue of drafts must see which school each is for.
+      entity: [s(r.school_name) || s(r.school_code), s(r.class_name)].filter(Boolean).join(" · "),
       studentId: "",
       noStudentLinked: false,
       paymentMode: "",

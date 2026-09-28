@@ -58,6 +58,7 @@ export interface Student {
   studentName: string;
   phone: string;
   email: string;
+  guardianName: string;
   instrument: string;
   teacher: string;
   teacherId?: string;
@@ -82,6 +83,25 @@ export interface StudentSearchResponse extends RpcEnvelope {
   results: Student[];
   rows: Student[];
   count: number;
+}
+
+export interface DemoStudent {
+  studentId: string;
+  studentName: string;
+  phone: string;
+  email: string;
+  guardianName: string;
+  guardianPhone: string;
+  instrument: string;
+  branch: string;
+  teacherId: string;
+  teacherName: string;
+  demoDate: string;
+  demoTime: string;
+}
+
+export interface DemoStudentListResponse extends RpcEnvelope {
+  students: DemoStudent[];
 }
 
 export interface StudentAttendanceRow {
@@ -529,6 +549,12 @@ export interface SchoolInvoice {
   invoiceNo: string;
   invoiceDate: string;
   branch: string;
+  /** The school being billed. The code is already inside invoiceNo. */
+  schoolId?: string;
+  schoolCode?: string;
+  schoolName?: string;
+  schoolAddress?: string;
+  schoolContact?: string;
   className: string;
   amount: number;
   tenure: string;
@@ -538,11 +564,27 @@ export interface SchoolInvoice {
   owner2: InvoiceOwner;
 }
 
+/** A school a class can be billed to. Its code goes on the invoice number. */
+export interface School {
+  schoolId: string;
+  code: string;
+  name: string;
+  address: string;
+  contact: string;
+  active: boolean;
+}
+
+export interface SchoolListResponse extends RpcEnvelope {
+  schools: School[];
+}
+
 export interface InvoiceSummary {
   invoiceId: string;
   invoiceNo: string;
   invoiceDate: string;
   branch: string;
+  schoolCode?: string;
+  schoolName?: string;
   className: string;
   amount: number;
   tenure: string;

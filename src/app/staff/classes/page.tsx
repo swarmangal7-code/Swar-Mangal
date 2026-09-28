@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { CalendarCheck, CheckCircle2 } from "lucide-react";
+import { CalendarCheck, CalendarPlus, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { ClassCorrectionButton, ScheduleSessionDialog } from "@/components/dashboard/session-scheduler-dialog";
 import { useMutationRpc, useTeachers, useTodaysClasses } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope, TodaysClass } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
@@ -66,6 +67,7 @@ export default function StaffClassesPage() {
   const [outcome, setOutcome] = React.useState("HELD");
   const [deliveredBy, setDeliveredBy] = React.useState("");
   const [lateReason, setLateReason] = React.useState("");
+  const [scheduleOpen, setScheduleOpen] = React.useState(false);
 
   const classes = useTodaysClasses(date, branch);
   const teachers = useTeachers();
@@ -139,6 +141,14 @@ export default function StaffClassesPage() {
             onChange={(e) => setDate(e.target.value)}
             className="w-fit border-dash-fg/12 bg-dash-sidebar text-dash-fg"
           />
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+            onClick={() => setScheduleOpen(true)}
+          >
+            <CalendarPlus className="h-3.5 w-3.5" aria-hidden /> Schedule extra class
+          </Button>
         </div>
       </motion.div>
 
@@ -181,6 +191,20 @@ export default function StaffClassesPage() {
                       <p className="truncate text-xs text-dash-fg/45">
                         {[c.teacherName, c.branch].filter(Boolean).join(" · ") || "—"}
                       </p>
+                      {/* Extra-class provenance, the same three fields the app
+                          shows. Without them a make-up class is indistinguishable
+                          from a normal one on web. */}
+                      {(c.customKind || c.notRequired || c.evidenceClass) && (
+                        <p className="mt-0.5 truncate text-[11px] text-dash-fg/35">
+                          {[
+                            c.notRequired ? "Not required (closure)" : "",
+                            c.customKind ? `Extra: ${c.customKind.replaceAll("_", " ")}` : "",
+                            c.evidenceClass ? `Class in ${c.evidenceClass}` : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
@@ -196,7 +220,10 @@ export default function StaffClassesPage() {
                       {c.resolved ? outcomeLabel(c.outcome) : "Not answered"}
                     </span>
                     {c.resolved ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-300/70" aria-hidden />
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-300/70" aria-hidden />
+                        <ClassCorrectionButton row={c} />
+                      </>
                     ) : (
                       <Button
                         size="sm"
@@ -213,6 +240,13 @@ export default function StaffClassesPage() {
           ))}
         </div>
       )}
+
+      <ScheduleSessionDialog
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        branch={branch === "ALL" ? branches[0] ?? "" : branch}
+        candidates={rows}
+      />
 
       <Dialog open={!!active} onOpenChange={(open) => !open && setActive(null)}>
         <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">

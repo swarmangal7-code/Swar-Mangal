@@ -48,6 +48,11 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_staff_saveStudentDraft: STAFF,
   // api_addStudent is founder-only (staff drafts, founder merges).
   api_addStudent: FOUNDER,
+  // Demo Students: non-money and low-risk, so either role adds/reads directly;
+  // only converting a demo into a real (fee-paying) admission is founder-gated.
+  api_addDemoStudent: STAFF,
+  api_listDemoStudents: STAFF,
+  api_founder_convertDemoStudent: FOUNDER,
   api_founder_setStudentStatus: FOUNDER,
   api_founder_mergeStudentDraft: FOUNDER,
   api_founder_studentDraftReject: FOUNDER,
@@ -111,6 +116,12 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_founder_schoolInvoiceDraftReject: FOUNDER,
   api_listSchoolInvoices: STAFF,
   api_getSchoolInvoice: STAFF,
+  // Schools are the "billed to" party on an invoice. Both roles need to read
+  // them (staff draft an invoice naming a school); only the founder adds or
+  // edits one, because a new school changes what goes on a money document.
+  api_listSchools: STAFF,
+  api_addSchool: FOUNDER,
+  api_updateSchool: FOUNDER,
 
   // Brief §2.2: staff propose a package extension or a payment-profile
   // change; only the founder decides.
@@ -302,7 +313,7 @@ export function scopeForSession(session: RpcSession): BranchScope {
  * worth recording; reads are not logged.
  */
 export const WRITE_FUNCTIONS = new Set<string>([
-  "api_addStudent", "api_staff_saveStudentDraft", "api_founder_setStudentStatus", "api_founder_mergeStudentDraft", "api_founder_studentDraftReject",
+  "api_addStudent", "api_addDemoStudent", "api_founder_convertDemoStudent", "api_staff_saveStudentDraft", "api_founder_setStudentStatus", "api_founder_mergeStudentDraft", "api_founder_studentDraftReject",
   "api_addFeePayment", "api_staff_prepareReceiptDraft",
   "api_founder_paymentDraftApprove", "api_founder_paymentDraftReject",
   "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft",
@@ -312,6 +323,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_addExpenseEntry", "api_staff_submitExpenseDraft",
   "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject",
   "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject",
+  "api_addSchool", "api_updateSchool",
   "api_founder_closeMonth", "api_staff_requestReceiptCorrection", "api_founder_voidReceipt", "api_founder_correctionReject",
   "api_staff_submitPackageExtensionRequest", "api_founder_packageExtensionApprove", "api_founder_packageExtensionReject",
   "api_staff_submitPaymentProfileChangeRequest", "api_founder_paymentProfileChangeApprove", "api_founder_paymentProfileChangeReject",

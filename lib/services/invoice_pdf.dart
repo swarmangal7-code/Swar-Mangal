@@ -50,10 +50,22 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
         pw.SizedBox(height: 12),
         pw.Text('BILLED TO', style: pw.TextStyle(fontSize: 10, color: pdf.PdfColors.grey700)),
         pw.SizedBox(height: 4),
-        pw.Text('Class: ${inv.className.isNotEmpty ? inv.className : '—'}',
+        // Mirrors the web PDF's BILLED TO block: school name, then address,
+        // then contact, then the branch and the school code. The code is
+        // already inside invoiceNo; this is what the school reads first.
+        pw.Text(inv.schoolName.isNotEmpty ? inv.schoolName : (inv.className.isNotEmpty ? inv.className : '—'),
             style: pw.TextStyle(fontSize: 12)),
-        pw.Text('Branch: ${inv.branch.isNotEmpty ? inv.branch : '—'}',
-            style: pw.TextStyle(fontSize: 11)),
+        if (inv.schoolAddress.isNotEmpty)
+          pw.Text(inv.schoolAddress, style: pw.TextStyle(fontSize: 10, color: pdf.PdfColors.grey700)),
+        if (inv.schoolContact.isNotEmpty)
+          pw.Text(inv.schoolContact, style: pw.TextStyle(fontSize: 10, color: pdf.PdfColors.grey700)),
+        pw.Text(
+          [
+            'Branch: ${inv.branch.isNotEmpty ? inv.branch : '—'}',
+            if (inv.schoolCode.isNotEmpty) inv.schoolCode,
+          ].join(' · '),
+          style: pw.TextStyle(fontSize: 11),
+        ),
         pw.SizedBox(height: 16),
         pw.Divider(color: pdf.PdfColors.grey400),
         pw.SizedBox(height: 12),

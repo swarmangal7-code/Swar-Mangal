@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../state/auth_provider.dart';
 import '../../services/invoice_pdf.dart';
 import '../../widgets/atoms.dart';
+import 'add_school_screen.dart';
 import 'payment_profile_change_screen.dart';
 
 /// School-level invoice editor. Fields are class/amount/tenure/date — NO
@@ -30,6 +31,9 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   // Staff must see the rendered preview before it can be sent (brief P11.3).
   bool _previewed = false;
   String? _draftNote;
+  List<School> _schools = [];
+  School? _school;
+  bool _loadingSchools = true;
 
   static const _tenures = ['1 Month', '3 Months', '6 Months', '12 Months'];
 
@@ -38,6 +42,33 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     super.initState();
     final n = DateTime.now();
     _invoiceDate = '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+    _loadSchools();
+  }
+
+  Future<void> _loadSchools() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    try {
+      final rows = await auth.service!.listSchools();
+      if (!mounted) return;
+      setState(() {
+        _schools = rows.where((s) => s.active).toList();
+        _school = _schools.isEmpty ? null : _schools.first;
+        _loadingSchools = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loadingSchools = false;
+      });
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loadingSchools = false;
+      });
+    }
   }
 
   @override
@@ -48,6 +79,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   }
 
   ({bool ok, num? amount})? _validate() {
+    if (_school == null) {
+      setState(() => _error = 'Pick the school this invoice is for.');
+      return null;
+    }
     final a = InvoiceValidator.amount(_amount.text);
     if (!a.ok) {
       setState(() => _error = a.error);
@@ -84,6 +119,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         tenure: _tenure,
         invoiceDate: _invoiceDate,
         branch: auth.branch ?? 'ALL',
+        schoolId: _school!.schoolId,
         intentKey: _intent,
       );
       if (!mounted) return;
@@ -126,6 +162,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       className: _class.text.trim(),
       amount: v.amount!,
       tenure: _tenure,
+      schoolCode: _school?.code ?? '',
+      schoolName: _school?.name ?? '',
+      schoolAddress: _school?.address ?? '',
+      schoolContact: _school?.contact ?? '',
       owner1: InvoiceOwner(name: 'Sharvil Vaidya', id: 'OWNER-1', signatureUrl: ''),
       owner2: InvoiceOwner(name: 'Piyush Kashyap', id: 'OWNER-2', signatureUrl: ''),
       pdfUrl: '',
@@ -158,6 +198,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         'tenure': _tenure,
         'invoiceDate': _invoiceDate,
         'branch': auth.branch ?? 'ALL',
+        'schoolId': _school!.schoolId,
         'previewConfirmed': true,
         'clientIntentKey': _intent,
       });
@@ -195,6 +236,35 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
             child: Padding(
               padding: const EdgeInsets.all(AppSpace.s4),
               child: Column(children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('SCHOOL',
+                      style: AppType.eyebrow.copyWith(color: scheme.onSurfaceVariant)),
+                ),
+                const SizedBox(height: AppSpace.s2),
+                if (_loadingSchools)
+                  const LinearProgressIndicator()
+                else
+                  DropdownButtonFormField<School>(
+                    initialValue: _school,
+                    decoration: const InputDecoration(
+                      labelText: 'Billed to *',
+                      prefixIcon: Icon(Icons.school_outlined),
+                    ),
+                    items: [
+                      for (final s in _schools)
+                        DropdownMenuItem(
+                          value: s,
+                          child: Text(s.label, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() {
+                      _school = v;
+                      _previewed = false;
+                    }),
+                    validator: (v) => v == null ? 'Pick the school this invoice is for' : null,
+                  ),
+                const SizedBox(height: AppSpace.s3),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text('CLASS',
@@ -331,6 +401,25 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ],
+          const SizedBox(height: AppSpace.s4),
+          if (!widget.staff)
+            // Founder-only: a new school is a money-document decision, so staff
+            // read the list but only the founder can add one.
+            OutlinedButton.icon(
+              onPressed: () async {
+                final added = await Navigator.of(context).push<String>(MaterialPageRoute(
+                  builder: (_) => const AddSchoolScreen(),
+                ));
+                if (added != null && added.isNotEmpty) {
+                  await _loadSchools();
+                  if (mounted) {
+                    setState(() => _school = _schools.where((s) => s.code == added.toUpperCase()).firstOrNull);
+                  }
+                }
+              },
+              icon: const Icon(Icons.add_business_outlined, size: 18),
+              label: const Text('Add a school'),
+            ),
           const SizedBox(height: AppSpace.s4),
           OutlinedButton.icon(
             onPressed: () {

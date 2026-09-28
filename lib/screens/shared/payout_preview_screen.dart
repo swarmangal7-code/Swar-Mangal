@@ -218,6 +218,20 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
                       padding: const EdgeInsets.only(top: AppSpace.s2),
                       child: Text(r.note, style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
                     ),
+                  // Qualifications apply to priced rows too — a priced row can
+                  // still carry a caveat the founder must read.
+                  if (r.priced && r.reasons.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.s2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final reason in r.reasons)
+                            Text('· $reason',
+                                style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.warnFg))),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: AppSpace.s2),
                   if (!r.priced)
                     // Named refusal — never a guessed ₹0 (brief §8, §15.1).
@@ -359,6 +373,10 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
     final amountCtl = TextEditingController(text: r.balance.toStringAsFixed(0));
     final refCtl = TextEditingController();
     var mode = 'Bank Transfer';
+    // When the money actually went out. A payout settled late or in advance
+    // needs a real date — the server accepts one, and without it every payout
+    // is silently stamped today.
+    var paidOn = _todayIso();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -387,6 +405,24 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
               onChanged: (v) => setLocal(() => mode = v ?? mode),
             ),
             const SizedBox(height: AppSpace.s2),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: const Icon(Icons.event_outlined),
+              title: Text('Paid on: $paidOn', style: const TextStyle(fontSize: 13)),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: ctx,
+                  initialDate: DateTime.tryParse(paidOn) ?? DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (picked != null) {
+                  setLocal(() => paidOn =
+                      '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+                }
+              },
+            ),
             TextField(
               controller: refCtl,
               decoration: const InputDecoration(labelText: 'Reference (optional)'),
@@ -414,6 +450,7 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
         amount: amount,
         paymentMode: mode,
         reference: refCtl.text.trim(),
+        paidOn: paidOn,
       );
       if (!mounted) return;
       _toast('Recorded ${inr(paid.amount)} for ${r.teacherName}.');
@@ -431,6 +468,11 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
 
   void _toast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  static String _todayIso() {
+    final n = DateTime.now();
+    return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
   }
 
   Widget _monthInput(String label, String value, ValueChanged<String> onChanged) {

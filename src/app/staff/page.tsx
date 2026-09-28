@@ -8,7 +8,6 @@ import {
   CalendarCheck,
   HandCoins,
   MessageSquareText,
-  Phone,
   UserPlus,
   UserRoundCheck,
 } from "lucide-react";
@@ -16,8 +15,9 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { FeeBucketCard } from "@/components/dashboard/fee-bucket-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRpc, useTodaysClasses } from "@/lib/api/rpc-hooks";
+import { useDueReminders, useRpc, useTodaysClasses } from "@/lib/api/rpc-hooks";
 import type { StaffTodayResponse } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
@@ -36,6 +36,21 @@ const OUTCOME_TONE: Record<string, string> = {
   TEACHER_CANCELLED: "border-red-400/30 bg-red-400/10 text-red-300",
   ACADEMY_CANCELLED: "border-red-400/30 bg-red-400/10 text-red-300",
   RESCHEDULED: "border-amber-400/30 bg-amber-400/10 text-amber-300",
+};
+
+/**
+ * The server tags each "needs attention" card with the screen that answers it.
+ * Same map as the Flutter staff dashboard's, so a card on web lands where the
+ * card in the app lands instead of being a dead end.
+ */
+const CARD_TARGET: Record<string, string> = {
+  fees: "/staff/fees",
+  payments: "/staff/receipts",
+  todayClasses: "/staff/classes",
+  inquiries: "/staff/inquiries",
+  attendance: "/staff/attendance",
+  students: "/staff/students",
+  requests: "/staff/requests",
 };
 
 function outcomeLabel(value?: string) {
@@ -78,8 +93,8 @@ export default function StaffDashboardPage() {
 
   const tasks = useRpc<StaffTodayResponse>("api_staff_todaysTasks", { branch });
   const classes = useTodaysClasses(undefined, branch);
+  const reminders = useDueReminders(branch);
 
-  const feeDue = tasks.data?.feesDueToday;
   const attendance = tasks.data?.attendanceSummary;
   const classRows = classes.data?.rows ?? tasks.data?.todaysLectures?.rows ?? [];
   const loading = tasks.isPending && classes.isPending;
@@ -143,8 +158,8 @@ export default function StaffDashboardPage() {
             />
             <StatCard
               label="Fees due today"
-              value={String(feeDue?.count ?? 0)}
-              sub={`${feeDue?.overdueCount ?? 0} overdue`}
+              value={String(reminders.data?.dueToday.length ?? 0)}
+              sub={`${reminders.data?.overdue.length ?? 0} overdue`}
               href="/staff/fees"
             />
             <StatCard
@@ -220,45 +235,26 @@ export default function StaffDashboardPage() {
                   Collect
                 </Link>
               </div>
-              <div className="mb-4 grid grid-cols-3 gap-3">
-                <div className="rounded-xl border border-red-400/20 bg-red-400/5 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-dash-fg/40">Overdue</p>
-                  <p className="mt-0.5 text-lg font-semibold text-red-300">{feeDue?.overdueCount ?? 0}</p>
-                </div>
-                <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-dash-fg/40">Due today</p>
-                  <p className="mt-0.5 text-lg font-semibold text-amber-300">{feeDue?.count ?? 0}</p>
-                </div>
-                <div className="rounded-xl border border-dash-fg/10 bg-dash-fg/[0.03] px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-dash-fg/40">Due soon</p>
-                  <p className="mt-0.5 text-lg font-semibold text-dash-fg">{feeDue?.dueSoonCount ?? 0}</p>
-                </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <FeeBucketCard
+                  title="Overdue"
+                  rows={reminders.data?.overdue ?? []}
+                  tone="overdue"
+                  collectHref={(id) => `/staff/fees?studentId=${encodeURIComponent(id)}`}
+                />
+                <FeeBucketCard
+                  title="Due today"
+                  rows={reminders.data?.dueToday ?? []}
+                  tone="due"
+                  collectHref={(id) => `/staff/fees?studentId=${encodeURIComponent(id)}`}
+                />
+                <FeeBucketCard
+                  title="Due soon"
+                  rows={reminders.data?.dueSoon ?? []}
+                  tone="dueSoon"
+                  collectHref={(id) => `/staff/fees?studentId=${encodeURIComponent(id)}`}
+                />
               </div>
-              {tasks.isPending ? (
-                <Skeleton className="h-20 bg-dash-fg/[0.04]" />
-              ) : (feeDue?.rows?.length ?? 0) === 0 ? (
-                <p className="py-6 text-center text-sm text-dash-fg/45">No fees due today.</p>
-              ) : (
-                <ul className="divide-y divide-dash-fg/[0.04]">
-                  {feeDue!.rows.slice(0, 5).map((r) => (
-                    <li key={r.studentId} className="flex items-center justify-between gap-3 py-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-dash-fg/90">{r.studentName}</p>
-                        <p className="flex items-center gap-1.5 truncate text-xs text-dash-fg/45">
-                          <Phone className="h-3 w-3" aria-hidden />
-                          {r.phone || r.classCode || "—"}
-                        </p>
-                      </div>
-                      <Link
-                        href={`/staff/students/${encodeURIComponent(r.studentId)}`}
-                        className="shrink-0 text-xs font-medium text-dash-accent hover:text-dash-accent-hover"
-                      >
-                        Open
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -299,23 +295,40 @@ export default function StaffDashboardPage() {
                 {(tasks.data?.cards ?? [])
                   .filter((c) => (c.count ?? 0) > 0)
                   .slice(0, 8)
-                  .map((c) => (
-                    <li key={c.key} className="flex items-center justify-between gap-3 py-2.5">
-                      <span className="text-sm text-dash-fg/85">{c.label || c.title}</span>
-                      <span className="flex items-center gap-2">
-                        <Badge
-                          className={
-                            c.priority === "HIGH"
-                              ? "border-red-400/30 bg-red-400/10 text-red-300"
-                              : "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/70"
-                          }
-                        >
-                          {c.count}
-                        </Badge>
-                        <ArrowRight className="h-3.5 w-3.5 text-dash-fg/25" aria-hidden />
-                      </span>
-                    </li>
-                  ))}
+                  .map((c) => {
+                    const href = CARD_TARGET[c.targetView ?? ""];
+                    const row = (
+                      <>
+                        <span className="text-sm text-dash-fg/85">{c.label || c.title}</span>
+                        <span className="flex items-center gap-2">
+                          <Badge
+                            className={
+                              c.priority === "HIGH"
+                                ? "border-red-400/30 bg-red-400/10 text-red-300"
+                                : "border-dash-fg/15 bg-dash-fg/[0.04] text-dash-fg/70"
+                            }
+                          >
+                            {c.count}
+                          </Badge>
+                          <ArrowRight className="h-3.5 w-3.5 text-dash-fg/25" aria-hidden />
+                        </span>
+                      </>
+                    );
+                    return (
+                      <li key={c.key} className="py-0.5">
+                        {href ? (
+                          <Link
+                            href={href}
+                            className="flex items-center justify-between gap-3 py-2.5 transition-colors hover:text-dash-accent"
+                          >
+                            {row}
+                          </Link>
+                        ) : (
+                          <div className="flex items-center justify-between gap-3 py-2.5">{row}</div>
+                        )}
+                      </li>
+                    );
+                  })}
               </ul>
             )}
           </CardContent>

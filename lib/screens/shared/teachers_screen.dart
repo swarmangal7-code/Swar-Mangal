@@ -22,6 +22,15 @@ class _TeachersScreenState extends State<TeachersScreen> {
   List<Teacher> _rows = [];
   bool _busy = true;
   String? _error;
+  /// 'ALL' | ACTIVE | INACTIVE | HOLD | LEFT — the same filter chips the
+  /// web teacher lists carry.
+  String _statusFilter = 'ALL';
+
+  static const _filters = ['ALL', 'ACTIVE', 'INACTIVE', 'HOLD', 'LEFT'];
+
+  List<Teacher> get _visible => _statusFilter == 'ALL'
+      ? _rows
+      : _rows.where((t) => t.status.toUpperCase() == _statusFilter).toList();
 
   @override
   void initState() {
@@ -68,7 +77,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
         Padding(
           padding: const EdgeInsets.all(AppSpace.s4),
           child: Row(children: [
-            Text('${_rows.length} teachers',
+            Text('${_visible.length} of ${_rows.length} teachers',
                 style: const TextStyle(fontWeight: FontWeight.w800)),
             const Spacer(),
             IconButton(
@@ -85,14 +94,36 @@ class _TeachersScreenState extends State<TeachersScreen> {
             ),
           ]),
         ),
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.s4),
+            children: [
+              for (final f in _filters)
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpace.s2),
+                  child: ChoiceChip(
+                    label: Text(f == 'ALL' ? 'All' : f),
+                    selected: _statusFilter == f,
+                    onSelected: (_) => setState(() => _statusFilter = f),
+                  ),
+                ),
+            ],
+          ),
+        ),
         Expanded(
-          child: _rows.isEmpty
-              ? const EmptyState('No teachers in the master yet.', icon: Icons.group_outlined)
+          child: _visible.isEmpty
+              ? EmptyState(
+                  _rows.isEmpty
+                      ? 'No teachers in the master yet.'
+                      : 'No $_statusFilter teachers.',
+                  icon: Icons.group_outlined)
               : ListView.separated(
                   padding: const EdgeInsets.only(bottom: AppSpace.s6),
-                  itemCount: _rows.length,
+                  itemCount: _visible.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (c, i) => _row(_rows[i]),
+                  itemBuilder: (c, i) => _row(_visible[i]),
                 ),
         ),
       ]),

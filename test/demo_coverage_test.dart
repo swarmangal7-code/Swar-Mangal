@@ -187,6 +187,51 @@ void main() {
       final b = await call('api_staff_sessionRoster', {'branch': 'GOREGAON', 'scheduledSessionId': 'SCSS-DEMO-1'});
       expect(b['rows'], isNotEmpty);
     });
+
+    test('api_listDemoStudents — students parse into DemoStudent', () async {      final b = await call('api_listDemoStudents', {'branch': 'ALL'});
+      expect(b['ok'], true);
+      final rows = (b['students'] as List).cast<Map<String, dynamic>>();
+      expect(rows, isNotEmpty);
+      final d = DemoStudent.fromApi(rows.first);
+      expect(d.studentId, isNotEmpty);
+      expect(d.studentName, isNotEmpty);
+      expect(d.guardianName, isNotEmpty, reason: 'a demo student records the guardian, not a fee plan');
+      expect(d.instrument, isNotEmpty);
+      expect(d.demoDate, isNotEmpty);
+      expect(d.demoTime, isNotEmpty);
+    });
+
+    test('DemoStudent is the pre-fee-plan shape — it has no money fields at all', () {
+      // A trial student is not an admitted one, so the model deliberately
+      // offers no feePlan / monthlyFee / nextDueDate. If someone adds them
+      // back, the "demo before fee plan" rule has quietly been broken.
+      final d = DemoStudent.fromApi(const {
+        'studentId': 'STU-DEMO-1',
+        'studentName': 'Trial',
+        'guardianName': 'G',
+        'guardianPhone': '9',
+        'instrument': 'Keyboard',
+        'branch': 'KANDIVALI',
+        'demoDate': '2026-10-04',
+        'demoTime': '17:00',
+      });
+      expect(d.studentId, 'STU-DEMO-1');
+      expect(d.demoDate, '2026-10-04');
+      expect(d.demoTime, '17:00');
+    });
+
+    test('api_listSchools — schools parse, and the code is what an invoice carries', () async {
+      final b = await call('api_listSchools');
+      expect(b['ok'], true);
+      final rows = (b['schools'] as List).cast<Map<String, dynamic>>();
+      expect(rows.map((s) => s['code']).toList(), ['MHWS', 'MXVILLE']);
+      final s = School.fromApi(rows.first);
+      expect(s.schoolId, isNotEmpty);
+      expect(s.code, 'MHWS');
+      // The label falls back to the bare code until a real name is set, so a
+      // picker never renders an empty row.
+      expect(s.label, isNotEmpty);
+    });
   });
 
   group('DemoApiClient — writes always carry demo provenance', () {
@@ -236,6 +281,9 @@ void main() {
       'api_founder_addAuthorizedEmail': '{"email":"new@example.com"}',
       'api_founder_removeAuthorizedEmail': '{"email":"new@example.com"}',
       'api_founder_revokeDeviceToken': '{"id":"DEV-1"}',
+      'api_addDemoStudent': '{"studentName":"Trial","phone":"9"}',
+      'api_founder_convertDemoStudent': '{"studentId":"STU-DEMO-1"}',
+      'api_addSchool': '{"code":"NEWCO","name":"New School"}',
     };
 
     for (final entry in writes.entries) {

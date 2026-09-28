@@ -10,6 +10,7 @@ import { API_ORIGIN } from "@/lib/api/rpc-client";
 import { useMutationRpc, rpcKeys } from "@/lib/api/rpc-hooks";
 import type { InvoiceOwner, RpcEnvelope } from "@/lib/api/rpc-types";
 import { Button } from "@/components/ui/button";
+import { SchoolPicker } from "@/components/dashboard/school-picker";
 import { InvoicePreview } from "@/components/founder/invoice-preview";
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -23,6 +24,11 @@ interface GenerateInvoiceResponse extends RpcEnvelope {
   invoiceNo: string;
   invoiceDate: string;
   branch: string;
+  schoolId?: string;
+  schoolCode?: string;
+  schoolName?: string;
+  schoolAddress?: string;
+  schoolContact?: string;
   className: string;
   amount: number;
   tenure: string;
@@ -45,6 +51,7 @@ export default function FounderNewSchoolInvoicePage() {
   const [className, setClassName] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [tenure, setTenure] = React.useState("");
+  const [schoolId, setSchoolId] = React.useState("");
   const [branch, setBranch] = React.useState(branches[0] ?? "");
   const [invoiceDate, setInvoiceDate] = React.useState(todayIso());
   const [created, setCreated] = React.useState<GenerateInvoiceResponse | null>(null);
@@ -55,13 +62,15 @@ export default function FounderNewSchoolInvoicePage() {
   );
 
   const amountValue = Number(amount);
-  const valid = className.trim().length > 0 && Number.isFinite(amountValue) && amountValue > 0;
+  const valid = schoolId.length > 0 && className.trim().length > 0 && Number.isFinite(amountValue) && amountValue > 0;
 
   const handleGenerate = async () => {
+    if (!schoolId) return toast.error("Pick the school this invoice is for.");
     if (!className.trim()) return toast.error("Enter the school class.");
     if (!(Number.isFinite(amountValue) && amountValue > 0)) return toast.error("Enter a valid amount.");
     try {
       const res = await generateMut.mutateAsync({
+        schoolId,
         className: className.trim(),
         amount: amountValue,
         tenure: tenure.trim(),
@@ -168,6 +177,8 @@ export default function FounderNewSchoolInvoicePage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
         <div className="space-y-4 rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-5">
           <h2 className="text-sm font-semibold text-dash-fg/80">Invoice details</h2>
+
+          <SchoolPicker value={schoolId} onChange={setSchoolId} canAdd />
 
           <div>
             <label htmlFor="inv-class" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
@@ -284,6 +295,10 @@ export default function FounderNewSchoolInvoicePage() {
             amount={previewInvoice ? previewInvoice.amount : Number(amount) || 0}
             tenure={tenure}
             branch={previewInvoice?.branch ?? branch}
+            schoolCode={previewInvoice?.schoolCode ?? ""}
+            schoolName={previewInvoice?.schoolName ?? ""}
+            schoolAddress={previewInvoice?.schoolAddress ?? ""}
+            schoolContact={previewInvoice?.schoolContact ?? ""}
             owner1={previewInvoice?.owner1}
             owner2={previewInvoice?.owner2}
           />

@@ -70,6 +70,8 @@ class DemoApiClient extends ApiClient {
         teacherId: e.teacherId,
         teacherName: e.teacherName,
         status: e.status,
+        substituteTeacherId: e.substituteTeacherId,
+        substituteTeacherName: e.substituteTeacherName,
       );
 
   /// Server revisions, SHARED across sessions. Each successful write bumps
@@ -95,6 +97,9 @@ class DemoApiClient extends ApiClient {
     'api_founder_paymentDraftReject': {'approvals', 'payments', 'students'},
     'api_addStudent': {'students', 'dashboard'},
     'api_staff_saveStudentDraft': {'students', 'dashboard'},
+    'api_addDemoStudent': {'students', 'dashboard'},
+    'api_founder_convertDemoStudent': {'students', 'dashboard', 'tasks'},
+    'api_addSchool': {'invoices'},
     'api_addExpenseEntry': {'expenses', 'dashboard'},
     'api_staff_submitExpenseDraft': {'expenses', 'approvals', 'dashboard'},
     'api_founder_expenseDraftApprove': {'expenses', 'approvals', 'dashboard'},
@@ -150,6 +155,9 @@ class DemoApiClient extends ApiClient {
   static const _writes = <String>{
     'api_addStudent',
     'api_staff_saveStudentDraft',
+    'api_addDemoStudent',
+    'api_founder_convertDemoStudent',
+    'api_addSchool',
     'api_addFeePayment',
     'api_staff_prepareReceiptDraft',
     'api_addTeacher',
@@ -646,6 +654,86 @@ class DemoApiClient extends ApiClient {
               'authorisedBy': 'demo founder',
             },
           ],
+        };
+      case 'api_listSchools':
+        return {
+          'ok': true,
+          'schools': [
+            {
+              'schoolId': 'SCH-MHWS',
+              'code': 'MHWS',
+              'name': 'MHWS',
+              'address': '',
+              'contact': '',
+              'active': true,
+            },
+            {
+              'schoolId': 'SCH-MXVILLE',
+              'code': 'MXVILLE',
+              'name': 'MXVILLE',
+              'address': '',
+              'contact': '',
+              'active': true,
+            },
+          ],
+        };
+      case 'api_addSchool':
+        return {
+          'ok': true,
+          'schoolId': 'SCH-${(_s(a['code'])).toUpperCase()}',
+          'code': (_s(a['code'])).toUpperCase(),
+          'name': _s(a['name']),
+          'note': 'School saved (demo mode). It uses the same invoice template.',
+        };
+      case 'api_updateSchool':
+        return {'ok': true, 'note': 'School updated (demo mode).'};
+      case 'api_listDemoStudents':
+        return {
+          'ok': true,
+          'students': [
+            {
+              'studentId': 'STU-DEMO-TRIAL-1',
+              'studentName': 'Aarav Demo',
+              'phone': '9820011223',
+              'email': '',
+              'guardianName': 'Meera Demo',
+              'guardianPhone': '9820011224',
+              'instrument': 'Keyboard',
+              'branch': 'KANDIVALI',
+              'teacherId': 'TCH-1',
+              'teacherName': 'Ravi Sir',
+              'demoDate': '2026-10-04',
+              'demoTime': '17:00',
+            },
+            {
+              'studentId': 'STU-DEMO-TRIAL-2',
+              'studentName': 'Sana Demo',
+              'phone': '9820033445',
+              'email': 'sana@example.com',
+              'guardianName': 'Imran Demo',
+              'guardianPhone': '9820033446',
+              'instrument': 'Violin',
+              'branch': 'GOREGAON',
+              'teacherId': 'TCH-2',
+              'teacherName': 'Nisha Ma\u2019am',
+              'demoDate': '2026-10-05',
+              'demoTime': '18:30',
+            },
+          ],
+        };
+      case 'api_addDemoStudent':
+        return {
+          'ok': true,
+          'studentId': 'STU-DEMO-TRIAL-${(a['studentName'] ?? 'NEW').toString().toUpperCase()}',
+          'studentName': a['studentName'] ?? '',
+          'note': 'Demo student added (demo mode).',
+        };
+      case 'api_founder_convertDemoStudent':
+        return {
+          'ok': true,
+          'studentId': a['studentId'] ?? '',
+          'status': 'ACTIVE',
+          'note': 'Converted to an admitted student (demo mode).',
         };
       case 'api_staff_requestReceiptCorrection':
         return {
@@ -2070,6 +2158,8 @@ class DemoApiClient extends ApiClient {
       teacherId: _s(a['teacherId']),
       teacherName: _s(a['teacherName']),
       status: _s(a['status']).isEmpty ? 'ENABLED' : _s(a['status']).toUpperCase(),
+      substituteTeacherId: _s(a['substituteTeacherId']),
+      substituteTeacherName: _s(a['substituteTeacherName']),
     );
     _tt.add(e);
     return {'ok': true, 'entry': e.toWrite(), 'note': 'demo timetable entry added'};

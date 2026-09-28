@@ -28,6 +28,8 @@ const MESSAGE_TYPES = [
   "ABSENT_TODAY",
 ] as const;
 
+export type MessageType = (typeof MESSAGE_TYPES)[number];
+
 interface CommGenerateRes extends RpcEnvelope {
   kind?: string;
   subject?: string;
@@ -66,13 +68,17 @@ export function MessageComposeDialog({
   studentId,
   studentName,
   branch,
+  initialType,
 }: {
   studentId: string;
   studentName: string;
   branch?: string;
+  /** Pre-selects the reminder type — the fee buckets each imply one, matching
+   *  FeeBucketScreen's OVERDUE_ACCRUING / DUE_TODAY / DUE_SOON. */
+  initialType?: (typeof MESSAGE_TYPES)[number];
 }) {
   const [open, setOpen] = React.useState(false);
-  const [type, setType] = React.useState<(typeof MESSAGE_TYPES)[number]>("FEE_REMINDER");
+  const [type, setType] = React.useState<(typeof MESSAGE_TYPES)[number]>(initialType ?? "FEE_REMINDER");
   const [msg, setMsg] = React.useState<CommGenerateRes | null>(null);
   const [body, setBody] = React.useState("");
   const [sent, setSent] = React.useState<SendWhatsAppRes | null>(null);

@@ -15,6 +15,10 @@ export function InvoicePreview({
   amount,
   tenure,
   branch,
+  schoolCode,
+  schoolName,
+  schoolAddress,
+  schoolContact,
   owner1,
   owner2,
 }: {
@@ -24,6 +28,10 @@ export function InvoicePreview({
   amount: number;
   tenure: string;
   branch: string;
+  schoolCode?: string;
+  schoolName?: string;
+  schoolAddress?: string;
+  schoolContact?: string;
   owner1?: InvoiceOwner;
   owner2?: InvoiceOwner;
 }) {
@@ -54,8 +62,13 @@ export function InvoicePreview({
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-card/45">
             Billed to
           </p>
-          <p className="mt-1 text-sm font-semibold">{className || "—"}</p>
-          <p className="text-xs text-dash-card/55">{branch || "—"}</p>
+          {/* Mirrors the PDF's BILLED TO block — same school, same fields. */}
+          <p className="mt-1 text-sm font-semibold">{schoolName || className || "—"}</p>
+          {schoolAddress && <p className="text-xs text-dash-card/55">{schoolAddress}</p>}
+          {schoolContact && <p className="text-xs text-dash-card/55">{schoolContact}</p>}
+          <p className="text-xs text-dash-card/55">
+            {[branch, schoolCode].filter(Boolean).join(" · ") || "—"}
+          </p>
         </div>
         <div className="sm:text-right">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-card/45">

@@ -394,6 +394,9 @@ class _TimetableFormState extends State<_TimetableForm> {
   late int _day;
   late String _status;
   String? _teacherId;
+  String? _substituteId;
+  late String _substituteName;
+  late String _branch;
   String _editScope = 'THIS_WEEK';
   bool _busy = false;
   String? _error;
@@ -409,6 +412,22 @@ class _TimetableFormState extends State<_TimetableForm> {
     _day = e?.dayOfWeek ?? 0;
     _status = e?.status ?? 'ENABLED';
     _teacherId = e?.teacherId ?? '';
+    _substituteId = (e?.substituteTeacherId ?? '').isEmpty ? null : e!.substituteTeacherId;
+    _substituteName = e?.substituteTeacherName ?? '';
+    _branch = e?.branch.isNotEmpty == true ? e!.branch.toUpperCase() : '';
+  }
+
+  List<String> get _branches {
+    final b = context.read<AuthProvider>().branches;
+    return b.isEmpty ? const ['GOREGAON', 'KANDIVALI'] : b;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Founder has no branch gate, so default to their first branch rather
+    // than sending a blank one.
+    if (_branch.isEmpty) _branch = _branches.first;
   }
 
   @override
@@ -449,9 +468,16 @@ class _TimetableFormState extends State<_TimetableForm> {
       setState(() => _error = cErr);
       return;
     }
-    final branch = (auth.branch ?? '').toUpperCase();
+    if ((_teacherId ?? '').isEmpty && _teacherName.text.trim().isEmpty) {
+      setState(() => _error = 'Pick the teacher who takes this class.');
+      return;
+    }
+    if (_substituteId != null && _substituteId == _teacherId) {
+      setState(() => _error = 'The substitute must be someone other than the assigned teacher.');
+      return;
+    }
     final base = {
-      'branch': branch,
+      'branch': _branch,
       'dayOfWeek': _day,
       'startTime': _start,
       'endTime': _end,
@@ -459,6 +485,8 @@ class _TimetableFormState extends State<_TimetableForm> {
       'teacherId': _teacherId ?? '',
       'teacherName': _teacherName.text.trim(),
       'status': _status,
+      'substituteTeacherId': _substituteId ?? '',
+      'substituteTeacherName': _substituteName.trim(),
     };
     setState(() {
       _busy = true;
@@ -534,11 +562,25 @@ class _TimetableFormState extends State<_TimetableForm> {
               ),
             ),
           ]),
+          const SizedBox(height: AppSpace.s3),
+          // Founder edits both branches; staff only their own, so the picker
+          // only appears where it can actually change something.
+          if (_branches.length > 1) ...[
+            DropdownButtonFormField<String>(
+              initialValue: _branch,
+              decoration: const InputDecoration(labelText: 'Branch'),
+              items: [
+                for (final b in _branches) DropdownMenuItem(value: b, child: Text(b)),
+              ],
+              onChanged: (v) => setState(() => _branch = v ?? _branch),
+            ),
+            const SizedBox(height: AppSpace.s3),
+          ],
           if (widget.teachers.isNotEmpty) ...[
             const SizedBox(height: AppSpace.s2),
             DropdownButtonFormField<String>(
               initialValue: _teacherId == '' && widget.teachers.isNotEmpty ? null : _teacherId,
-              decoration: const InputDecoration(labelText: 'Teacher'),
+              decoration: const InputDecoration(labelText: 'Teacher *'),
               hint: const Text('Select teacher…'),
               items: [
                 for (final t in widget.teachers)
@@ -554,6 +596,29 @@ class _TimetableFormState extends State<_TimetableForm> {
                   }
                 }
                 _teacherName.text = nm;
+              }),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            // Who covers this slot instead. The server refuses a substitute who
+            // is also the assigned teacher, so it is filtered out here too.
+            DropdownButtonFormField<String>(
+              initialValue: _substituteId,
+              decoration: const InputDecoration(labelText: 'Substitute teacher (optional)'),
+              hint: const Text('No substitute — the assigned teacher takes it'),
+              items: [
+                for (final t in widget.teachers)
+                  if (t.teacherId != _teacherId)
+                    DropdownMenuItem(value: t.teacherId, child: Text(t.teacherName)),
+              ],
+              onChanged: (v) => setState(() {
+                _substituteId = v;
+                _substituteName = '';
+                for (final t in widget.teachers) {
+                  if (t.teacherId == v) {
+                    _substituteName = t.teacherName;
+                    break;
+                  }
+                }
               }),
             ),
             const SizedBox(height: AppSpace.s3),

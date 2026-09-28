@@ -10,6 +10,15 @@ export interface InvoicePdfData {
   invoiceNo: string;
   invoiceDate: string;
   branch: string;
+  /**
+   * The school being billed. Its code is already inside invoiceNo; the name
+   * and address are what a school reads first, so they are the invoice's
+   * addressee. Blank only for invoices issued before schools existed.
+   */
+  schoolCode: string;
+  schoolName: string;
+  schoolAddress: string;
+  schoolContact: string;
   className: string;
   amount: number;
   tenure: string;
@@ -128,8 +137,17 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
 
         <View style={[styles.card, { padding: 14, marginBottom: 18 }]}>
           <Text style={inv.billedToLabel}>BILLED TO</Text>
-          <Text style={inv.billedToValue}>{data.className || "Music Classes"}</Text>
-          <Text style={{ fontSize: 10, color: BRAND.gray }}>{branchLabel(data.branch)} branch</Text>
+          <Text style={inv.billedToValue}>{data.schoolName || data.className || "Music Classes"}</Text>
+          {!!data.schoolAddress && (
+            <Text style={{ fontSize: 10, color: BRAND.gray }}>{data.schoolAddress}</Text>
+          )}
+          {!!data.schoolContact && (
+            <Text style={{ fontSize: 10, color: BRAND.gray }}>{data.schoolContact}</Text>
+          )}
+          <Text style={{ fontSize: 10, color: BRAND.gray }}>
+            {branchLabel(data.branch)} branch
+            {data.schoolCode ? ` · ${data.schoolCode}` : ""}
+          </Text>
         </View>
 
         <View style={[styles.card, { marginBottom: 0 }]}>

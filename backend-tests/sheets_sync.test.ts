@@ -131,11 +131,14 @@ class FakeSheets {
 
 async function freshDb() {
   const pg = new PGlite();
-  // pgcrypto / gen_random_uuid are not bundled with PGlite; the rest is verbatim.
+  // pgcrypto / gen_random_uuid are not bundled with PGlite. Swap in a portable
+  // unique-uuid expression rather than `null` — several tables default their
+  // primary key this way, and a null default makes any insert that relies on it
+  // (e.g. the instrument_options seed) fail on NOT NULL.
   await pg.exec(
     readFileSync("db/schema.sql", "utf8")
       .replace("create extension if not exists pgcrypto;", "")
-      .replaceAll("gen_random_uuid()", "null"),
+      .replaceAll("gen_random_uuid()", "md5(random()::text || clock_timestamp()::text)::uuid"),
   );
   const db = { query: (text: string, params?: unknown[]) => pg.query(text, params) };
   return { pg, db };

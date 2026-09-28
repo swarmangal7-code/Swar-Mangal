@@ -28,6 +28,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
   List<PaymentDraftRow> _queue = [];
   String? _error;
   bool _busy = true;
+  String _tab = 'ALL';
   final Set<String> _acting = {};
 
   @override
@@ -94,27 +95,16 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(
               content: Text('Receipt ${m['receiptNo']} created$demoTag')));
-      } else if (m['error'] == 'INCOMPLETE_STUDENT' || m['code'] == 'INCOMPLETE_STUDENT') {
-        final missing = (m['missing'] as List?)?.join(', ') ?? 'unknown fields';
-        final reason = await _ask(
-          'Override incomplete student?',
-          'Student is missing: $missing. Type a reason to force finalise (audited).',
-        );
-        if (reason != null) {
-          final r2 = await auth.service!.founderFinalisePaymentDraft(
-            row.draftId,
-            override: true,
-            overrideReason: reason,
-          );
-          final m2 = r2 as Map<String, dynamic>;
-          if (!mounted) return;
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-                content: Text(m2['ok'] == true
-                    ? 'Receipt ${m2['receiptNo']} created (override)'
-                    : (m2['error'] ?? m2['message'] ?? 'Finalise failed'))));
-        }
+      } else if (m['code'] == 'INCOMPLETE_STUDENT' || m['error'] == 'INCOMPLETE_STUDENT') {
+        // The server has no override flag — there is nothing to force here.
+        // Naming the missing fields is the actual remedy, so say that instead
+        // of offering a second call that would fail identically.
+        final missing = (m['missing'] as List?)?.join(', ') ?? 'the fee plan and due day';
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text('Cannot create the receipt: this student\'s record is missing $missing. '
+                'Fix the student\'s fee plan, then finalise again.')));
       } else {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
@@ -166,7 +156,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
           await auth.service!.raw('api_founder_instalmentPlanDraftReject', {'draftId': item.itemId, 'reason': reason});
         } else if (item.type == 'MANUAL_TERMS_ACCEPTANCE') {
           await auth.service!.raw('api_founder_manualTermsAcceptanceReject', {'requestId': item.itemId, 'reason': reason});
-        } else if (item.type == 'TEACHER_ADD_REQUEST') {
+        } else if (item.type == 'TEACHER_ADD_REQUEST' || item.type == 'TEACHER_EDIT_REQUEST') {
           await auth.service!.raw('api_founder_addTeacherRequestReject', {'requestId': item.itemId, 'reason': reason});
         } else {
           await auth.service!.founderPaymentDraftReject(item.itemId, reason);
@@ -209,8 +199,12 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
           final confirmed = await _confirm('Approve manual terms acceptance', 'Record terms as accepted for "${item.entity}"?');
           if (!confirmed) return;
           await auth.service!.raw('api_founder_manualTermsAcceptanceApprove', {'requestId': item.itemId});
-        } else if (item.type == 'TEACHER_ADD_REQUEST') {
-          final confirmed = await _confirm('Add teacher', 'Add "${item.entity}" as a teacher (${item.reason})?');
+        } else if (item.type == 'TEACHER_ADD_REQUEST' || item.type == 'TEACHER_EDIT_REQUEST') {
+          final isEdit = item.type == 'TEACHER_EDIT_REQUEST';
+          final confirmed = await _confirm(
+            isEdit ? 'Approve teacher change' : 'Add teacher',
+            isEdit ? 'Apply this change to "${item.entity}" (${item.reason})?' : 'Add "${item.entity}" as a teacher (${item.reason})?',
+          );
           if (!confirmed) return;
           await auth.service!.raw('api_founder_addTeacherRequestApprove', {'requestId': item.itemId});
         } else {
@@ -360,6 +354,21 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
         children: [
           PageHero(eyebrow: 'Approvals', headline: '${d.count} awaiting your authority', fontSize: 22),
           const SizedBox(height: AppSpace.s4),
+          // One chip per approval group, matching the web filter tabs.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              for (final g in d.groups) ...[
+                ChoiceChip(
+                  label: Text('${g.label} (${g.items.length})', style: const TextStyle(fontSize: 12)),
+                  selected: _tab == g.type,
+                  onSelected: (_) => setState(() => _tab = _tab == g.type ? 'ALL' : g.type),
+                ),
+                const SizedBox(width: AppSpace.s2),
+              ],
+            ]),
+          ),
+          const SizedBox(height: AppSpace.s4),
           if (d.empty)
             const Card(
               child: Padding(
@@ -368,27 +377,32 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
               ),
             ),
           for (final g in d.groups) ...[
-            SectionTitle(g.label),
-            for (final item in g.items) _itemCard(item),
+            if (_tab == 'ALL' || _tab == g.type) ...[
+              SectionTitle(g.label),
+              for (final item in g.items) _itemCard(item),
+            ],
           ],
-          const SectionTitle('Receipts pending'),
-          Text(
-            'Approved payments that have not been turned into a receipt yet. '
-            'Finalising writes real money records server-side.',
-            style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)),
-          ),
-          const SizedBox(height: AppSpace.s3),
-          if (_queue.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpace.s4),
-                child: Text('No payment drafts in the queue.',
-                    style: TextStyle(color: AppColors.adaptive(context, AppColors.muted), fontSize: 13)),
-              ),
-            )
-          else
-            for (final row in _queue)
-              if (row.approved || row.repairRequired) _draftCard(row),
+          if (_tab == 'ALL') ...[
+            const SectionTitle('Receipts pending'),
+            Text(
+              'Every payment draft staff has raised. Finalising writes real money records server-side.',
+              style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            if (_queue.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.s4),
+                  child: Text('No payment drafts in the queue.',
+                      style: TextStyle(color: AppColors.adaptive(context, AppColors.muted), fontSize: 13)),
+                ),
+              )
+            else
+              // Every draft is listed, not just the approved ones — the founder
+              // needs to see what staff is waiting on. Only APPROVED can be
+              // turned into a receipt; the rest show as pending.
+              for (final row in _queue) _draftCard(row),
+          ],
         ],
       ),
     );
@@ -426,15 +440,28 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
           ]),
           const SizedBox(height: AppSpace.s3),
           Row(children: [
-            _actionBtn(
-              row.repairRequired ? 'Repair (founder web)' : 'Create receipt',
-              AppColors.adaptive(context, AppColors.primary),
-              busy,
-              row.repairRequired
-                  ? () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Repair is done on the founder web app — the block names the missing data.')))
-                  : () => _finalise(row),
-            ),
+            if (row.repairRequired)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.adaptive(context, AppColors.muted),
+                  side: BorderSide(color: AppColors.adaptive(context, AppColors.muted).withValues(alpha: .6)),
+                  minimumSize: const Size(0, 40),
+                ),
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Repair is done on the founder web app — the block names the missing data.'))),
+                icon: const Icon(Icons.build_outlined, size: 16),
+                label: const Text('Repair (founder web)'),
+              )
+            else
+              // Only an APPROVED draft may be finalised — a SUBMITTED one is
+              // still waiting on this same screen's decision.
+              _actionBtn(
+                'Create receipt',
+                AppColors.adaptive(context, AppColors.primary),
+                busy,
+                () => _finalise(row),
+                enabled: row.approved,
+              ),
           ]),
         ]),
       ),
@@ -461,6 +488,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
           ]),
           const SizedBox(height: AppSpace.s2),
           Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
+            StatusBadge(item.typeLabel),
             if (item.noStudentLinked)
               const StatusBadge('NO STUDENT LINKED')
             else if (item.studentId.isNotEmpty)
@@ -502,7 +530,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
     );
   }
 
-  Widget _actionBtn(String label, Color color, bool busy, VoidCallback onTap) {
+  Widget _actionBtn(String label, Color color, bool busy, VoidCallback onTap, {bool enabled = true}) {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
@@ -510,7 +538,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
         minimumSize: const Size(0, 40),
         padding: const EdgeInsets.symmetric(horizontal: AppSpace.s3),
       ),
-      onPressed: busy ? null : onTap,
+      onPressed: (busy || !enabled) ? null : onTap,
       child: busy
           ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
           : Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),

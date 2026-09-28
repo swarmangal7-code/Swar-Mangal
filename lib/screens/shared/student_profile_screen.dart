@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/atoms.dart';
+import 'add_student_screen.dart';
 import 'fee_collection_screen.dart';
 import 'instalment_plan_screen.dart';
 import 'late_fee_waiver_screen.dart';
@@ -176,9 +177,61 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     }
   }
 
+  IconData _attendanceIcon(AttendanceMark a) {
+    if (a.isPresent) return Icons.check_circle_outline;
+    if (a.isLate) return Icons.schedule;
+    if (a.isExcused) return Icons.info_outline;
+    if (a.isAbsent) return Icons.cancel_outlined;
+    return Icons.help_outline;
+  }
+
+  Color _attendanceColor(BuildContext context, AttendanceMark a) {
+    if (a.isPresent) return AppColors.adaptive(context, AppColors.okFg);
+    if (a.isAbsent) return AppColors.adaptive(context, AppColors.blockFg);
+    return AppColors.adaptive(context, AppColors.warnFg);
+  }
+
+  /// Staff request removal. Never a direct delete — it becomes a founder
+  /// approval that moves the record to Inquiries as a lead, so the history is
+  /// never erased (mirrors the web staff profile).
+  Future<void> _requestDelete() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final reason = await _askReason(
+      context,
+      title: 'Request delete for ${widget.student.studentName}?',
+      label: 'Why are they leaving? (required)',
+    );
+    if (reason == null || reason.trim().isEmpty || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      final r = await auth.service!.saveStudentDraft({
+        'studentId': widget.student.studentId,
+        'lifecycleStatus': 'LEFT',
+        'statusReason': reason.trim(),
+        'clientIntentKey': 'SDRAFT-${DateTime.now().microsecondsSinceEpoch}',
+      });
+      final m = r as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(SnackBar(
+          content: Text(m['ok'] == true
+              ? '${(m['note'] ?? 'Sent for approval.').toString()} Nothing changes until the founder approves.'
+              : (m['error'] ?? 'Could not send the request.').toString())));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<String?> _askReason(BuildContext context,
-      {required String title, required String label}) {
-    final c = TextEditingController();
+      {required String title, required String label}) {    final c = TextEditingController();
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -250,9 +303,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                 child: Column(children: [
                   InfoRow('Phone', s.phone.isNotEmpty ? s.phone : '—'),
                   InfoRow('Email', s.email.isNotEmpty ? s.email : '—'),
+                  InfoRow('Guardian', s.guardianName.isNotEmpty ? s.guardianName : '—'),
                   InfoRow('Batch / Class', s.batch.isNotEmpty ? s.batch : '—'),
                   InfoRow('Plan', planSummary(s.feePlan)),
                   InfoRow('Fee cycle', s.feeCycleType.isNotEmpty ? s.feeCycleType : '—'),
+                  InfoRow('Fee due day', s.feeDueDay.isNotEmpty ? s.feeDueDay : '—'),
+                  InfoRow('Monthly fee', s.monthlyFee.isNotEmpty ? '₹${s.monthlyFee}' : '—'),
                   InfoRow('Next due', s.nextDueDate.isNotEmpty ? s.nextDueDate : '—'),
                   InfoRow('Last receipt', s.lastReceiptNo.isNotEmpty ? '${s.lastReceiptNo} · ₹${s.lastReceiptAmount}' : '—'),
                   InfoRow('Admission via', admissionSourceLabel(s.admissionSource).isEmpty ? '—' : admissionSourceLabel(s.admissionSource)),
@@ -310,6 +366,39 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
               icon: const Icon(Icons.chat_outlined, size: 18),
               label: const Text('Message parent'),
             ),
+            const SizedBox(height: AppSpace.s3),
+            // Edit is a founder write / a staff proposal — same rule as the
+            // web profile, so both roles get it from here, not just the list.
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => AddStudentScreen(staff: widget.staff, edit: s),
+                ));
+                if (mounted) _loadReceipts();
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: Text(widget.staff ? 'Request edit' : 'Edit'),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            // Founder changes lifecycle directly (audited); staff propose it.
+            if (widget.staff)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.adaptive(context, AppColors.blockFg)),
+                onPressed: _busy ? null : _requestDelete,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Request delete'),
+              ),
+            // Founder has no terms screen of their own on web either, but the
+            // founder is the one who approves manual acceptance — so the
+            // screen is offered to both roles here.
+            const SizedBox(height: AppSpace.s3),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => TermsScreen(student: s),
+              )),
+              icon: const Icon(Icons.description_outlined, size: 18),
+              label: const Text('Admission terms'),
+            ),
             if (widget.staff) ...[
               const SizedBox(height: AppSpace.s3),
               OutlinedButton.icon(
@@ -334,14 +423,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                 )),
                 icon: const Icon(Icons.calendar_view_month_outlined, size: 18),
                 label: const Text('Request instalment plan'),
-              ),
-              const SizedBox(height: AppSpace.s3),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => TermsScreen(student: s),
-                )),
-                icon: const Icon(Icons.description_outlined, size: 18),
-                label: const Text('Admission terms'),
               ),
               const SizedBox(height: AppSpace.s3),
               OutlinedButton.icon(
@@ -398,6 +479,27 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                     ]),
                   ),
                 ),
+            ],
+            if ((_detail?.attendance ?? const []).isNotEmpty) ...[
+              const SectionTitle('Attendance history'),
+              Card(
+                child: Column(
+                  children: [
+                    for (final a in _detail!.attendance.take(15))
+                      ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpace.s4, vertical: 2),
+                        leading: Icon(_attendanceIcon(a), color: _attendanceColor(context, a), size: 18),
+                        title: Text(a.date, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        subtitle: Text(
+                          [a.instrument, a.teacherName].where((x) => x.isNotEmpty).join(' · '),
+                          style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)),
+                        ),
+                        trailing: TagChip(a.status.isEmpty ? 'NOT MARKED' : a.status),
+                      ),
+                  ],
+                ),
+              ),
             ],
             SectionTitle('Receipts${_busy ? ' …' : ''}'),
             if (_error != null) Card(child: Padding(padding: const EdgeInsets.all(AppSpace.s3), child: ErrorView(_error!, onRetry: _loadReceipts, compact: true)))

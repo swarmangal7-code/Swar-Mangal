@@ -140,6 +140,12 @@ export default function FounderSchoolInvoicePage() {
                   </span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-dash-fg/50">
+                  {inv.schoolName && (
+                    <>
+                      <span className="font-medium text-dash-fg/70">{inv.schoolName}</span>
+                      <span className="text-dash-fg/25">·</span>
+                    </>
+                  )}
                   <span>{inv.className || "—"}</span>
                   <span className="text-dash-fg/25">·</span>
                   <span>{inv.branch}</span>

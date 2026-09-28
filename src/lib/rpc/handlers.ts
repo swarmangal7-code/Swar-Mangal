@@ -53,6 +53,12 @@ export async function rpcDispatch(role: RpcRole, fn: string, arg: Record<string,
       return staffStudentHub(arg, scope);
     case "api_addStudent":
       return addStudent(arg, scope);
+    case "api_addDemoStudent":
+      return addDemoStudent(arg, scope);
+    case "api_listDemoStudents":
+      return listDemoStudents(arg, scope);
+    case "api_founder_convertDemoStudent":
+      return convertDemoStudent(arg, scope);
     case "api_staff_saveStudentDraft":
       return saveStudentDraft(arg, scope, session);
     case "api_founder_setStudentStatus":
@@ -320,6 +326,99 @@ async function addStudent(arg: Record<string, unknown>, scope: BranchScope): Pro
 }
 
 /**
+ * Demo Students: a trial-class stage before real admission (founder request
+ * 2026-09-28). Low-risk and non-money, so either role can add one directly —
+ * no draft/approval, matching how staff already manage inquiries directly.
+ * No fee plan is collected here; that only happens on conversion.
+ */
+async function addDemoStudent(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const name = s(arg["studentName"] ?? arg["name"]).trim();
+  if (!name) return { ok: false, code: "NO_NAME", error: "Student name required" };
+  const phone = s(arg["phone"]).trim();
+  const guardianName = s(arg["guardianName"] ?? arg["parentName"]).trim();
+  const guardianPhone = s(arg["guardianPhone"]).trim();
+  const instrument = s(arg["instrument"]).trim();
+  const teacherId = s(arg["teacherId"]).trim();
+  const demoDate = isoDateOrNull(arg["demoDate"]) || todayIso();
+  const demoTime = s(arg["demoTime"]).trim();
+  const branch = defaultBranch(scope, arg["branch"]);
+  if (!inScope(scope, branch)) return branchForbidden(branch);
+  if (!phone) return { ok: false, code: "PHONE_REQUIRED", error: "Phone is required." };
+  if (!guardianName) return { ok: false, code: "GUARDIAN_REQUIRED", error: "Guardian name is required." };
+  if (!guardianPhone) return { ok: false, code: "GUARDIAN_PHONE_REQUIRED", error: "Guardian contact number is required." };
+  if (!instrument) return { ok: false, code: "INSTRUMENT_REQUIRED", error: "Instrument / course is required." };
+  if (!teacherId) return { ok: false, code: "TEACHER_REQUIRED", error: "Pick a teacher." };
+  if (!demoTime) return { ok: false, code: "DEMO_TIME_REQUIRED", error: "Pick the demo session time." };
+
+  const id = await newPersonId("STU", "students_acad", demoDate, instrument);
+  await query(
+    `insert into students_acad (id, name, guardian_name, guardian_phone, phone, email, instrument, branch, status, assigned_teacher_id, demo_date, demo_time)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,'DEMO',$9,$10::date,$11)`,
+    [id, name, guardianName, guardianPhone, phone, s(arg["email"]).trim() || null, instrument, branch, teacherId, demoDate, demoTime],
+  );
+  await bumpRevisions(["students", "dashboard"]);
+  return ok({ studentId: id, studentName: name, note: "Demo student added." });
+}
+
+async function listDemoStudents(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const branch = s(arg["branch"] ?? "ALL");
+  const rows = await query<Record<string, unknown>>(
+    `select s.id, s.name, s.phone, s.email, s.guardian_name, s.guardian_phone, s.instrument, s.branch,
+            s.assigned_teacher_id, t.name as teacher_name, s.demo_date::text, s.demo_time
+     from students_acad s
+     left join teachers_acad t on t.id = s.assigned_teacher_id
+     where s.status = 'DEMO'
+     order by s.demo_date asc nulls last, s.demo_time asc nulls last`,
+  );
+  const visible = rows.filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(branch, r.branch));
+  return ok({
+    students: visible.map((r) => ({
+      studentId: s(r.id),
+      studentName: s(r.name),
+      phone: s(r.phone),
+      email: s(r.email),
+      guardianName: s(r.guardian_name),
+      guardianPhone: s(r.guardian_phone),
+      instrument: s(r.instrument),
+      branch: s(r.branch),
+      teacherId: s(r.assigned_teacher_id),
+      teacherName: s(r.teacher_name),
+      demoDate: s(r.demo_date),
+      demoTime: s(r.demo_time),
+    })),
+  });
+}
+
+/** Founder-only: fills in the fee plan and admits a demo student for real. Same row, same id — not a copy. */
+async function convertDemoStudent(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const studentId = s(arg["studentId"]).trim();
+  if (!studentId) return { ok: false, code: "STUDENT_ID_REQUIRED", error: "Pick the demo student." };
+  const cur = await queryOne<{ status: string; branch: string }>(`select status, branch from students_acad where id = $1`, [studentId]);
+  if (!cur) return { ok: false, code: "NOT_FOUND", error: `No student ${studentId}` };
+  if (!inScope(scope, cur.branch)) return branchForbidden(cur.branch);
+  if (s(cur.status).toUpperCase() !== "DEMO") return { ok: false, code: "NOT_DEMO", error: `${studentId} is not a demo student (status ${cur.status}).` };
+
+  const planText = s(arg["feeCycleType"] ?? arg["planType"] ?? arg["feePlan"]).trim();
+  if (!planText) return { ok: false, code: "PLAN_REQUIRED", error: "Pick a fee plan." };
+  const dueDayNum = Number(arg["feeDueDay"]);
+  const feeDueDay = Number.isInteger(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31 ? dueDayNum : null;
+  if (!feeDueDay) return { ok: false, code: "DUE_DAY_REQUIRED", error: "Enter a fee due day from 1 to 31." };
+  const enrollmentDate = isoDateOrNull(arg["enrollmentDate"]) || todayIso();
+  const batch = s(arg["batch"]).trim();
+  const plan = resolvePlan(planText);
+
+  await query(
+    `update students_acad set
+       status = 'ACTIVE', fee_plan = $2, fee_plan_name = $3, monthly_fee = $4, fee_cycle_months = $5,
+       fee_due_day = $6, next_due_date = $7::date, enrollment_date = $8::date, batch = coalesce(nullif($9,''), batch)
+     where id = $1`,
+    [studentId, planText, plan?.name ?? planText, plan?.amount ?? null, plan?.months ?? null, feeDueDay, todayIso(), enrollmentDate, batch],
+  );
+  await bumpRevisions(["students", "dashboard", "tasks"]);
+  return ok({ studentId, note: "Converted to an admitted student." });
+}
+
+/**
  * Staff add/edit is a PROPOSAL (brief pattern B). It lands in student_drafts
  * for the founder to merge; it never creates or changes a student directly.
  */
@@ -584,7 +683,14 @@ async function searchReceipts(arg: Record<string, unknown>, scope: BranchScope):
     const ql = q.toLowerCase();
     filtered = filtered.filter((r) => [r.receiptNo, r.student, r.studentName, r.txnId].join(" ").toLowerCase().includes(ql));
   }
-  return ok({ results: filtered, rows: filtered, total: filtered.length });
+  // Paging happens AFTER the text filter so a page never mixes in rows the
+  // filter would have removed. `total` is the full filtered count, which is
+  // what lets both clients show "showing X-Y of Z" honestly.
+  const total = filtered.length;
+  const limit = Math.min(Math.max(Number(arg["limit"]) || 50, 1), 200);
+  const offset = Math.max(Number(arg["offset"]) || 0, 0);
+  const page = filtered.slice(offset, offset + limit);
+  return ok({ results: page, rows: page, total, limit, offset });
 }
 
 async function receiptPreflight(arg: Record<string, unknown>, role: RpcRole): Promise<Record<string, unknown>> {

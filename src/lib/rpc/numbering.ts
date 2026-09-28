@@ -17,5 +17,20 @@ export function formatDocNo(series: string, no: number): string {
   return `${series}-${String(no).padStart(3, "0")}`;
 }
 
+/**
+ * School invoice numbers carry the school code after the sequence:
+ *   SMI-26-27 + 7 + "MHWS" → SMI-26-27-007_SCH_MHWS
+ *
+ * The sequence is ONE run per financial year across every school — 005 is the
+ * fifth invoice of the year whoever it was billed to, 006 the sixth. A school
+ * code never restarts or forks the run, so the numbering stays gap-free and
+ * each document is uniquely identifiable by number alone.
+ */
+export function formatSchoolInvoiceNo(series: string, no: number, schoolCode: string): string {
+  const base = formatDocNo(series, no);
+  const code = schoolCode.trim().toUpperCase();
+  return code ? `${base}_SCH_${code}` : base;
+}
+
 export const receiptSeries = (date?: Date) => `SMR-${financialYearLabel(date)}`;
 export const schoolInvoiceSeries = (date?: Date) => `SMI-${financialYearLabel(date)}`;

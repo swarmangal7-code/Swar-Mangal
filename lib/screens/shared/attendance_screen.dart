@@ -51,11 +51,35 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String? _instrument;
   String? _error;
   bool _busy = true;
+  /// Which day is being marked. The server refuses future days outright, and
+  /// a past day additionally needs a reason — so this is a real control, not
+  /// a convenience.
+  late String _date;
+  String? _backdatedReason;
 
   @override
   void initState() {
     super.initState();
+    _date = _today();
     _load();
+  }
+
+  /// ISO dates sort lexicographically, which is all this needs.
+  bool get _isBackdated => _date.compareTo(_today()) < 0;
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(_date) ?? DateTime.now(),
+      firstDate: DateTime(DateTime.now().year - 2),
+      lastDate: DateTime.now(), // the server rejects future days
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _date = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      if (!_isBackdated) _backdatedReason = null;
+    });
+    await _load();
   }
 
   Future<void> _load() async {
@@ -69,7 +93,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       final r = await auth.service!.staffAttendanceRoster({
         'branch': auth.branch ?? '',
         'instrument': _instrument ?? '',
-        'date': _today(),
+        'date': _date,
       });
       final m = r as Map<String, dynamic>;
       if (!mounted) return;
@@ -102,17 +126,31 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   final Set<String> _marking = {};
+  late final _reasonCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _mark(AttendanceRosterRow s, String state) async {
     final auth = context.read<AuthProvider>();
     if (auth.service == null || _marking.contains(s.studentId)) return;
+    if (_isBackdated && (_backdatedReason ?? '').trim().isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Say why $_date is being entered late, then mark again.')));
+      return;
+    }
     setState(() => _marking.add(s.studentId));
     try {
       await auth.service!.staffMarkAttendance({
         'branch': auth.branch ?? '',
         'studentId': s.studentId,
         'state': state,
-        'workDate': _today(),
+        'workDate': _date,
+        if (_isBackdated) 'backdatedReason': _backdatedReason!.trim(),
       });
       if (!mounted) return;
       // Never optimistic: re-read the roster so the badge reflects what the
@@ -142,8 +180,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       child: ListView(
         padding: const EdgeInsets.all(AppSpace.s4),
         children: [
-          Text('ATTENDANCE · ${_today()}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.muted)),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.event_outlined),
+            title: Text('ATTENDANCE · ${_isBackdated ? _date : '$_date (today)'}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.muted)),
+            trailing: const Icon(Icons.edit_calendar_outlined, size: 18),
+            onTap: _pickDate,
+          ),
+          if (_isBackdated) ...[
+            const SizedBox(height: AppSpace.s2),
+            TextField(
+              controller: _reasonCtrl,
+              onChanged: (v) => _backdatedReason = v,
+              maxLines: 2,
+              decoration: InputDecoration(
+                labelText: 'Why is $_date being entered late? *',
+                helperText: 'The server refuses a backdated mark without a reason.',
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpace.s3),
           if (_instruments.isNotEmpty) ...[
             SizedBox(

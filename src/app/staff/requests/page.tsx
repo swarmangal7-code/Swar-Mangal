@@ -39,6 +39,13 @@ const TYPE_LABELS: Record<string, string> = {
   SCHOOL_INVOICE_DRAFT: "School invoice",
   TEACHER_ADD_REQUEST: "New teacher",
   TEACHER_EDIT_REQUEST: "Teacher change",
+  PACKAGE_EXTENSION: "Package extension",
+  PAYMENT_PROFILE_CHANGE: "Payment profile",
+  CLOSURE: "Closure / holiday",
+  CLASS_CORRECTION: "Class correction",
+  LATE_FEE_WAIVER: "Late-fee waiver",
+  INSTALMENT_PLAN: "Instalment plan",
+  MANUAL_TERMS_ACCEPTANCE: "Terms acceptance",
 };
 
 function statusStyle(status: string) {

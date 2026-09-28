@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ClosuresPanel } from "@/components/dashboard/closures-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DAYS,
@@ -236,6 +237,7 @@ export default function FounderTimetablePage() {
               ))}
             </select>
           )}
+          <ClosuresPanel branch={singleBranch ?? (branch !== "ALL" ? branch : undefined)} isFounder />
           <SegmentedControl
             label="View"
             value={view}

@@ -93,10 +93,9 @@ export default function FounderStudentProfilePage() {
       setEditName(student.studentName ?? "");
       setEditPhone(student.phone ?? "");
       setEditEmail(student.email ?? "");
-      setEditGuardian(hub.data?.profile?.parentName ?? "");
+      setEditGuardian(student.guardianName ?? "");
       setEditInstrument(student.instrument ?? "");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editOpen, student]);
 
   const setStatus = useMutationRpc<StudentStatusArg, RpcEnvelope>("api_founder_setStudentStatus", {
@@ -248,7 +247,7 @@ export default function FounderStudentProfilePage() {
                 <dl className="grid gap-x-8 sm:grid-cols-2">
                   <InfoRow label="Phone" value={student.phone} />
                   <InfoRow label="Email" value={student.email} />
-                  <InfoRow label="Guardian" value={hub.data?.profile?.parentName} />
+                  <InfoRow label="Guardian" value={student.guardianName} />
                   <InfoRow label="Admission source" value={admissionSourceLabel(student.admissionSource)} />
                   <InfoRow label="Teacher" value={prof.data?.teacher?.teacherName} />
                   <InfoRow label="Batch" value={student.batch} />

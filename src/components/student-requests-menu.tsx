@@ -30,7 +30,8 @@ interface DraftRes extends RpcEnvelope {
 }
 
 interface TermsStatusRes extends RpcEnvelope {
-  tokens?: { token: string; status: string; url: string; expiresAt: string }[];
+  tokens?: { token: string; status: string; url: string; expiresAt: string; issuedAt?: string }[];
+  manualRequests?: { id: string; status: string; reason: string; submittedAt?: string }[];
 }
 
 function termsUrl(t: { token: string; url: string }): string {
@@ -386,8 +387,48 @@ function TermsDialog({
   studentId: string;
   studentName: string;
 }) {
-  const status = useRpc<TermsStatusRes>("api_termsStatusForStudent", { studentId }, { enabled: open });
+  const status = useRpc<TermsStatusRes>(
+    "api_termsStatusForStudent",
+    { studentId },
+    { enabled: open },
+  );
   const openToken = status.data?.tokens?.find((t) => t.status === "OPEN");
+
+  const [freshUrl, setFreshUrl] = React.useState("");
+  const [note, setNote] = React.useState("");
+  const [manualReason, setManualReason] = React.useState("");
+  const [showManual, setShowManual] = React.useState(false);
+
+  // Staff can force a brand new link (the old one may have expired or been
+  // shared to the wrong parent). Without this the dialog is read-only.
+  const mint = useMutationRpc<{ studentId: string }, DraftRes & { url?: string }>(
+    "api_staff_generateTermsToken",
+    {
+      onSuccess: (res) => {
+        setFreshUrl(res.url ?? "");
+        setNote(res.note ?? "Fresh link ready.");
+        toast.success("Fresh terms link ready.");
+      },
+      onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not generate a link."),
+    },
+  );
+
+  // The only route to a MANUAL_TERMS_ACCEPTANCE approval item. Never a tick
+  // box — the founder decides.
+  const manual = useMutationRpc<
+    { studentId: string; reason: string; clientIntentKey: string },
+    DraftRes
+  >("api_staff_requestManualTermsAcceptance", {
+    onSuccess: (res) => {
+      toast.success(res.note ?? "Sent for approval.");
+      setShowManual(false);
+      setManualReason("");
+      status.refetch();
+    },
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not send the request."),
+  });
+
+  const shareUrl = openToken ? termsUrl(openToken) : freshUrl;
 
   const copy = async (url: string) => {
     try {
@@ -400,27 +441,88 @@ function TermsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="border-dash-fg/10 bg-dash-card text-dash-fg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto border-dash-fg/10 bg-dash-card text-dash-fg">
         <DialogHeader>
-          <DialogTitle className="text-dash-fg">Terms acceptance link for {studentName}</DialogTitle>
+          <DialogTitle className="text-dash-fg">Terms acceptance for {studentName}</DialogTitle>
           <DialogDescription className="text-dash-fg/50">
             A link is minted automatically the moment this student needs one. Share it with the parent.
           </DialogDescription>
         </DialogHeader>
+
         {status.isPending ? (
           <p className="text-sm text-dash-fg/50">Loading…</p>
-        ) : openToken ? (
+        ) : shareUrl ? (
           <div className="space-y-2">
-            <p className="break-all rounded-xl border border-dash-fg/10 bg-dash-surface p-3 text-xs text-dash-fg/80">{termsUrl(openToken)}</p>
-            <Button variant="outline" onClick={() => copy(termsUrl(openToken))} className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
+            <p className="break-all rounded-xl border border-dash-fg/10 bg-dash-surface p-3 text-xs text-dash-fg/80">{shareUrl}</p>
+            <Button variant="outline" onClick={() => copy(shareUrl)} className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
               Copy link
             </Button>
           </div>
         ) : (
           <p className="text-sm text-dash-fg/50">
-            {status.data?.tokens?.length ? "Terms are already accepted or this student is not eligible for a new link right now." : "No link available yet."}
+            {status.data?.tokens?.length
+              ? "Terms are already accepted or this student is not eligible for a new link right now."
+              : "No link available yet — generate one below."}
           </p>
         )}
+
+        {note && <p className="text-xs text-dash-fg/50">{note}</p>}
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            loading={mint.isPending}
+            onClick={() => mint.mutate({ studentId })}
+            className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+          >
+            {openToken ? "Send a fresh link" : "Generate parent link"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowManual((v) => !v)}
+            className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+          >
+            Request manual acceptance
+          </Button>
+        </div>
+
+        {showManual && (
+          <div className="space-y-1.5">
+            <Label className="text-[13px] text-dash-fg/70">How did the parent accept? *</Label>
+            <Textarea
+              value={manualReason}
+              onChange={(e) => setManualReason(e.target.value)}
+              placeholder="e.g. Read the printed copy at the desk and signed it."
+              className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
+            />
+            <Button
+              disabled={!manualReason.trim()}
+              loading={manual.isPending}
+              onClick={() =>
+                manual.mutate({
+                  studentId,
+                  reason: manualReason.trim(),
+                  clientIntentKey: `MTERMS-${Date.now()}`,
+                })
+              }
+              className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+            >
+              Send for approval
+            </Button>
+          </div>
+        )}
+
+        {!!status.data?.manualRequests?.length && (
+          <div className="space-y-1 border-t border-dash-fg/10 pt-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-dash-fg/40">Manual requests</p>
+            {status.data.manualRequests.map((m, i) => (
+              <p key={i} className="text-xs text-dash-fg/60">
+                {m.status} · {m.reason}
+              </p>
+            ))}
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Close</Button>
         </DialogFooter>

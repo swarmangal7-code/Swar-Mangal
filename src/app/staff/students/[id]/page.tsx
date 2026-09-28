@@ -90,15 +90,34 @@ export default function StaffStudentProfilePage() {
   const [deleteReason, setDeleteReason] = React.useState("");
   const intentRef = React.useRef(`SDRAFT-${Date.now()}`);
 
+  // Staff execute a founder-APPROVED draft (the app has always been able to;
+  // on web the endpoint existed with no UI at all, so staff had to wait for
+  // the founder to click it). The server re-checks every gate.
+  const [finalising, setFinalising] = React.useState("");
+  const finaliseDraft = useMutationRpc<{ draftId: string }, DraftRes & { receiptNo?: string }>(
+    "api_staff_finalisePaymentDraft",
+    {
+      onSuccess: (res) => {
+        toast.success(res.note ?? `Receipt ${res.receiptNo ?? ""} created.`);
+        setFinalising("");
+        prof.refetch();
+        hub.refetch();
+      },
+      onError: (err) => {
+        setFinalising("");
+        toast.error(err.message.replace(/\[.*\]$/, "") || "Could not create the receipt.");
+      },
+    },
+  );
+
   React.useEffect(() => {
     if (editOpen && student) {
       setEditName(student.studentName ?? "");
       setEditPhone(student.phone ?? "");
       setEditEmail(student.email ?? "");
-      setEditGuardian(hub.data?.profile?.parentName ?? "");
+      setEditGuardian(student.guardianName ?? "");
       setEditInstrument(student.instrument ?? "");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editOpen, student]);
 
   const saveEdit = useMutationRpc<EditStudentArg, DraftRes>("api_staff_saveStudentDraft", {
@@ -215,8 +234,45 @@ export default function StaffStudentProfilePage() {
       {pending.length > 0 && (
         <motion.div variants={fadeUp}>
           <p className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
-            {pending.length} payment draft{pending.length > 1 ? "s" : ""} waiting on Sharvil for this student.
+            {pending.length} payment draft{pending.length > 1 ? "s" : ""} for this student.
           </p>
+          <div className="mt-2 space-y-2">
+            {pending.map((d) => (
+              <div
+                key={d.draftId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dash-fg/10 bg-dash-card p-4"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-dash-fg">
+                    {d.label} · {formatINR(d.amount)}
+                  </p>
+                  <p className="text-xs text-dash-fg/45">
+                    {[d.draftId, d.paymentDate, d.status].filter(Boolean).join(" · ")}
+                  </p>
+                  {!d.canFinalise && d.blockedReason && (
+                    <p className="mt-1 text-xs text-amber-300">{d.blockedReason}</p>
+                  )}
+                </div>
+                {d.canFinalise ? (
+                  <Button
+                    size="sm"
+                    className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+                    loading={finalising === d.draftId}
+                    onClick={() => {
+                      if (!confirm("Create the real receipt for this approved payment? This writes money records."))
+                        return;
+                      setFinalising(d.draftId);
+                      finaliseDraft.mutate({ draftId: d.draftId });
+                    }}
+                  >
+                    Create receipt now
+                  </Button>
+                ) : (
+                  <Badge variant="outline">{d.approvalAuthority || "Awaiting founder"}</Badge>
+                )}
+              </div>
+            ))}
+          </div>
         </motion.div>
       )}
 
@@ -240,7 +296,7 @@ export default function StaffStudentProfilePage() {
                 <dl className="grid gap-x-8 sm:grid-cols-2">
                   <InfoRow label="Phone" value={student.phone} />
                   <InfoRow label="Email" value={student.email} />
-                  <InfoRow label="Guardian" value={hub.data?.profile?.parentName} />
+                  <InfoRow label="Guardian" value={student.guardianName} />
                   <InfoRow label="Admission source" value={admissionSourceLabel(student.admissionSource)} />
                   <InfoRow label="Teacher" value={prof.data?.teacher?.teacherName} />
                   <InfoRow label="Batch" value={student.batch} />

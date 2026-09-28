@@ -488,6 +488,24 @@ create table if not exists schools (
   active boolean default true
 );
 
+-- Founder request 2026-09-28: schools are the "billed to" party on a school
+-- invoice, and the invoice number carries a school code (SMI-26-27-007_SCH_MHWS).
+-- `code` is what goes in the number, so it must exist, be upper-case and be
+-- unique — two schools sharing a code would produce two documents that look
+-- identical by number. Names/addresses are editable, so a new school can be
+-- added later and rendered by the same invoice template with no code change.
+alter table schools add column if not exists code text;
+alter table schools add column if not exists contact text;
+create unique index if not exists schools_code_unique
+  on schools(upper(code)) where code is not null and code <> '';
+
+-- The two schools already invoiced. Seeded by CODE only — the display names
+-- are set by the founder once, in the app, and never need a migration again.
+insert into schools (id, code, name, active) values
+  ('SCH-MHWS', 'MHWS', 'MHWS', true),
+  ('SCH-MXVILLE', 'MXVILLE', 'MXVILLE', true)
+on conflict (id) do update set code = excluded.code;
+
 -- ============ RPC SUPPORT TABLES (standalone gateway) ============
 
 create table if not exists payment_drafts (
@@ -563,6 +581,11 @@ create table if not exists school_invoices_rpc (
   status text default 'FINAL',
   created_at timestamptz not null default now()
 );
+-- Which school this invoice is billed to. The code also lives inside
+-- invoice_no, so this column is the join key, never the source of the number —
+-- two records of the same number is prevented by the numbering transaction,
+-- not by reading it back out of this column.
+alter table school_invoices_rpc add column if not exists school_id text;
 -- ============ BRANCH OWNERSHIP + DOCUMENT NUMBERING ============
 
 -- Branch/student ownership on money rows so staff scope can be enforced
@@ -935,6 +958,10 @@ create table if not exists school_invoice_drafts (
   final_invoice_no text,
   client_intent_key text
 );
+-- A draft names its school too: the number is minted when the founder
+-- finalises, and it must be the same number the founder would have got from
+-- raising it directly.
+alter table school_invoice_drafts add column if not exists school_id text;
 create unique index if not exists school_invoice_drafts_intent_unique on school_invoice_drafts (client_intent_key)
   where client_intent_key is not null;
 
@@ -1437,3 +1464,13 @@ create table if not exists timetable_overrides (
 -- older marks (and the whole-day Attendance screen, which stays unchanged)
 -- simply have no slot.
 alter table attendance_acad add column if not exists timetable_id text;
+
+-- Founder request 2026-09-28: a "Demo Students" stage before real admission.
+-- Reuses students_acad rather than a separate table — a demo is the same
+-- person record, just with status='DEMO' and no fee plan yet; converting to
+-- an admitted student is an update of the SAME row (same id), not a copy,
+-- so its history carries over cleanly. Inquiries feed into this stage too
+-- (converted_student_id can point at a DEMO row, then that row is converted
+-- to ACTIVE later) instead of jumping straight to a paying admission.
+alter table students_acad add column if not exists demo_date date;
+alter table students_acad add column if not exists demo_time text;

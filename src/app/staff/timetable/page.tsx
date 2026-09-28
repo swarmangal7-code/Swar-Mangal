@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClosuresPanel } from "@/components/dashboard/closures-panel";
 import { rpcKeys, useMutationRpc, useTeachers, useTimetableWeek } from "@/lib/api/rpc-hooks";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
@@ -185,6 +186,7 @@ export default function StaffTimetablePage() {
               ))}
             </select>
           )}
+          <ClosuresPanel branch={singleBranch ?? (branch !== "ALL" ? branch : undefined)} isFounder={false} />
         </div>
       </motion.div>
 

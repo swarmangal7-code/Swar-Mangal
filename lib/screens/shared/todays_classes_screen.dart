@@ -21,15 +21,51 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
   String? _error;
   bool _busy = true;
   DateTime _date = DateTime.now();
+  List<Teacher> _teachers = const [];
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadTeachers();
+  }
+
+  List<String> get _branches {
+    final b = context.read<AuthProvider>().branches;
+    return b.isEmpty ? const ['GOREGAON', 'KANDIVALI'] : b;
+  }
+
+  late String _branch = '';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_branch.isEmpty) _branch = _branches.first;
+  }
+
+  /// The substitute picker needs the real teacher list, not a typed id.
+  Future<void> _loadTeachers() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    try {
+      final rows = await auth.service!.listTeachers();
+      if (!mounted) return;
+      setState(() => _teachers =
+          rows.where((t) => !['INACTIVE', 'LEFT'].contains(t.status.toUpperCase())).toList());
+    } on ApiException {
+      // Substitute stays an optional free-text fallback if this lookup fails.
+    } on ApiUnreachable {
+      // same
+    }
   }
 
   String get _dateStr =>
       '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}';
+
+  static DateTime get _today {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
 
   Future<void> _load() async {
     final auth = context.read<AuthProvider>();
@@ -40,7 +76,7 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
     });
     try {
       final opts = await auth.service!.staffTodaysClasses(
-        branch: auth.branch ?? 'ALL',
+        branch: _branch,
         date: _dateStr,
       );
       if (!mounted) return;
@@ -89,7 +125,9 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
                       context: context,
                       initialDate: _date,
                       firstDate: DateTime(2020),
-                      lastDate: DateTime(2035),
+                      // The server refuses an answer for a day that has not
+                      // happened, so the picker must not offer one.
+                      lastDate: _today,
                     );
                     if (d != null && mounted) {
                       setState(() => _date = d);
@@ -102,12 +140,34 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right),
-                onPressed: () {
-                  setState(() => _date = _date.add(const Duration(days: 1)));
+                // A class that has not happened yet cannot be answered, so the
+                // forward step stops at today rather than walking into the future.
+                onPressed: _date.isBefore(_today) ? () {
+                  final next = _date.add(const Duration(days: 1));
+                  if (next.isAfter(_today)) return;
+                  setState(() => _date = next);
                   _load();
-                },
+                } : null,
               ),
             ]),
+            if (_branches.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpace.s2),
+                child: Wrap(
+                  spacing: AppSpace.s2,
+                  children: [
+                    for (final b in _branches)
+                      ChoiceChip(
+                        label: Text(b),
+                        selected: _branch == b,
+                        onSelected: (_) {
+                          setState(() => _branch = b);
+                          _load();
+                        },
+                      ),
+                  ],
+                ),
+              ),
             if (opts.rows.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: AppSpace.s6),
@@ -273,7 +333,11 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
 
   void _scheduleCustom() {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _ScheduleCustomScreen(recentResolved: _opts?.rows.where((c) => c.resolved).toList() ?? const []),
+      builder: (_) => _ScheduleCustomScreen(
+        recentResolved: _opts?.rows.where((c) => c.resolved).toList() ?? const [],
+        teachers: _teachers,
+        branch: _branch,
+      ),
     ));
   }
 
@@ -368,8 +432,10 @@ class _OutcomeDialogState extends State<_OutcomeDialog> {
 /// Brief §10.2: three kinds that are NOT synonyms, never collapsed into one
 /// dropdown option. Payable defaults to NO on every one of them.
 class _ScheduleCustomScreen extends StatefulWidget {
-  const _ScheduleCustomScreen({required this.recentResolved});
+  const _ScheduleCustomScreen({required this.recentResolved, this.teachers = const [], this.branch = ''});
   final List<TodaysClass> recentResolved;
+  final List<Teacher> teachers;
+  final String branch;
   @override
   State<_ScheduleCustomScreen> createState() => _ScheduleCustomScreenState();
 }
@@ -382,6 +448,7 @@ class _ScheduleCustomScreenState extends State<_ScheduleCustomScreen> {
   final _reason = TextEditingController();
   String _dateStr = '';
   String _kind = 'GOODWILL_RECOVERY';
+  String? _teacherId;
   TodaysClass? _original;
   bool _busy = false;
   String? _result;
@@ -428,8 +495,8 @@ class _ScheduleCustomScreenState extends State<_ScheduleCustomScreen> {
     });
     try {
       final r = await auth.service!.staffScheduleSession({
-        'branch': auth.branch ?? '',
-        'teacherId': _teacher.text.trim(),
+        'branch': widget.branch,
+        'teacherId': _teacherId ?? _teacher.text.trim(),
         'instrument': _instrument.text.trim(),
         'sessionDate': _dateStr,
         'startTime': _time.text.trim(),
@@ -534,11 +601,24 @@ class _ScheduleCustomScreenState extends State<_ScheduleCustomScreen> {
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Say why this class is being held' : null,
                   ),
                   const SizedBox(height: AppSpace.s3),
-                  TextFormField(
-                    controller: _teacher,
-                    decoration: const InputDecoration(labelText: 'Teacher ID *', prefixIcon: Icon(Icons.person_outline)),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Teacher is required' : null,
-                  ),
+                  if (widget.teachers.isNotEmpty)
+                    DropdownButtonFormField<String>(
+                      initialValue: _teacherId,
+                      decoration: const InputDecoration(labelText: 'Teacher *', prefixIcon: Icon(Icons.person_outline)),
+                      hint: const Text('Select teacher…'),
+                      items: [
+                        for (final t in widget.teachers)
+                          DropdownMenuItem(value: t.teacherId, child: Text(t.teacherName)),
+                      ],
+                      onChanged: (v) => setState(() => _teacherId = v),
+                      validator: (v) => v == null ? 'Teacher is required' : null,
+                    )
+                  else
+                    TextFormField(
+                      controller: _teacher,
+                      decoration: const InputDecoration(labelText: 'Teacher ID *', prefixIcon: Icon(Icons.person_outline)),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Teacher is required' : null,
+                    ),
                   const SizedBox(height: AppSpace.s3),
                   TextFormField(
                     controller: _instrument,

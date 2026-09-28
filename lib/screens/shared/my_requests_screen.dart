@@ -28,6 +28,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
   List<ApprovalRequestRow> _rows = [];
   String? _error;
   bool _busy = true;
+  String _tab = 'ALL';
 
   @override
   void initState() {
@@ -64,12 +65,20 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
     }
   }
 
+  String _labelFor(String type) =>
+      _rows.firstWhere((r) => r.type == type, orElse: () => _rows.first).typeLabel;
+
+
   @override
   Widget build(BuildContext context) {
     if (_busy && _rows.isEmpty) return const Center(child: CircularProgressIndicator());
     if (_error != null && _rows.isEmpty) return ErrorView(_error!, onRetry: _load);
 
     final waiting = _rows.where((r) => r.waiting).length;
+    final approved = _rows.where((r) => r.approved).length;
+    final rejected = _rows.where((r) => r.rejected).length;
+    final types = <String>{'ALL', ..._rows.map((r) => r.type)}.toList();
+    final visible = _tab == 'ALL' ? _rows : _rows.where((r) => r.type == _tab).toList();
 
     return RefreshScaffold(
       onRefresh: _load,
@@ -80,7 +89,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
             const Icon(Icons.outbox_outlined, color: AppColors.primary),
             const SizedBox(width: AppSpace.s2),
             Text('My requests', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            const SizedBox(width: AppSpace.s2),
+            const Spacer(),
             if (waiting > 0) Badge(text: '$waiting pending', color: AppColors.warnBg),
           ]),
           const SizedBox(height: AppSpace.s2),
@@ -94,10 +103,51 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
                   style: TextStyle(fontSize: 12, color: AppColors.infoFg)),
             ),
           ),
+          const SizedBox(height: AppSpace.s3),
+          Row(children: [
+            Expanded(
+              child: StatTile(
+                label: 'Pending',
+                value: '$waiting',
+                icon: Icons.schedule_outlined,
+              ),
+            ),
+            const SizedBox(width: AppSpace.s2),
+            Expanded(
+              child: StatTile(
+                label: 'Approved',
+                value: '$approved',
+                icon: Icons.check_circle_outline,
+              ),
+            ),
+            const SizedBox(width: AppSpace.s2),
+            Expanded(
+              child: StatTile(
+                label: 'Rejected',
+                value: '$rejected',
+                icon: Icons.cancel_outlined,
+              ),
+            ),
+          ]),
+          const SizedBox(height: AppSpace.s3),
+          // One chip per request type, matching the filter tabs on web.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              for (final t in types) ...[
+                ChoiceChip(
+                  label: Text(t == 'ALL' ? 'All' : _labelFor(t)),
+                  selected: _tab == t,
+                  onSelected: (_) => setState(() => _tab = t),
+                ),
+                const SizedBox(width: AppSpace.s2),
+              ],
+            ]),
+          ),
           const SizedBox(height: AppSpace.s4),
-          if (_rows.isEmpty)
+          if (visible.isEmpty)
             const EmptyState('No requests submitted from this branch.', icon: Icons.outbox_outlined),
-          for (final row in _rows)
+          for (final row in visible)
             Card(
               margin: const EdgeInsets.only(bottom: AppSpace.s3),
               child: Padding(
@@ -111,7 +161,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
                     runSpacing: AppSpace.s2,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      TagChip(row.type.replaceAll('_', ' ')),
+                      TagChip(row.typeLabel),
                       StatusBadge(row.status.isEmpty ? 'UNKNOWN' : row.status),
                     ],
                   ),
@@ -126,6 +176,22 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
                       child: Text(
                           [row.student, row.category].where((e) => e.isNotEmpty).join(' · '),
                           style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                    ),
+                  // The founder's reason, when there is one. Without it a
+                  // rejected request tells the submitter nothing.
+                  if (row.decisionNote.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.s2),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpace.s2),
+                        decoration: BoxDecoration(
+                          color: AppColors.adaptive(context, AppColors.warnBg),
+                          borderRadius: BorderRadius.circular(AppRadius.s),
+                        ),
+                        child: Text('Sharvil: ${row.decisionNote}',
+                            style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.warnFg))),
+                      ),
                     ),
                   Row(children: [
                     if (row.amount.isNotEmpty)

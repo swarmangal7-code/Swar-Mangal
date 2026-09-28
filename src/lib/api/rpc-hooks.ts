@@ -21,11 +21,13 @@ import type {
   CashbookResponse,
   DashboardMetricsResponse,
   DueRemindersResponse,
+  DemoStudentListResponse,
   InquiryQueueResponse,
   InstrumentListResponse,
   PaymentDraftsResponse,
   PayoutPreviewResponse,
   ReceiptSearchResponse,
+  SchoolListResponse,
   StaffBootResponse,
   StaffStudentHubResponse,
   StudentProfileResponse,
@@ -150,6 +152,17 @@ export function useStudentProfile(id: string, options?: QueryOptions<StudentProf
     { studentId: id },
     { enabled: id.length > 0, ...options },
   );
+}
+
+export function useDemoStudents(branch?: string, options?: QueryOptions<DemoStudentListResponse>) {
+  return useRpc<DemoStudentListResponse>("api_listDemoStudents", { branch: branch ?? "ALL" }, options);
+}
+
+// -------------------------------------------------------------- schools
+
+/** Schools a class can be billed to. Founder-only writes, both roles read. */
+export function useSchools(options?: QueryOptions<SchoolListResponse>) {
+  return useRpc<SchoolListResponse>("api_listSchools", undefined, options);
 }
 
 export function useStudentHub(id: string, branch = "ALL", options?: QueryOptions<StaffStudentHubResponse>) {

@@ -24,7 +24,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   TeacherProfile? _profile;
   String? _error;
   bool _busy = true;
-  String? _payable; // server payout figure, if available
+  PayoutRow? _payoutRow; // the server's own row for this teacher
 
   @override
   void initState() {
@@ -47,7 +47,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       if (!mounted) return;
       setState(() {
         _profile = results[0] as TeacherProfile;
-        _payable = results[1] as String?;
+        _payoutRow = results[1] as PayoutRow?;
         _busy = false;
       });
     } on ApiException catch (e) {
@@ -65,21 +65,191 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     }
   }
 
-  /// Server-computed payout total for this teacher (current month).
-  /// Display only — the device never calculates money.
-  Future<String?> _payout(AuthProvider auth) async {
+  /// The server's own payout row for this teacher this month. Display only —
+  /// every figure comes from the server, the device sums nothing.
+  Future<PayoutRow?> _payout(AuthProvider auth) async {
     try {
       final now = DateTime.now();
       final month = '${now.year}-${now.month.toString().padLeft(2, '0')}';
       final rows = await auth.service!.founderPayoutPreview(month);
-      final mine =
-          rows.where((r) => r.teacherId == widget.teacherId || r.teacherName == _profile?.teacher.teacherName).toList();
-      if (mine.isEmpty) return null;
-      return inr(mine.fold<num>(0, (s, r) => s + r.balance));
+      for (final r in rows) {
+        if (r.teacherId == widget.teacherId) return r;
+      }
+      return null;
     } on ApiException {
       return null; // payout data unavailable — never fabricated
     } on ApiUnreachable {
       return null;
+    }
+  }
+
+  /// Founder changes a teacher's lifecycle status directly (audited). Staff
+  /// can only request it, through the same edit-request path the web uses.
+  Future<void> _setStatus(Teacher t, String status) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final c = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Set ${t.teacherName} → $status'),
+        content: TextField(controller: c, maxLines: 2, decoration: const InputDecoration(labelText: 'Reason (required, stored in audit)')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Confirm')),
+        ],
+      ),
+    );
+    if (reason == null || reason.trim().isEmpty || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final r = await auth.service!.founderUpdateTeacherStatus(t.teacherId, status, reason.trim());
+      final m = r as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(SnackBar(
+          content: Text(m['ok'] == true
+              ? '${t.teacherName} → $status (audited)'
+              : (m['error'] ?? 'Could not change status').toString())));
+      if (m['ok'] == true) await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  /// Staff request that a teacher be removed (LEFT) — the same teacher_add_requests
+  /// lifecycle path web uses, so the founder decides.
+  Future<void> _requestRemove(Teacher t) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final c = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Request removal of ${t.teacherName}?'),
+        content: TextField(controller: c, maxLines: 2, decoration: const InputDecoration(labelText: 'Reason (required)')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Send request')),
+        ],
+      ),
+    );
+    if (reason == null || reason.trim().isEmpty || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final r = await auth.service!.requestAddTeacher({
+        'teacherId': t.teacherId,
+        'teacherName': t.teacherName,
+        'lifecycleStatus': 'LEFT',
+        'statusReason': reason.trim(),
+        'clientIntentKey': 'TCHREQ-${DateTime.now().microsecondsSinceEpoch}',
+      });
+      final m = r as Map<String, dynamic>;
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+          content: Text(m['ok'] == true
+              ? '${(m['note'] ?? 'Sent for approval.').toString()} Nothing changes until the founder approves.'
+              : (m['error'] ?? 'Could not send the request.').toString())));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  /// Staff request an edit; the founder's Approvals screen decides (matches
+  /// the web app, which already has this — Flutter had no edit path at all).
+  Future<void> _requestEdit(Teacher t) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    // Captured before the await: the dialog's own context is gone by the time
+    // the request returns, and this State may be too.
+    final messenger = ScaffoldMessenger.of(context);
+    final phone = TextEditingController(text: t.phone);
+    final email = TextEditingController(text: t.email);
+    final role = TextEditingController(text: t.primaryRole);
+    final err = ValueNotifier<String?>(null);
+    final busy = ValueNotifier(false);
+    final intentKey = 'TCHREQ-${DateTime.now().microsecondsSinceEpoch}';
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Request an edit'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: phone, decoration: const InputDecoration(labelText: 'Phone'), keyboardType: TextInputType.phone),
+            const SizedBox(height: AppSpace.s3),
+            TextField(controller: email, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
+            const SizedBox(height: AppSpace.s3),
+            TextField(controller: role, decoration: const InputDecoration(labelText: 'Primary instrument / role')),
+            const SizedBox(height: AppSpace.s3),
+            const Text('Sent to the founder for approval — not applied until approved.',
+                style: TextStyle(fontSize: 12)),
+            ValueListenableBuilder<String?>(
+              valueListenable: err,
+              builder: (_, e, _) => e == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.s2),
+                      child: Text(e, style: TextStyle(color: AppColors.adaptive(ctx, AppColors.blockFg), fontSize: 13)),
+                    ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ValueListenableBuilder<bool>(
+              valueListenable: busy,
+              builder: (_, b, _) => FilledButton(
+                onPressed: b
+                    ? null
+                    : () async {
+                        busy.value = true;
+                        try {
+                          final r = await auth.service!.requestAddTeacher({
+                            'teacherId': t.teacherId,
+                            'teacherName': t.teacherName,
+                            'phone': phone.text.trim(),
+                            'email': email.text.trim(),
+                            'primaryRole': role.text.trim(),
+                            'clientIntentKey': intentKey,
+                          });
+                          final m = r as Map<String, dynamic>;
+                          if (m['ok'] != true) {
+                            err.value = (m['error'] ?? 'Could not send.').toString();
+                          } else {
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            messenger.showSnackBar(
+                              SnackBar(content: Text((m['note'] ?? 'Sent to the founder for approval.').toString())),
+                            );
+                          }
+                        } on ApiException catch (e) {
+                          err.value = e.message;
+                        } finally {
+                          busy.value = false;
+                        }
+                      },
+                child: const Text('Send request'),
+              ),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      for (final c in [phone, email, role]) {
+        c.dispose();
+      }
+      err.dispose();
+      busy.dispose();
     }
   }
 
@@ -158,26 +328,77 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 ]),
               ),
             ),
+            if (widget.staff) ...[
+              const SizedBox(height: AppSpace.s2),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(spacing: AppSpace.s2, children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _requestEdit(t),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Request edit'),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: AppColors.adaptive(context, AppColors.blockFg)),
+                    onPressed: () => _requestRemove(t),
+                    icon: const Icon(Icons.person_off_outlined, size: 16),
+                    label: const Text('Request removal'),
+                  ),
+                ]),
+              ),
+            ],
+            if (!widget.staff) ...[
+              const SizedBox(height: AppSpace.s2),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(spacing: AppSpace.s2, children: [
+                  for (final st in ['ACTIVE', 'INACTIVE', 'HOLD', 'LEFT'])
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: st == t.status.toUpperCase()
+                            ? AppColors.adaptive(context, AppColors.muted)
+                            : AppColors.adaptive(context, AppColors.primary),
+                        minimumSize: const Size(0, 36),
+                      ),
+                      onPressed: _busy || st == t.status.toUpperCase() ? null : () => _setStatus(t, st),
+                      child: Text(st, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    ),
+                ]),
+              ),
+            ],
             // Financial (server-computed only)
             if (!widget.staff) ...[
               const SectionTitle('Payout'),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(AppSpace.s4),
-                  child: Row(children: [
-                    Icon(Icons.payments_outlined, color: AppColors.adaptive(context, AppColors.primary)),
-                    const SizedBox(width: AppSpace.s3),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Outstanding payable (this month)', style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
-                        Text(_payable ?? 'Payout data unavailable',
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: _payable == null ? AppColors.adaptive(context, AppColors.muted) : AppColors.adaptive(context, AppColors.primary))),
-                      ]),
-                    ),
-                  ]),
+                  child: _payoutRow == null
+                      ? Text('Payout data unavailable',
+                          style: TextStyle(color: AppColors.adaptive(context, AppColors.muted)))
+                      : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          InfoRow('Receipts', '${_payoutRow!.receiptCount}'),
+                          InfoRow('Collection', inr(_payoutRow!.totalCollection)),
+                          InfoRow('Teacher share', inr(_payoutRow!.totalTeacherShare)),
+                          InfoRow('Payable', inr(_payoutRow!.payable)),
+                          InfoRow('Already paid', inr(_payoutRow!.alreadyPaid)),
+                          InfoRow('Balance', inr(_payoutRow!.balance)),
+                          if (_payoutRow!.reasons.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: AppSpace.s2),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  for (final r in _payoutRow!.reasons)
+                                    Text('• $r',
+                                        style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.warnFg))),
+                                ],
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: AppSpace.s2),
+                            child: StatusBadge(_payoutRow!.status.isEmpty ? 'UNKNOWN' : _payoutRow!.status),
+                          ),
+                        ]),
                 ),
               ),
               const SectionTitle('Compensation'),

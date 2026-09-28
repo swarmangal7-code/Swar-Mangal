@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { CheckCircle2, FileText, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { PaymentProfileDialog } from "@/components/dashboard/payment-profile-dialog";
+import { SchoolPicker } from "@/components/dashboard/school-picker";
 import { useMutationRpc, useRpc } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope, SchoolInvoiceListResponse } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
@@ -55,6 +58,7 @@ export default function StaffSchoolInvoicePage() {
   const [className, setClassName] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [tenure, setTenure] = React.useState("");
+  const [schoolId, setSchoolId] = React.useState("");
   const [invoiceDate, setInvoiceDate] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = React.useState("");
   const [confirmed, setConfirmed] = React.useState(false);
@@ -73,12 +77,14 @@ export default function StaffSchoolInvoicePage() {
   });
 
   const amountNum = Number(amount);
-  const valid = className.trim().length > 0 && Number.isFinite(amountNum) && amountNum > 0 && confirmed;
+  const valid =
+    schoolId.length > 0 && className.trim().length > 0 && Number.isFinite(amountNum) && amountNum > 0 && confirmed;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
     submit.mutate({
+      schoolId,
       className: className.trim(),
       amount: amountNum,
       tenure: tenure.trim(),
@@ -100,21 +106,24 @@ export default function StaffSchoolInvoicePage() {
             Draft an invoice for Sharvil to number and issue.
           </p>
         </div>
-        {branches.length > 1 && (
-          <select
-            aria-label="Branch"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-            className="h-11 rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
-          >
-            <option value="ALL">All branches</option>
-            {branches.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="flex items-center gap-2">
+          {branches.length > 1 && (
+            <select
+              aria-label="Branch"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              className="h-11 rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
+            >
+              <option value="ALL">All branches</option>
+              {branches.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          )}
+          <PaymentProfileDialog />
+        </div>
       </motion.div>
 
       <motion.div variants={fadeUp}>
@@ -131,13 +140,14 @@ export default function StaffSchoolInvoicePage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <SchoolPicker value={schoolId} onChange={setSchoolId} />
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-dash-fg/70">Class / school *</Label>
+                  <Label className="text-dash-fg/70">Class *</Label>
                   <Input
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
-                    placeholder="e.g. Tabla — St. Xavier's"
+                    placeholder="e.g. Tabla"
                     className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
@@ -242,9 +252,10 @@ export default function StaffSchoolInvoicePage() {
         ) : (
           <div className="space-y-2">
             {rows.map((inv) => (
-              <div
+              <Link
                 key={inv.invoiceId}
-                className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-card p-4"
+                href={`/staff/school-invoice/${encodeURIComponent(inv.invoiceId)}`}
+                className="flex items-center gap-4 rounded-2xl border border-dash-fg/10 bg-dash-card p-4 transition-colors hover:border-dash-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -254,11 +265,13 @@ export default function StaffSchoolInvoicePage() {
                     </span>
                   </div>
                   <p className="mt-1 truncate text-xs text-dash-fg/50">
-                    {[inv.className, inv.branch, formatDateOnly(inv.invoiceDate), inv.tenure].filter(Boolean).join(" · ")}
+                    {[inv.schoolName || inv.schoolCode, inv.className, inv.branch, formatDateOnly(inv.invoiceDate), inv.tenure]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 </div>
                 <p className="shrink-0 text-sm font-semibold tabular-nums text-dash-fg">{formatINR(inv.amount)}</p>
-              </div>
+              </Link>
             ))}
           </div>
         )}

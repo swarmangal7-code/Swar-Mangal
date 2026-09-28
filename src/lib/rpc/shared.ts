@@ -82,21 +82,40 @@ const DOC_SOURCES = {
 } as const;
 
 /**
- * Next number in a series (e.g. SMR-26-27). Must run inside the transaction
- * that writes the document: the counter row stays locked until commit, so
- * concurrent writers queue instead of getting the same number.
+ * Pulls the sequence number out of a document number by anchoring on the
+ * series prefix rather than on "digits before the end of the string".
+ *
+ * The old `substring(no from '-([0-9]+)$')` only matched numbers that END in
+ * digits. School invoices carry a school suffix (SMI-26-27-006_SCH_MXVILLE),
+ * so every one of them read as NULL, the series silently fell back to the
+ * handful of unsuffixed rows, and the next invoice was minted as a number that
+ * already existed. Anchoring on `SERIES-` reads both shapes correctly.
  */
-export async function nextDocNo(tx: Tx, kind: keyof typeof DOC_SOURCES, series: string): Promise<string> {
+export const DOC_NO_SEQ = `substring({column} from '^[A-Z]+-[0-9]{2}-[0-9]{2}-([0-9]+)')`;
+
+/**
+ * Next sequence number in a series (e.g. 7 for SMR-26-27), as a number so a
+ * caller can compose its own document number from it. Must run inside the
+ * transaction that writes the document: the counter row stays locked until
+ * commit, so concurrent writers queue instead of getting the same number.
+ */
+export async function nextDocSeq(tx: Tx, kind: keyof typeof DOC_SOURCES, series: string): Promise<number> {
   const { table, column } = DOC_SOURCES[kind];
+  const seq = DOC_NO_SEQ.replace("{column}", column);
   const row = await tx.queryOne<{ last_no: number }>(
     `insert into doc_counters (series, last_no)
-     values ($1, coalesce((select max(substring(${column} from '-([0-9]+)$')::int)
+     values ($1, coalesce((select max(${seq}::int)
                            from ${table} where ${column} like $1 || '-%'), 0) + 1)
      on conflict (series) do update set last_no = doc_counters.last_no + 1
      returning last_no`,
     [series],
   );
-  return formatDocNo(series, Number(row!.last_no));
+  return Number(row!.last_no);
+}
+
+/** Next complete document number in a series (e.g. SMR-26-27-007). */
+export async function nextDocNo(tx: Tx, kind: keyof typeof DOC_SOURCES, series: string): Promise<string> {
+  return formatDocNo(series, await nextDocSeq(tx, kind, series));
 }
 
 // --------------------------------------------------------------------------
@@ -178,14 +197,55 @@ export interface AcadTeacher {
   status: string;
 }
 
+/** A school, as it appears on an invoice: code, name, address, contact. */
+export interface School {
+  id: string;
+  code: string;
+  name: string;
+  address: string;
+  contact: string;
+}
+
+/**
+ * Resolves a school from an id, code or exact name. Both the founder-raised
+ * path and the staff-draft path mint invoice numbers, so they must agree on
+ * which school a value means — that lookup lives here, once.
+ */
+export async function schoolByIdOrCode(ref: string): Promise<School | null> {
+  const key = s(ref).trim();
+  if (!key) return null;
+  const row = await queryOne<Record<string, unknown>>(
+    `select id, code, name, address, contact from schools
+     where upper(coalesce(code,'')) = upper($1) or id = $1 or upper(coalesce(name,'')) = upper($1)
+     limit 1`,
+    [key],
+  );
+  if (!row) return null;
+  return {
+    id: s(row.id),
+    code: s(row.code).toUpperCase(),
+    name: s(row.name),
+    address: s(row.address),
+    contact: s(row.contact),
+  };
+}
+
+// A demo student (status 'DEMO') is a trial-stage record, not an admitted one:
+// no fee plan, no due date, no receipt. Every admitted-student surface goes
+// through acadStudents(), so excluding them here is what keeps them out of
+// student search, fee buckets, payouts, teacher rosters and class rosters in
+// one place instead of a status check per call site. Their own list reads
+// status='DEMO' directly (listDemoStudents in handlers.ts).
+export const NOT_ADMITTED = `upper(coalesce(status,'')) <> 'DEMO'`;
+
 export async function acadStudents(filter = ""): Promise<AcadStudent[]> {
   if (!filter) {
-    return query<AcadStudent>(`select ${STUDENT_COLUMNS} from students_acad order by name`);
+    return query<AcadStudent>(`select ${STUDENT_COLUMNS} from students_acad where ${NOT_ADMITTED} order by name`);
   }
   return query<AcadStudent>(
     `select ${STUDENT_COLUMNS}
      from students_acad
-     where id ilike $1 or name ilike $1 or phone ilike $1 or instrument ilike $1
+     where ${NOT_ADMITTED} and (id ilike $1 or name ilike $1 or phone ilike $1 or instrument ilike $1)
      order by name`,
     [`%${filter}%`],
   );
@@ -211,6 +271,7 @@ export interface StudentRpc {
   studentName: string;
   phone: string;
   email: string;
+  guardianName: string;
   instrument: string;
   teacher: string;
   classCode: string;
@@ -330,6 +391,7 @@ function composeStudentRpc(x: AcadStudent, side: StudentSideData, today = todayI
     studentName: x.name,
     phone: s(x.phone),
     email: s(x.email),
+    guardianName: s(x.guardian_name),
     instrument: s(x.instrument),
     teacher: side.teacherName,
     teacherId: side.teacherId,
@@ -404,7 +466,7 @@ export async function teacherToRpc(x: AcadTeacher): Promise<Record<string, unkno
 
 export async function classSummary(): Promise<{ gmc: number; kmc: number }> {
   const r = await query<{ branch: string; c: string }>(
-    `select coalesce(nullif(branch,''),'KANDIVALI') as branch, count(*)::text as c from students_acad group by branch`,
+    `select coalesce(nullif(branch,''),'KANDIVALI') as branch, count(*)::text as c from students_acad where ${NOT_ADMITTED} group by branch`,
   );
   let gmc = 0;
   let kmc = 0;

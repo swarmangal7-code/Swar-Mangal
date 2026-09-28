@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleDollarSign,
   FileText,
+  FlaskConical,
   GraduationCap,
   HandCoins,
   History,
@@ -41,6 +42,7 @@ export const founderNav: WebNavSection[] = [
     items: [
       { title: "Students", href: "/founder/students", icon: Users },
       { title: "Add Student", href: "/founder/students/add", icon: UserPlus },
+      { title: "Demo Students", href: "/founder/students/demo", icon: FlaskConical },
     ],
   },
   {
@@ -87,6 +89,7 @@ export const staffNav: WebNavSection[] = [
     items: [
       { title: "Students", href: "/staff/students", icon: Users },
       { title: "Add Student", href: "/staff/students/add", icon: UserPlus },
+      { title: "Demo Students", href: "/staff/students/demo", icon: FlaskConical },
       { title: "Attendance", href: "/staff/attendance", icon: UserCheck },
     ],
   },

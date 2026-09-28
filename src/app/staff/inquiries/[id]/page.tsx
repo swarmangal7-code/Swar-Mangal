@@ -4,7 +4,7 @@ export const runtime = "edge";
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Phone, UserRound } from "lucide-react";
 import { toast } from "sonner";
@@ -93,9 +93,10 @@ function prettyAction(action: string) {
     .join(" ");
 }
 
-export default function StaffInquiryDetailPage() {
+function StaffInquiryDetailInner() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
+  const searchParams = useSearchParams();
 
   const detail = useRpc<InquiryDetailResponse>("api_staff_inquiryDetail", { inquiryId: id });
 
@@ -105,6 +106,17 @@ export default function StaffInquiryDetailPage() {
   const [reason, setReason] = React.useState("");
   const [studentRef, setStudentRef] = React.useState("");
   const [note, setNote] = React.useState("");
+
+  // Hand-off from the "Add demo student" page: it created the demo record
+  // and sent us back here to link it, instead of asking for a typed-in id.
+  React.useEffect(() => {
+    const converted = searchParams.get("convertedStudentId");
+    if (converted) {
+      setAction("CONVERT");
+      setStudentRef(converted);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const transition = useMutationRpc<TransitionArg, RpcEnvelope>("api_staff_inquiryTransition", {
     onSuccess: (res) => {
@@ -311,15 +323,21 @@ export default function StaffInquiryDetailPage() {
                 </div>
               )}
 
-              {action === "CONVERT" && (
+              {action === "CONVERT" && data && (
                 <div className="space-y-1.5">
-                  <Label className="text-[13px] text-dash-fg/70">Student ID (optional)</Label>
+                  <Label className="text-[13px] text-dash-fg/70">Demo student ID (optional)</Label>
                   <Input
                     value={studentRef}
                     onChange={(e) => setStudentRef(e.target.value)}
                     placeholder="STU-… if already added"
                     className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
+                  <Link
+                    href={`/staff/students/demo?fromInquiry=${encodeURIComponent(id)}&name=${encodeURIComponent(data.name)}&phone=${encodeURIComponent(data.phone)}&instrument=${encodeURIComponent(data.course)}`}
+                    className="inline-block text-xs font-medium text-dash-accent hover:underline"
+                  >
+                    New here? Add them as a demo student first →
+                  </Link>
                 </div>
               )}
 
@@ -372,6 +390,14 @@ export default function StaffInquiryDetailPage() {
         </motion.div>
       </div>
     </motion.div>
+  );
+}
+
+export default function StaffInquiryDetailPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <StaffInquiryDetailInner />
+    </React.Suspense>
   );
 }
 

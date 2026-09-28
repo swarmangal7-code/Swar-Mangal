@@ -72,6 +72,7 @@ class Student {
     required this.studentName,
     required this.phone,
     required this.email,
+    this.guardianName = '',
     required this.instrument,
     required this.teacher,
     required this.classCode,
@@ -95,6 +96,7 @@ class Student {
         studentName: _s(b['studentName'] ?? b['name']),
         phone: _s(b['phone']),
         email: _s(b['email']),
+        guardianName: _s(b['guardianName'] ?? b['parentName'] ?? b['guardian_name']),
         instrument: _s(b['instrument'] ?? b['course']),
         teacher: _s(b['teacher']),
         classCode: _s(b['classCode']).toUpperCase(),
@@ -118,6 +120,7 @@ class Student {
   final String studentName;
   final String phone;
   final String email;
+  final String guardianName;
   final String instrument;
   final String teacher;
   final String classCode;
@@ -137,6 +140,53 @@ class Student {
   final String monthlyFee;
 
   bool get operational => status.isEmpty || status.toUpperCase() == 'ACTIVE';
+}
+
+/// Founder request 2026-09-28: a trial stage before real admission. Same
+/// students_acad row as a real Student once converted — this is just the
+/// lighter shape the Demo Students list/add form works with (no fee plan
+/// exists yet).
+class DemoStudent {
+  const DemoStudent({
+    required this.studentId,
+    required this.studentName,
+    required this.phone,
+    this.email = '',
+    required this.guardianName,
+    required this.guardianPhone,
+    required this.instrument,
+    required this.branch,
+    this.teacherId = '',
+    this.teacherName = '',
+    required this.demoDate,
+    required this.demoTime,
+  });
+  factory DemoStudent.fromApi(Map<String, dynamic> b) => DemoStudent(
+        studentId: _s(b['studentId']),
+        studentName: _s(b['studentName']),
+        phone: _s(b['phone']),
+        email: _s(b['email']),
+        guardianName: _s(b['guardianName']),
+        guardianPhone: _s(b['guardianPhone']),
+        instrument: _s(b['instrument']),
+        branch: _s(b['branch']),
+        teacherId: _s(b['teacherId']),
+        teacherName: _s(b['teacherName']),
+        demoDate: _s(b['demoDate']),
+        demoTime: _s(b['demoTime']),
+      );
+  final String studentId;
+  final String studentName;
+  final String phone;
+  final String email;
+  final String guardianName;
+  final String guardianPhone;
+  final String instrument;
+  final String branch;
+  final String teacherId;
+  final String teacherName;
+  final String demoDate;
+  final String demoTime;
 }
 
 /// Brief-adjacent, founder-requested 2026-09-17: how a lead became an
@@ -835,6 +885,27 @@ class ApprovalItem {
 
   bool get isPayment => type == 'PAYMENT_DRAFT';
   bool get isStudent => type == 'STUDENT_DRAFT';
+
+  /// Short human label for the approval type, so a card says what it is
+  /// rather than only which group it arrived under. Mirrors the web
+  /// APPROVAL_TYPE_LABEL map.
+  String get typeLabel => switch (type) {
+        'PAYMENT_DRAFT' => 'Fee payment',
+        'EXPENSE_DRAFT' => 'Expense',
+        'STUDENT_DRAFT' => 'Student',
+        'RECEIPT_CORRECTION' => 'Receipt correction',
+        'SCHOOL_INVOICE_DRAFT' => 'School invoice',
+        'PACKAGE_EXTENSION' => 'Package extension',
+        'PAYMENT_PROFILE_CHANGE' => 'Payment profile',
+        'CLOSURE' => 'Closure / holiday',
+        'CLASS_CORRECTION' => 'Class correction',
+        'LATE_FEE_WAIVER' => 'Late-fee waiver',
+        'INSTALMENT_PLAN' => 'Instalment plan',
+        'MANUAL_TERMS_ACCEPTANCE' => 'Terms acceptance',
+        'TEACHER_ADD_REQUEST' => 'New teacher',
+        'TEACHER_EDIT_REQUEST' => 'Teacher change',
+        _ => type.replaceAll('_', ' '),
+      };
 }
 
 class ApprovalGroup {
@@ -1321,6 +1392,31 @@ class PayoutRow {
   final List<String> qualifications;
 }
 
+/// One recorded attendance mark for a student (api_studentProfile).
+class AttendanceMark {
+  AttendanceMark({
+    required this.date,
+    required this.status,
+    required this.teacherName,
+    required this.instrument,
+  });
+  factory AttendanceMark.fromApi(Map<String, dynamic> b) => AttendanceMark(
+        date: _s(b['date']),
+        status: _s(b['status']).toUpperCase(),
+        teacherName: _s(b['teacherName']),
+        instrument: _s(b['instrument']),
+      );
+  final String date;
+  final String status;
+  final String teacherName;
+  final String instrument;
+
+  bool get isPresent => status == 'PRESENT';
+  bool get isLate => status == 'LATE';
+  bool get isAbsent => status == 'ABSENT';
+  bool get isExcused => status == 'EXCUSED';
+}
+
 /// Staff "My Requests" — persisted drafts awaiting (or resolved by) founder.
 class ApprovalRequestRow {
   ApprovalRequestRow({
@@ -1332,6 +1428,7 @@ class ApprovalRequestRow {
     required this.amount,
     required this.when,
     required this.backdated,
+    required this.decisionNote,
   });
   factory ApprovalRequestRow.fromApi(Map<String, dynamic> b) => ApprovalRequestRow(
         type: _s(b['type']),
@@ -1342,6 +1439,8 @@ class ApprovalRequestRow {
         amount: _s(b['amount']),
         when: _s(b['when']),
         backdated: b['backdated'] == true,
+        // Why the founder said no. Without this a rejected request is a dead end.
+        decisionNote: _s(b['decisionNote']),
       );
   final String type;
   final String id;
@@ -1351,10 +1450,34 @@ class ApprovalRequestRow {
   final String amount;
   final String when;
   final bool backdated;
+  final String decisionNote;
 
   bool get waiting => status.toUpperCase() == 'SUBMITTED' ||
       status.toUpperCase() == 'PENDING_TERMS_AND_APPROVAL' ||
       status.toUpperCase() == 'BACKDATED_APPROVAL_REQUIRED';
+
+  bool get approved => const ['APPROVED', 'MERGED', 'FINALISED', 'AUTHORISED'].contains(status.toUpperCase());
+  bool get rejected => status.toUpperCase() == 'REJECTED' || status.toUpperCase() == 'REVOKED';
+
+  /// Same wording the web My Requests screen uses, so a request reads the
+  /// same whichever side you open it on.
+  String get typeLabel => switch (type) {
+        'PAYMENT_DRAFT' => 'Fee payment',
+        'EXPENSE_DRAFT' => 'Expense',
+        'STUDENT_DRAFT' => 'Student',
+        'RECEIPT_CORRECTION' => 'Receipt correction',
+        'SCHOOL_INVOICE_DRAFT' => 'School invoice',
+        'TEACHER_ADD_REQUEST' => 'New teacher',
+        'TEACHER_EDIT_REQUEST' => 'Teacher change',
+        'PACKAGE_EXTENSION' => 'Package extension',
+        'PAYMENT_PROFILE_CHANGE' => 'Payment profile',
+        'CLOSURE' => 'Closure / holiday',
+        'CLASS_CORRECTION' => 'Class correction',
+        'LATE_FEE_WAIVER' => 'Late-fee waiver',
+        'INSTALMENT_PLAN' => 'Instalment plan',
+        'MANUAL_TERMS_ACCEPTANCE' => 'Terms acceptance',
+        _ => type.replaceAll('_', ' '),
+      };
 }
 
 class StaffHub {
@@ -1455,6 +1578,7 @@ class StudentProfileDetail {
     required this.teacherId,
     required this.branch,
     this.receipts = const [],
+    this.attendance = const [],
   });
   factory StudentProfileDetail.fromApi(Map<String, dynamic> b) {
     final s = b['student'] is Map<String, dynamic>
@@ -1479,6 +1603,11 @@ class StudentProfileDetail {
           .whereType<Map<String, dynamic>>()
           .map(ReceiptRow.fromApi)
           .toList(),
+      // Last 30 sessions, also scoped server-side to this studentId.
+      attendance: ((b['attendance'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(AttendanceMark.fromApi)
+          .toList(),
     );
   }
   final Student student;
@@ -1488,6 +1617,7 @@ class StudentProfileDetail {
   final String teacherId;
   final String branch;
   final List<ReceiptRow> receipts;
+  final List<AttendanceMark> attendance;
 
   bool get hasTeacherId => teacherId.isNotEmpty && teacherId != '0' && teacherId != 'null';
   bool get hasTeacherName => student.teacher.isNotEmpty;
@@ -1547,6 +1677,10 @@ class SchoolInvoice {
     required this.tenure,
     required this.owner1,
     required this.owner2,
+    this.schoolCode = '',
+    this.schoolName = '',
+    this.schoolAddress = '',
+    this.schoolContact = '',
     this.pdfUrl = '',
     this.demo = false,
   });
@@ -1565,6 +1699,10 @@ class SchoolInvoice {
       className: _s(b['className']),
       amount: _n(b['amount']),
       tenure: _s(b['tenure']),
+      schoolCode: _s(b['schoolCode']),
+      schoolName: _s(b['schoolName']),
+      schoolAddress: _s(b['schoolAddress']),
+      schoolContact: _s(b['schoolContact']),
       pdfUrl: _s(b['pdfUrl']),
       demo: b['demo'] == true,
       owner1: o1,
@@ -1578,10 +1716,44 @@ class SchoolInvoice {
   final String className;
   final num amount;
   final String tenure;
+  /// The school being billed. The code is already inside invoiceNo; these are
+  /// what the school reads on the invoice itself.
+  final String schoolCode;
+  final String schoolName;
+  final String schoolAddress;
+  final String schoolContact;
   final String pdfUrl;
   final bool demo;
   final InvoiceOwner owner1;
   final InvoiceOwner owner2;
+}
+
+/// A school a class can be billed to. Code is what goes in the invoice number.
+class School {
+  const School({
+    required this.schoolId,
+    required this.code,
+    required this.name,
+    this.address = '',
+    this.contact = '',
+    this.active = true,
+  });
+  factory School.fromApi(Map<String, dynamic> b) => School(
+        schoolId: _s(b['schoolId'] ?? b['id']),
+        code: _s(b['code']).toUpperCase(),
+        name: _s(b['name']),
+        address: _s(b['address']),
+        contact: _s(b['contact']),
+        active: b['active'] != false,
+      );
+  final String schoolId;
+  final String code;
+  final String name;
+  final String address;
+  final String contact;
+  final bool active;
+
+  String get label => name.isNotEmpty && name != code ? '$name ($code)' : code;
 }
 
 /// Invoice list row (school-level history, no student).
@@ -1593,6 +1765,8 @@ class InvoiceSummary {
     required this.amount,
     required this.invoiceId,
     required this.className,
+    this.schoolName = '',
+    this.schoolCode = '',
   });
   factory InvoiceSummary.fromApi(Map<String, dynamic> b) => InvoiceSummary(
         invoiceNo: _s(b['invoiceNo']),
@@ -1601,6 +1775,8 @@ class InvoiceSummary {
         amount: _n(b['amount']),
         invoiceId: _s(b['invoiceId']),
         className: _s(b['className']),
+        schoolName: _s(b['schoolName']),
+        schoolCode: _s(b['schoolCode']),
       );
   final String invoiceNo;
   final String invoiceDate;
@@ -1608,6 +1784,9 @@ class InvoiceSummary {
   final num amount;
   final String invoiceId;
   final String className;
+  /// Who the invoice was billed to. The code is already inside invoiceNo.
+  final String schoolName;
+  final String schoolCode;
 }
 
 /// Invoice input validation — amount numeric > 0, tenure + class required.
@@ -1641,6 +1820,8 @@ class TimetableEntry {
     this.teacherId = '',
     this.teacherName = '',
     this.status = 'ENABLED',
+    this.substituteTeacherId = '',
+    this.substituteTeacherName = '',
   });
   factory TimetableEntry.fromApi(Map<String, dynamic> b) => TimetableEntry(
         id: _s(b['id']),
@@ -1652,6 +1833,8 @@ class TimetableEntry {
         teacherId: _s(b['teacherId']),
         teacherName: _s(b['teacherName'] ?? b['teacher']),
         status: _s(b['status']).toUpperCase().isEmpty ? 'ENABLED' : _s(b['status']).toUpperCase(),
+        substituteTeacherId: _s(b['substituteTeacherId']),
+        substituteTeacherName: _s(b['substituteTeacherName']),
       );
   Map<String, dynamic> toWrite() => {
         'id': id,
@@ -1663,6 +1846,8 @@ class TimetableEntry {
         'teacherId': teacherId,
         'teacherName': teacherName,
         'status': status,
+        'substituteTeacherId': substituteTeacherId,
+        'substituteTeacherName': substituteTeacherName,
       };
   final String id;
   final String branch;
@@ -1673,6 +1858,10 @@ class TimetableEntry {
   final String teacherId;
   final String teacherName;
   final String status;
+  /// Who covers this slot instead. The server validates it differs from the
+  /// assigned teacher; the app only collects it.
+  final String substituteTeacherId;
+  final String substituteTeacherName;
 
   String get dayLabel => dayOfWeek >= 0 && dayOfWeek < timetableDayNames.length ? timetableDayNames[dayOfWeek] : '?';
   bool get enabled => status == 'ENABLED';
@@ -1706,7 +1895,8 @@ class TimetableWeekEntry extends TimetableEntry {
     super.teacherId,
     super.teacherName,
     super.status,
-    this.substituteTeacherName = '',
+    super.substituteTeacherId,
+    super.substituteTeacherName,
     required this.weekStart,
     required this.date,
     this.overridden = false,
@@ -1721,12 +1911,12 @@ class TimetableWeekEntry extends TimetableEntry {
         teacherId: _s(b['teacherId']),
         teacherName: _s(b['teacherName']),
         status: _s(b['status']).toUpperCase().isEmpty ? 'ENABLED' : _s(b['status']).toUpperCase(),
+        substituteTeacherId: _s(b['substituteTeacherId']),
         substituteTeacherName: _s(b['substituteTeacherName']),
         weekStart: _s(b['weekStart']),
         date: _s(b['date']),
         overridden: b['overridden'] == true,
       );
-  final String substituteTeacherName;
   final String weekStart;
   final String date;
   final bool overridden;

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { useMutationRpc, useStaffBoot, useStudentSearch } from "@/lib/api/rpc-hooks";
+import { useMutationRpc, useRpc, useStaffBoot, useStudentSearch } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope, Student } from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { cn, fmtDate, inr, todayISO } from "@/lib/utils/cn";
@@ -34,7 +34,15 @@ interface DraftArg extends Record<string, unknown> {
   packageStartDate: string;
   monthsPaid: number;
   notes: string;
+  instalmentItemId?: string;
   clientIntentKey: string;
+}
+
+interface InstalmentPlan extends RpcEnvelope {
+  hasPlan?: boolean;
+  instalmentCount?: number;
+  nextPendingItemId?: string;
+  nextPendingAmount?: string;
 }
 
 interface DraftResponse extends RpcEnvelope {
@@ -67,6 +75,8 @@ function StaffFeesPageInner() {
   const [months, setMonths] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [success, setSuccess] = React.useState<DraftResponse | null>(null);
+  const [plan, setPlan] = React.useState<InstalmentPlan | null>(null);
+  const [instalmentItemId, setInstalmentItemId] = React.useState("");
 
   const intentRef = React.useRef(`PDRAFT-${Date.now()}`);
 
@@ -88,6 +98,19 @@ function StaffFeesPageInner() {
     if (student?.monthlyFee) setAmount(String(student.monthlyFee));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student?.studentId]);
+
+  // Never compute an instalment amount here — only surface what the server's
+  // own schedule says is due next, exactly as the app does.
+  const planQ = useRpc<InstalmentPlan>(
+    "api_instalmentPlanForStudent",
+    { studentId: student?.studentId ?? "" },
+    { enabled: !!student?.studentId },
+  );
+  React.useEffect(() => {
+    const p = planQ.data;
+    setPlan(p && p.hasPlan === true && p.nextPendingItemId ? p : null);
+    setInstalmentItemId("");
+  }, [planQ.data]);
 
   const isCash = mode.toUpperCase().includes("CASH");
   const amountNum = Number(amount);
@@ -129,6 +152,7 @@ function StaffFeesPageInner() {
       packageStartDate: packageStart,
       monthsPaid: Number(months) || 0,
       notes: notes.trim(),
+      ...(instalmentItemId ? { instalmentItemId } : {}),
       clientIntentKey: intentRef.current,
     });
   };
@@ -149,6 +173,34 @@ function StaffFeesPageInner() {
             <Skeleton className="h-24 bg-dash-fg/[0.04]" />
           ) : (
             <StudentPicker student={student} onSelect={setStudent} />
+          )}
+
+          {plan && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dash-accent/25 bg-dash-accent/[0.07] p-4">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-dash-accent">
+                  Next instalment due: {formatINR(Number(plan.nextPendingAmount) || 0)}
+                </p>
+                <p className="text-xs text-dash-fg/50">
+                  From this student&rsquo;s active instalment plan ({plan.instalmentCount} instalments).
+                </p>
+              </div>
+              {instalmentItemId ? (
+                <span className="text-xs font-medium text-emerald-300">Linked to this instalment ✓</span>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-dash-accent/40 text-dash-accent hover:bg-dash-accent/10"
+                  onClick={() => {
+                    setAmount(String(plan.nextPendingAmount ?? ""));
+                    setInstalmentItemId(plan.nextPendingItemId ?? "");
+                  }}
+                >
+                  Use this
+                </Button>
+              )}
+            </div>
           )}
 
           <Card className="border-dash-fg/10 bg-dash-card">

@@ -3,11 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, CalendarDays, HandCoins, Plus } from "lucide-react";
+import { CalendarDays, HandCoins, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FeeBucketCard } from "@/components/dashboard/fee-bucket-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useAuditLog,
@@ -21,7 +22,7 @@ import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { cn, formatINR } from "@/lib/utils/cn";
 
-import { formatWhen, formatDateOnly } from "./_shared";
+import { formatWhen } from "./_shared";
 
 function MetricCard({
   label,
@@ -71,52 +72,13 @@ function ReminderCard({
   rows: DueReminderItem[];
   tone: "due" | "overdue";
 }) {
-  const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-  const count = rows.length;
   return (
-    <Link
-      href="/founder/fees"
-      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
-    >
-      <Card className="h-full border-dash-fg/10 bg-dash-card transition-colors hover:border-dash-accent/40">
-        <CardContent className="pt-5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-dash-fg">{title}</p>
-            <Badge
-              className={cn(
-                "border",
-                tone === "overdue"
-                  ? "border-red-400/30 bg-red-400/10 text-red-300"
-                  : "border-amber-400/30 bg-amber-400/10 text-amber-300",
-              )}
-            >
-              {count}
-            </Badge>
-          </div>
-          {total > 0 && (
-            <p className="mt-1.5 text-lg font-semibold tracking-tight text-dash-accent">
-              {formatINR(total)}
-            </p>
-          )}
-          <ul className="mt-3 space-y-1.5">
-            {rows.slice(0, 4).map((r) => (
-              <li key={r.studentId} className="flex items-center justify-between gap-2 text-[13px]">
-                <span className="truncate text-dash-fg/85">{r.studentName}</span>
-                <span className="shrink-0 text-dash-fg/45">
-                  {r.classCode} · {formatDateOnly(r.nextDueDate)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {count === 0 && (
-            <p className="mt-3 text-sm text-dash-fg/45">Nothing {tone === "overdue" ? "overdue" : "due"} today.</p>
-          )}
-          <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-dash-accent">
-            Collect fees <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </p>
-        </CardContent>
-      </Card>
-    </Link>
+    <FeeBucketCard
+      title={title}
+      rows={rows}
+      tone={tone}
+      collectHref={(id) => `/founder/fees?studentId=${encodeURIComponent(id)}`}
+    />
   );
 }
 
@@ -252,7 +214,7 @@ export default function FounderDashboardPage() {
           <CardContent className="pt-5">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-dash-fg/90">Recent activity</h2>
-              <Link href="/founder/activity" className="text-xs font-medium text-dash-accent hover:text-dash-accent-hover">
+              <Link href="/founder/activity-log" className="text-xs font-medium text-dash-accent hover:text-dash-accent-hover">
                 View all
               </Link>
             </div>

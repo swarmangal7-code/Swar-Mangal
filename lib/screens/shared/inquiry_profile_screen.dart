@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/atoms.dart';
+import 'demo_students_screen.dart';
 
 /// One contact's full record: details, the parent's decision (final status —
 /// derived, never a second field), and the complete follow-up timeline.
@@ -132,6 +133,30 @@ class _InquiryProfileScreenState extends State<InquiryProfileScreen> {
     if (reason != null) _transition('REOPEN', {'reason': reason});
   }
 
+  Future<void> _noAnswer() async {
+    final note = await _ask('No answer', 'Any note? (optional)');
+    _transition('NO_ANSWER', {if ((note ?? '').isNotEmpty) 'note': note});
+  }
+
+  /// "Joined" hands off to Demo Students (founder request 2026-09-28) —
+  /// leads become a trial record first, never a paying admission directly.
+  Future<void> _markJoined() async {
+    final d = _detail;
+    if (d == null) return;
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => DemoStudentsScreen(
+          staff: true,
+          inquiryPrefill: (inquiryId: d.inquiryId, name: d.name, phone: d.phone, instrument: d.course),
+        ),
+      ),
+    );
+    final convertedId = result?['convertedStudentId'] as String?;
+    if (convertedId != null && convertedId.isNotEmpty) {
+      _transition('CONVERT', {'studentRef': convertedId});
+    }
+  }
+
   Color _finalStatusColor(String finalStatus) => AppColors.adaptive(context, switch (finalStatus) {
         'APPROVED' => AppColors.okFg,
         'REJECTED' => AppColors.blockFg,
@@ -234,12 +259,23 @@ class _InquiryProfileScreenState extends State<InquiryProfileScreen> {
                   onPressed: _acting ? null : _scheduleTrial,
                   child: const Text('Schedule trial'),
                 ),
+              if (canFollowUp.contains(status))
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.adaptive(context, AppColors.muted)),
+                  onPressed: _acting ? null : _noAnswer,
+                  child: const Text('No answer'),
+                ),
               if (status == 'TRIAL_SCHEDULED')
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(foregroundColor: AppColors.adaptive(context, AppColors.okFg)),
                   onPressed: _acting ? null : () => _transition('TRIAL_DONE', const {}),
                   child: const Text('Trial done'),
                 ),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.adaptive(context, AppColors.okFg)),
+                onPressed: _acting ? null : _markJoined,
+                child: const Text('Joined'),
+              ),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(foregroundColor: AppColors.adaptive(context, AppColors.blockFg)),
                 onPressed: _acting ? null : _drop,

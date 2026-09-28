@@ -142,7 +142,7 @@ class _ClosuresScreenState extends State<ClosuresScreen> {
                                         padding: EdgeInsets.only(top: 4),
                                         child: Text('Backdated', style: TextStyle(fontSize: 11, color: AppColors.warnFg)),
                                       ),
-                                    if (widget.staff && (r['state'] == 'AUTHORISED'))
+                                     if (!widget.staff && (r['state'] == 'AUTHORISED'))
                                       Align(
                                         alignment: Alignment.centerRight,
                                         child: TextButton(
@@ -170,30 +170,49 @@ class ProposeClosureScreen extends StatefulWidget {
 
 class _ProposeClosureScreenState extends State<ProposeClosureScreen> {
   String _scope = 'BRANCH';
-  final _from = TextEditingController();
-  final _to = TextEditingController();
+  late String _from;
+  late String _to;
   final _reason = TextEditingController();
   late final String _intentKey;
   bool _busy = false;
   String? _result;
   bool? _ok;
 
+  static String _iso(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   @override
   void initState() {
     super.initState();
     _intentKey = 'CLOSURE-${DateTime.now().microsecondsSinceEpoch}';
-    final today = DateTime.now();
-    final iso = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    _from.text = iso;
-    _to.text = iso;
+    _from = _iso(DateTime.now());
+    _to = _from;
   }
 
   @override
   void dispose() {
-    _from.dispose();
-    _to.dispose();
     _reason.dispose();
     super.dispose();
+  }
+
+  Future<void> _pick(bool isFrom) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(isFrom ? _from : _to) ?? DateTime.now(),
+      firstDate: DateTime(2015),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isFrom) {
+        _from = _iso(picked);
+        // A closure never ends before it starts — dragging the start past the
+        // end would otherwise send an unbookable range.
+        if (_to.compareTo(_from) < 0) _to = _from;
+      } else {
+        _to = _iso(picked);
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -211,8 +230,8 @@ class _ProposeClosureScreenState extends State<ProposeClosureScreen> {
       final r = await auth.service!.raw('api_staff_proposeClosure', {
         'scope': _scope,
         if (_scope == 'BRANCH') 'branch': auth.branch ?? '',
-        'fromDate': _from.text.trim(),
-        'toDate': _to.text.trim(),
+        'fromDate': _from,
+        'toDate': _to,
         'reason': _reason.text.trim(),
         'clientIntentKey': _intentKey,
       });
@@ -255,9 +274,20 @@ class _ProposeClosureScreenState extends State<ProposeClosureScreen> {
             ChoiceChip(label: const Text('Whole academy'), selected: _scope == 'ACADEMY', onSelected: (_) => setState(() => _scope = 'ACADEMY')),
           ]),
           const SizedBox(height: AppSpace.s3),
-          TextField(controller: _from, decoration: const InputDecoration(labelText: 'From date (YYYY-MM-DD)')),
-          const SizedBox(height: AppSpace.s3),
-          TextField(controller: _to, decoration: const InputDecoration(labelText: 'To date (YYYY-MM-DD)')),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.event_outlined),
+            title: const Text('From date *', style: TextStyle(fontSize: 13)),
+            subtitle: Text(_from),
+            onTap: () => _pick(true),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.event_available_outlined),
+            title: const Text('To date *', style: TextStyle(fontSize: 13)),
+            subtitle: Text(_to),
+            onTap: () => _pick(false),
+          ),
           const SizedBox(height: AppSpace.s3),
           TextField(controller: _reason, maxLines: 3, decoration: const InputDecoration(labelText: 'Reason (required)')),
           const SizedBox(height: AppSpace.s4),

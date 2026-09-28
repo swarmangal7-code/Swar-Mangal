@@ -1,7 +1,7 @@
 import { query, queryOne, withTransaction } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, newPersonId, nextDocNo, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary } from "@/lib/rpc/shared";
-import { schoolInvoiceSeries } from "@/lib/rpc/numbering";
+import { s, n, d, newId, newPersonId, nextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode } from "@/lib/rpc/shared";
+import { schoolInvoiceSeries, formatSchoolInvoiceNo } from "@/lib/rpc/numbering";
 import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, type FeeState } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
 import { gatewayConfigFromEnv } from "@/lib/whatsapp/gateway";
@@ -97,6 +97,12 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return listSchoolInvoices(arg, scope);
     case "api_getSchoolInvoice":
       return getSchoolInvoice(arg, scope);
+    case "api_listSchools":
+      return listSchools();
+    case "api_addSchool":
+      return addSchool(arg);
+    case "api_updateSchool":
+      return updateSchool(arg);
     case "api_timetableList":
       return timetableList(arg, scope);
     case "api_timetableCreate":
@@ -1232,23 +1238,120 @@ async function expenseDraftReject(arg: Record<string, unknown>, session?: RpcSes
 }
 
 // ------------------------------------------------------- school invoices
+/**
+ * A school is the "billed to" party on a school invoice. Its code is what
+ * appears in the invoice number, so it is validated hard here rather than
+ * discovered later on a PDF already sent to a school.
+ */
+const SCHOOL_CODE = /^[A-Z0-9][A-Z0-9_-]{1,15}$/;
+
+function schoolCodeRefusal(raw: unknown): { code: string; error: string } | null {
+  const code = s(raw).trim().toUpperCase();
+  if (!code) return { code: "SCHOOL_CODE_REQUIRED", error: "Pick the school this invoice is for." };
+  if (!SCHOOL_CODE.test(code)) {
+    return { code: "BAD_SCHOOL_CODE", error: `School code "${code}" is not usable — use 2-16 letters, digits, dash or underscore.` };
+  }
+  return null;
+}
+
+async function listSchools(): Promise<Record<string, unknown>> {
+  const rows = await query<Record<string, unknown>>(
+    `select id, code, name, address, contact, active from schools
+     order by upper(coalesce(code, name, id)) asc`,
+  );
+  return ok({
+    schools: rows.map((r) => ({
+      schoolId: s(r.id),
+      code: s(r.code).toUpperCase(),
+      name: s(r.name),
+      address: s(r.address),
+      contact: s(r.contact),
+      active: r.active !== false,
+    })),
+  });
+}
+
+async function addSchool(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const bad = schoolCodeRefusal(arg["code"]);
+  if (bad) return { ok: false, ...bad };
+  const code = s(arg["code"]).trim().toUpperCase();
+  const name = s(arg["name"] ?? arg["code"]).trim() || code;
+  const address = s(arg["address"]).trim();
+  const contact = s(arg["contact"]).trim();
+  const taken = await queryOne<{ id: string }>(`select id from schools where upper(coalesce(code,'')) = $1`, [code]);
+  if (taken) {
+    return { ok: false, code: "SCHOOL_CODE_TAKEN", error: `${code} is already used by another school — school codes go on the invoice number, so they cannot be shared.` };
+  }
+  const id = s(arg["schoolId"]).trim() || `SCH-${code}`;
+  await query(
+    `insert into schools (id, code, name, address, contact, active)
+     values ($1,$2,$3,$4,$5,true)
+     on conflict (id) do update set code = excluded.code, name = excluded.name,
+                               address = excluded.address, contact = excluded.contact`,
+    [id, code, name, address || null, contact || null],
+  );
+  await bumpRevisions(["invoices"]);
+  return ok({ schoolId: id, code, name, note: `School ${code} saved. It will use the same invoice template.` });
+}
+
+async function updateSchool(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const ref = s(arg["schoolId"] ?? arg["code"]).trim();
+  const existing = ref ? await schoolByIdOrCode(ref) : null;
+  if (!existing) return { ok: false, code: "NOT_FOUND", error: `No school ${ref}` };
+  // The code is deliberately immutable: it is already printed on issued
+  // invoices, so changing it would make old documents name a school that no
+  // longer matches. Name/address/contact are free to change.
+  if (arg["code"] !== undefined && s(arg["code"]).trim().toUpperCase() !== existing.code) {
+    return { ok: false, code: "SCHOOL_CODE_IMMUTABLE", error: `${existing.code} is already on issued invoices and cannot be renamed. Add a new school instead.` };
+  }
+  await query(
+    `update schools set name = $2, address = $3, contact = $4, active = $5 where id = $1`,
+    [
+      existing.id,
+      s(arg["name"]).trim() || existing.name,
+      arg["address"] === undefined ? existing.address : s(arg["address"]).trim(),
+      arg["contact"] === undefined ? existing.contact : s(arg["contact"]).trim(),
+      arg["active"] === false ? false : true,
+    ],
+  );
+  await bumpRevisions(["invoices"]);
+  return ok({ schoolId: existing.id, code: existing.code, name: s(arg["name"]).trim() || existing.name, note: "School updated." });
+}
+
 async function generateSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const amount = n(arg["amount"]);
   if (amount <= 0) return { ok: false, code: "BAD_AMOUNT", error: "amount required" };
   const branch = defaultBranch(scope, arg["branch"]);
   if (!inScope(scope, branch)) return branchForbidden(branch);
+  const schoolRef = s(arg["schoolId"] ?? arg["schoolCode"] ?? arg["school"]).trim();
+  const school = await schoolByIdOrCode(schoolRef);
+  if (!school) {
+    return {
+      ok: false,
+      code: schoolRef ? "SCHOOL_NOT_FOUND" : "SCHOOL_REQUIRED",
+      error: schoolRef
+        ? `No school "${schoolRef}". Add it first — every school invoice names one.`
+        : "Pick the school this invoice is for.",
+    };
+  }
   const id = newId("SINV");
   const invoiceDate = s(arg["invoiceDate"]) || todayIso();
   const lockedInvoice = await closedMonthRefusal(invoiceDate);
   if (lockedInvoice) return lockedInvoice;
+  const series = schoolInvoiceSeries(new Date(invoiceDate));
   const no = await withTransaction(async (tx) => {
-    const docNo = await nextDocNo(tx, "schoolInvoice", schoolInvoiceSeries(new Date(invoiceDate)));
+    // ONE sequence for the whole financial year, shared by every school: the
+    // counter row is locked until commit, so two invoices raised in the same
+    // instant can never collide, and the school code is appended afterwards —
+    // it identifies the school, it never advances or forks the run.
+    const docNo = await nextDocSeq(tx, "schoolInvoice", series);
+    const invoiceNo = formatSchoolInvoiceNo(series, docNo, school.code);
     await tx.query(
-      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status)
-       values ($1,$2,$3,$4,$5,$6,$7,'FINAL')`,
-      [id, docNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"])],
+      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id)
+       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8)`,
+      [id, invoiceNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"]), school.id],
     );
-    return docNo;
+    return invoiceNo;
   });
   await bumpRevisions(["invoices", "dashboard"]);
   return ok({
@@ -1256,6 +1359,11 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     invoiceNo: no,
     invoiceDate,
     branch,
+    schoolId: school.id,
+    schoolCode: school.code,
+    schoolName: school.name,
+    schoolAddress: school.address,
+    schoolContact: school.contact,
     className: s(arg["className"]),
     amount,
     tenure: s(arg["tenure"]),
@@ -1268,7 +1376,11 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
 async function listSchoolInvoices(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const requestedBranch = s(arg["branch"] ?? "ALL");
   const rows = (
-    await query<Record<string, unknown>>(`select id, invoice_no, invoice_date, branch, class_name, amount, tenure, status from school_invoices_rpc order by id desc`)
+    await query<Record<string, unknown>>(`select i.id, i.invoice_no, i.invoice_date, i.branch, i.class_name, i.amount, i.tenure, i.status,
+                                                 sc.code as school_code, sc.name as school_name
+                                          from school_invoices_rpc i
+                                          left join schools sc on sc.id = i.school_id
+                                          order by i.id desc`)
   ).filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(requestedBranch, r.branch));
   return ok({
     invoices: rows.map((r) => ({
@@ -1276,6 +1388,8 @@ async function listSchoolInvoices(arg: Record<string, unknown>, scope: BranchSco
       invoiceNo: s(r.invoice_no),
       invoiceDate: s(r.invoice_date),
       branch: s(r.branch),
+      schoolCode: s(r.school_code),
+      schoolName: s(r.school_name),
       className: s(r.class_name),
       amount: n(r.amount),
       tenure: s(r.tenure),
@@ -1286,7 +1400,12 @@ async function listSchoolInvoices(arg: Record<string, unknown>, scope: BranchSco
 
 async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const id = s(arg["invoiceId"]);
-  const r = await queryOne<Record<string, unknown>>(`select * from school_invoices_rpc where id = $1`, [id]);
+  const r = await queryOne<Record<string, unknown>>(
+    `select i.*, sc.code as school_code, sc.name as school_name, sc.address as school_address, sc.contact as school_contact
+     from school_invoices_rpc i left join schools sc on sc.id = i.school_id
+     where i.id = $1`,
+    [id],
+  );
   if (!r) return { ok: false, code: "NOT_FOUND", error: `No invoice ${id}` };
   if (!inScope(scope, r.branch)) return branchForbidden(recordBranch(r.branch));
   return ok({
@@ -1295,6 +1414,11 @@ async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope
       invoiceNo: s(r.invoice_no),
       invoiceDate: s(r.invoice_date),
       branch: s(r.branch),
+      schoolId: s(r.school_id),
+      schoolCode: s(r.school_code),
+      schoolName: s(r.school_name),
+      schoolAddress: s(r.school_address),
+      schoolContact: s(r.school_contact),
       className: s(r.class_name),
       amount: n(r.amount),
       tenure: s(r.tenure),
@@ -2213,6 +2337,7 @@ async function inquiryTransition(arg: Record<string, unknown>, scope: BranchScop
       if (studentRef) {
         const student = await acadStudentById(studentRef);
         if (!student) return { ok: false, code: "STUDENT_NOT_FOUND", error: `No student ${studentRef}` };
+        if (!inScope(scope, student.branch)) return branchForbidden(recordBranch(student.branch));
         studentId = student.id;
       }
       set = { status: "CONVERTED", next: null, studentId };
@@ -2483,7 +2608,7 @@ async function staffMyRequests(scope: BranchScope, session?: RpcSession): Promis
   const mine = session?.deviceLabel && !session.deviceLabel.startsWith("env:") ? session.deviceLabel : null;
   const own = (r: Record<string, unknown>) => !mine || s(r.submitted_by) === mine;
 
-  const [payments, expenses, students, corrections, invoices, teacherRequests] = await Promise.all([
+  const [payments, expenses, students, corrections, invoices, teacherRequests, packageExtensions, profileChanges, closures, classCorrections, waivers, instalmentPlans, manualTerms] = await Promise.all([
     query<Record<string, unknown>>(
       `select id, status, student_name, amount, branch, submitted_by, submitted_at::text, payment_date::text, decision_note
        from payment_drafts where submitted_at > now() - interval '60 days' order by submitted_at desc limit 100`,
@@ -2507,6 +2632,40 @@ async function staffMyRequests(scope: BranchScope, session?: RpcSession): Promis
     query<Record<string, unknown>>(
       `select id, status, action, teacher_id, teacher_name, primary_role, branch, submitted_by, submitted_at::text, decision_note, lifecycle_status
        from teacher_add_requests where submitted_at > now() - interval '60 days' order by submitted_at desc limit 100`,
+    ),
+    // The six proposal types below all reach the founder's Approvals queue. They
+    // used to be missing here, which meant a staff member who submitted one
+    // saw it appear on neither the founder screen nor their own "My requests".
+    query<Record<string, unknown>>(
+      `select p.id, p.status, p.student_id, p.extra_months, p.reason, p.branch, p.submitted_by, p.submitted_at::text, p.decision_note, s.name as student_name
+       from package_extension_requests p left join students_acad s on s.id = p.student_id
+       where p.submitted_at > now() - interval '60 days' order by p.submitted_at desc limit 100`,
+    ),
+    query<Record<string, unknown>>(
+      `select id, status, entity_id, requested_label, reason, branch, submitted_by, submitted_at::text, decision_note
+       from payment_profile_change_requests where submitted_at > now() - interval '60 days' order by submitted_at desc limit 100`,
+    ),
+    query<Record<string, unknown>>(
+      `select id, state, scope, coalesce(branch,'') as branch, from_date::text, to_date::text, reason, recorded_by as submitted_by, recorded_at::text as submitted_at, decision_note
+       from closure_calendar where recorded_at > now() - interval '60 days' order by recorded_at desc limit 100`,
+    ),
+    query<Record<string, unknown>>(
+      `select id, status, event_id, reason, branch, requested_by as submitted_by, requested_at::text as submitted_at, decision_note
+       from class_outcome_corrections where requested_at > now() - interval '60 days' order by requested_at desc limit 100`,
+    ),
+    query<Record<string, unknown>>(
+      `select w.id, w.status, w.student_id, w.waived_amount, w.reason, w.branch, w.submitted_by, w.submitted_at::text, w.decision_note, s.name as student_name
+       from late_fee_waiver_requests w left join students_acad s on s.id = w.student_id
+       where w.submitted_at > now() - interval '60 days' order by w.submitted_at desc limit 100`,
+    ),
+    query<Record<string, unknown>>(
+      `select id, status, student_id, student_name, total_amount, instalment_count, branch, notes, submitted_by, submitted_at::text, decision_note
+       from instalment_plan_drafts where submitted_at > now() - interval '60 days' order by submitted_at desc limit 100`,
+    ),
+    query<Record<string, unknown>>(
+      `select m.id, m.status, m.student_id, m.reason, m.branch, m.submitted_by, m.submitted_at::text, m.decision_note, s.name as student_name
+       from manual_terms_acceptance_requests m left join students_acad s on s.id = m.student_id
+       where m.submitted_at > now() - interval '60 days' order by m.submitted_at desc limit 100`,
     ),
   ]);
   const visible = (r: Record<string, unknown>) => inScope(scope, r.branch) && own(r);
@@ -2542,6 +2701,45 @@ async function staffMyRequests(scope: BranchScope, session?: RpcSession): Promis
         amount: "", when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
       };
     }),
+    ...packageExtensions.filter(visible).map((r) => ({
+      type: "PACKAGE_EXTENSION", id: s(r.id), status: s(r.status), student: s(r.student_name) || s(r.student_id),
+      category: `+${s(r.extra_months)} month${s(r.extra_months) === "1" ? "" : "s"} · ${s(r.reason)}`,
+      amount: "", when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+    })),
+    ...profileChanges.filter(visible).map((r) => ({
+      type: "PAYMENT_PROFILE_CHANGE", id: s(r.id), status: s(r.status), student: s(r.entity_id),
+      category: s(r.requested_label),
+      amount: "", when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+    })),
+    // closure_calendar stores state, not status — mapped so the submitter's
+    // Pending / Approved / Rejected counts read the same as every other type.
+    ...closures.filter(visible).map((r) => ({
+      type: "CLOSURE", id: s(r.id),
+      status: { AUTHORISED: "APPROVED", REVOKED: "REJECTED" }[s(r.state).toUpperCase()] ?? "SUBMITTED",
+      student: s(r.scope) === "ACADEMY" ? "Whole academy" : s(r.branch),
+      category: `${s(r.from_date)}–${s(r.to_date)} · ${s(r.reason)}`,
+      amount: "", when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+    })),
+    ...classCorrections.filter(visible).map((r) => ({
+      type: "CLASS_CORRECTION", id: s(r.id), status: s(r.status), student: s(r.event_id),
+      category: s(r.reason),
+      amount: "", when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+    })),
+    ...waivers.filter(visible).map((r) => ({
+      type: "LATE_FEE_WAIVER", id: s(r.id), status: s(r.status), student: s(r.student_name) || s(r.student_id),
+      category: s(r.reason), amount: s(r.waived_amount),
+      when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+    })),
+    ...instalmentPlans.filter(visible).map((r) => ({
+      type: "INSTALMENT_PLAN", id: s(r.id), status: s(r.status), student: s(r.student_name) || s(r.student_id),
+      category: `${s(r.instalment_count)} instalments · ${s(r.notes)}`,
+      amount: s(r.total_amount), when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+    })),
+    ...manualTerms.filter(visible).map((r) => ({
+      type: "MANUAL_TERMS_ACCEPTANCE", id: s(r.id), status: s(r.status), student: s(r.student_name) || s(r.student_id),
+      category: s(r.reason), amount: "",
+      when: d(r.submitted_at), decisionNote: s(r.decision_note), backdated: false,
+    })),
   ].sort((a, b) => (a.when < b.when ? 1 : -1));
   return ok({ count: out.length, rows: out, canApprove: false });
 }

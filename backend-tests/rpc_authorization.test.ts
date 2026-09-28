@@ -52,12 +52,13 @@ test("authorizeRpc: staff -> api_addTeacher ROLE_FORBIDDEN", () => {
   assert.equal(r.code, "ROLE_FORBIDDEN");
 });
 
-// Brief P6.1: the timetable is the founder's; staff read it.
+// The timetable used to be founder-only ("staff read it"). It is now a real
+// weekly calendar that both roles maintain — TimetablePolicy.canEdit is true
+// for staff and the web/app staff screens both expose create/edit/delete, so
+// the policy matches. Branch scope is still enforced separately by the handler.
 for (const fn of ["api_timetableCreate", "api_timetableUpdate", "api_timetableDelete"]) {
-  test(`authorizeRpc: staff -> ${fn} ROLE_FORBIDDEN`, () => {
-    const r = authorizeRpc(staff, fn);
-    assert.equal(r.ok, false);
-    assert.equal(r.code, "ROLE_FORBIDDEN");
+  test(`authorizeRpc: staff may ${fn}, and so may the founder`, () => {
+    assert.equal(authorizeRpc(staff, fn).ok, true);
     assert.equal(authorizeRpc(founder, fn).ok, true);
   });
 }

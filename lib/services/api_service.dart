@@ -65,6 +65,22 @@ class ApiService {
   Future<dynamic> saveStudentDraft(Map<String, dynamic> form) =>
       _api.call('api_staff_saveStudentDraft', form);
 
+  // ---------------------------------------------------------- demo students
+  Future<dynamic> addDemoStudent(Map<String, dynamic> form) =>
+      _api.call('api_addDemoStudent', form);
+
+  Future<List<DemoStudent>> listDemoStudents({String branch = 'ALL'}) async {
+    final b = await _api.call('api_listDemoStudents', {'branch': branch});
+    return ((b as Map)['students'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(DemoStudent.fromApi)
+            .toList() ??
+        [];
+  }
+
+  Future<dynamic> convertDemoStudent(Map<String, dynamic> form) =>
+      _api.call('api_founder_convertDemoStudent', form);
+
   // ---------------------------------------------------------------- money
   Future<dynamic> addFeePayment(Map<String, dynamic> form) =>
       _api.call('api_addFeePayment', form);
@@ -73,6 +89,32 @@ class ApiService {
       _api.call('api_receiptPreflight', form);
 
   Future<List<ReceiptRow>> searchReceipts({
+    String q = '',
+    String studentName = '',
+    String receiptNo = '',
+    String classCode = 'ALL',
+    String status = '',
+    String dateFrom = '',
+    String dateTo = '',
+    int limit = 50,
+    int offset = 0,
+  }) async =>
+      (await searchReceiptsPage(
+        q: q,
+        studentName: studentName,
+        receiptNo: receiptNo,
+        classCode: classCode,
+        status: status,
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+        limit: limit,
+        offset: offset,
+      ))
+      .rows;
+
+  /// One page of receipts plus the server's total, so a list can paginate
+  /// instead of silently stopping at `limit`.
+  Future<({List<ReceiptRow> rows, int total})> searchReceiptsPage({
     String q = '',
     String studentName = '',
     String receiptNo = '',
@@ -93,12 +135,14 @@ class ApiService {
       'dateTo': dateTo,
       'limit': limit,
       'offset': offset,
-    });
-    return ((b as Map)['results'] as List?)
+    }) as Map<String, dynamic>;
+    final rows = (b['results'] as List?)
             ?.whereType<Map<String, dynamic>>()
             .map(ReceiptRow.fromApi)
             .toList() ??
         [];
+    final rawTotal = b['total'];
+    return (rows: rows, total: rawTotal is num ? rawTotal.toInt() : rows.length);
   }
 
   // ------------------------------------------------------------ dashboard
@@ -139,6 +183,7 @@ class ApiService {
     required String tenure,
     String invoiceDate = '',
     String branch = 'ALL',
+    required String schoolId,
     required String intentKey,
   }) async {
     final b = await _api.call('api_generateSchoolInvoice', {
@@ -147,10 +192,36 @@ class ApiService {
       'tenure': tenure,
       if (invoiceDate.isNotEmpty) 'invoiceDate': invoiceDate,
       'branch': branch,
+      'schoolId': schoolId,
       'clientIntentKey': intentKey,
     });
     return SchoolInvoice.fromApi(b as Map<String, dynamic>);
   }
+
+  /// Schools a class can be billed to. The code is what appears on the
+  /// invoice number, so it is set once and never changes.
+  Future<List<School>> listSchools() async {
+    final b = await _api.call('api_listSchools', const {});
+    return ((b as Map)['schools'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(School.fromApi)
+            .toList() ??
+        [];
+  }
+
+  /// Founder-only: adds a school that uses the same invoice template.
+  Future<dynamic> addSchool({
+    required String code,
+    required String name,
+    String address = '',
+    String contact = '',
+  }) =>
+      _api.call('api_addSchool', {
+        'code': code,
+        'name': name,
+        if (address.isNotEmpty) 'address': address,
+        if (contact.isNotEmpty) 'contact': contact,
+      });
 
   /// School-level invoice history (global). No student dimension.
   Future<List<InvoiceSummary>> listSchoolInvoices({String branch = 'ALL'}) async {
@@ -372,16 +443,10 @@ class ApiService {
   /// REAL MONEY — finalises an APPROVED payment draft on the founder side.
   /// Reserves a receipt number, writes STUDENT_RECEIPTS + MONEY_LEDGER,
   /// advances next_due_date, renders PDF. Founder only. Idempotent.
-  Future<dynamic> founderFinalisePaymentDraft(
-    String draftId, {
-    bool override = false,
-    String overrideReason = '',
-  }) =>
-      _api.call('api_founder_finalisePaymentDraft', {
-        'draftId': draftId,
-        if (override) 'override': true,
-        if (override && overrideReason.isNotEmpty) 'overrideReason': overrideReason,
-      });
+  /// No override flag: the server refuses anything but an APPROVED draft, and
+  /// an incomplete student is fixed in the record, not forced past.
+  Future<dynamic> founderFinalisePaymentDraft(String draftId) =>
+      _api.call('api_founder_finalisePaymentDraft', {'draftId': draftId});
 
   /// REAL MONEY (gated) — staff executes a founder-APPROVED draft's receipt.
   /// Server refuses unless STAFF_FINALISE_ENABLED + ops account + verified

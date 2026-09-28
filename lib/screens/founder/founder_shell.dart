@@ -4,6 +4,7 @@ import '../shell/shell_nav.dart';
 import '../shared/approvals_screen.dart';
 import '../shared/dashboard_screen.dart';
 import '../shared/add_student_screen.dart';
+import '../shared/demo_students_screen.dart';
 import '../shared/expenses_screen.dart';
 import '../shared/fee_collection_screen.dart';
 import '../shared/receipts_screen.dart';
@@ -26,7 +27,7 @@ class FounderShell extends StatelessWidget {
       navItems: founderItems,
       sections: const [
         (label: 'Today', keys: ['home']),
-        (label: 'Students', keys: ['students', 'addStudent']),
+        (label: 'Students', keys: ['students', 'addStudent', 'demoStudents']),
         (label: 'Money', keys: ['addFee', 'receipts', 'payouts', 'expenses']),
         (label: 'People', keys: ['teachers', 'approvals']),
         (label: 'Academy', keys: ['timetable', 'schoolInvoice', 'auditLog']),
@@ -40,6 +41,8 @@ class FounderShell extends StatelessWidget {
             return const StudentsScreen(staff: false);
           case 'addStudent':
             return const AddStudentScreen(staff: false);
+          case 'demoStudents':
+            return const DemoStudentsScreen(staff: false);
           case 'addFee':
             return const FeeCollectionScreen(staff: false);
           case 'receipts':

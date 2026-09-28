@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/atoms.dart';
+import 'receipt_detail_screen.dart';
 
 /// Fee collection.
 /// founder: `api_addFeePayment` — real receipt, locked + countered + audited.
@@ -28,6 +29,7 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
   final _feeFrom = TextEditingController();
   final _feeTo = TextEditingController();
   final _notes = TextEditingController();
+  final _monthsPaid = TextEditingController(text: '1');
   Student? _student;
   String _mode = 'Cash';
   bool _busy = false;
@@ -93,16 +95,55 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
 
   @override
   void dispose() {
-    for (final c in [_amount, _txn, _receiptBook, _dueDate, _feeFrom, _feeTo, _notes]) {
+    for (final c in [_amount, _txn, _receiptBook, _dueDate, _feeFrom, _feeTo, _notes, _monthsPaid]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  /// Reads the amount back off the form rather than the parsed value, so the
+  /// dialog shows exactly the digits that will be sent.
+  Future<bool> _confirmRealMoney() async {
+    final student = _student;
+    if (student == null) return false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Record this receipt?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('This writes a real receipt, a ledger entry and moves the '
+                'student\'s next due date. It cannot be undone — only voided '
+                'separately.', style: TextStyle(fontSize: 13, color: AppColors.adaptive(ctx, AppColors.muted))),
+            const SizedBox(height: AppSpace.s3),
+            InfoRow('Student', student.studentName),
+            InfoRow('Amount', '₹${_amount.text.trim()}'),
+            InfoRow('Mode', _mode),
+            InfoRow('Payment date', _dueDate.text.trim()),
+            if (_feeFrom.text.trim().isNotEmpty)
+              InfoRow('Fee period', '${_feeFrom.text.trim()} – ${_feeTo.text.trim()}'),
+            if (_txn.text.trim().isNotEmpty) InfoRow('Reference', _txn.text.trim()),
+            if (_receiptBook.text.trim().isNotEmpty) InfoRow('Receipt book', _receiptBook.text.trim()),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Record receipt')),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     if (auth.service == null) return;
+    // The founder path writes real money (receipt + ledger + due-date advance)
+    // with no draft to approve afterwards, so confirm the exact figures first.
+    if (!widget.staff && !await _confirmRealMoney()) return;
     setState(() {
       _busy = true;
       _result = null;
@@ -122,7 +163,7 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
               'receivingAccountRef': _accountFor(_mode),
               'notes': _notes.text.trim(),
               'physicalReceiptNo': _mode.toUpperCase().contains('CASH') ? _receiptBook.text.trim() : '',
-              'monthsPaid': '1',
+              'monthsPaid': _monthsPaid.text.trim().isEmpty ? '1' : _monthsPaid.text.trim(),
               'clientIntentKey': _requestId,
               if (_instalmentItemId != null) 'instalmentItemId': _instalmentItemId,
             }
@@ -165,6 +206,35 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
         _busy = false;
         _result = e.message;
       });
+    }
+  }
+
+  /// Looks the just-issued receipt up by number and opens its detail screen.
+  /// A failure here must never look like the payment failed — the money is
+  /// already recorded, so this only reports that it could not be opened.
+  Future<void> _openNewReceipt() async {
+    final auth = context.read<AuthProvider>();
+    final no = (_resData?['receiptNo'] ?? '').toString();
+    if (auth.service == null || no.isEmpty) return;
+    try {
+      final rows = await auth.service!.searchReceipts(receiptNo: no, limit: 1);
+      if (!mounted) return;
+      final row = rows.isEmpty ? null : rows.first;
+      if (row == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Receipt $no is recorded but not returned by search yet.')),
+        );
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => ReceiptDetailScreen(receipt: row)),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -347,6 +417,19 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
                     ),
                   ],
                   const SizedBox(height: AppSpace.s3),
+                  if (widget.staff) ...[
+                    const SizedBox(height: AppSpace.s3),
+                    TextFormField(
+                      controller: _monthsPaid,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                          labelText: 'Months paid', prefixIcon: Icon(Icons.date_range_outlined)),
+                      validator: (v) {
+                        final n = int.tryParse((v ?? '').trim());
+                        return (n == null || n < 1) ? 'Enter how many months this covers' : null;
+                      },
+                    ),
+                  ],
                   TextFormField(
                     controller: _notes,
                     maxLines: 2,
@@ -370,6 +453,17 @@ class _FeeCollectionScreenState extends State<FeeCollectionScreen> {
                     const SizedBox(width: AppSpace.s2),
                     Expanded(child: Text(_result!, style: const TextStyle(fontSize: 13))),
                   ]),
+                ),
+              ),
+            // Founder-only: the receipt now exists, so hand them the one screen
+            // that shows it rather than making them hunt for it.
+            if (!widget.staff && _resData?['ok'] == true && (_resData?['receiptNo'] ?? '').toString().isNotEmpty)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _openNewReceipt,
+                  icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                  label: const Text('View receipt'),
                 ),
               ),
             const SizedBox(height: AppSpace.s4),
