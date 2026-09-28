@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import { BRAND, branchLabel, indianAmount, styles } from "./shared";
+import { amountInWords, BRAND, branchLabel, indianAmount, styles } from "./shared";
 
 export interface InvoiceOwner {
   name: string;
@@ -135,14 +135,18 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
             <Text style={[{ fontSize: 11 }, inv.colDesc]}>{data.className || "Music Classes"}</Text>
             <Text style={[{ fontSize: 11 }, inv.colTenure]}>{data.tenure || "—"}</Text>
             <Text style={[{ fontSize: 11, fontFamily: "Helvetica-Bold" }, inv.colAmount]}>
-              {"₹"} {indianAmount(data.amount)}
+              Rs. {indianAmount(data.amount)}
             </Text>
           </View>
           <View style={inv.totalRow}>
             <Text style={inv.totalLabel}>TOTAL</Text>
-            <Text style={inv.totalValue}>{"₹"} {indianAmount(data.amount)}</Text>
+            <Text style={inv.totalValue}>Rs. {indianAmount(data.amount)}</Text>
           </View>
         </View>
+
+        <Text style={{ fontSize: 9, fontFamily: "Helvetica-Oblique", color: BRAND.gray, marginTop: 8 }}>
+          ({amountInWords(data.amount)})
+        </Text>
 
         <View style={inv.signRow}>
           <SignatureBlock owner={data.owner1} />

@@ -97,7 +97,7 @@ export const styles = StyleSheet.create({
     borderRadius: 4,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 6,
   },
   amountLabel: {
     fontSize: 11,
@@ -107,6 +107,12 @@ export const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     fontSize: 18,
     color: BRAND.gold,
+  },
+  amountWords: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Oblique",
+    color: BRAND.gray,
+    marginBottom: 20,
   },
   footer: {
     position: "absolute",
@@ -129,6 +135,42 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+
+const ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+  "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+function twoDigitsToWords(n: number): string {
+  if (n < 20) return ONES[n];
+  const t = Math.floor(n / 10);
+  const o = n % 10;
+  return o ? `${TENS[t]}-${ONES[o]}` : TENS[t];
+}
+
+function threeDigitsToWords(n: number): string {
+  const h = Math.floor(n / 100);
+  const rest = n % 100;
+  const parts: string[] = [];
+  if (h) parts.push(`${ONES[h]} Hundred`);
+  if (rest) parts.push(twoDigitsToWords(rest));
+  return parts.join(" ");
+}
+
+/** 184500 -> "One Lakh Eighty-Four Thousand Five Hundred Rupees Only" (Indian numbering). */
+export function amountInWords(value: number): string {
+  const whole = Math.trunc(Math.abs(value));
+  if (whole === 0) return "Zero Rupees Only";
+  const crore = Math.floor(whole / 1e7);
+  const lakh = Math.floor((whole % 1e7) / 1e5);
+  const thousand = Math.floor((whole % 1e5) / 1e3);
+  const hundred = whole % 1e3;
+  const parts: string[] = [];
+  if (crore) parts.push(`${threeDigitsToWords(crore)} Crore`);
+  if (lakh) parts.push(`${threeDigitsToWords(lakh)} Lakh`);
+  if (thousand) parts.push(`${threeDigitsToWords(thousand)} Thousand`);
+  if (hundred) parts.push(threeDigitsToWords(hundred));
+  return `${parts.join(" ")} Rupees Only`;
+}
 
 /** 184500 -> "1,84,500"; keeps paise only when non-zero. */
 export function indianAmount(value: number): string {

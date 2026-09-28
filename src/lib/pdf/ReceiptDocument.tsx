@@ -1,5 +1,5 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
-import { branchLabel, indianAmount, styles } from "./shared";
+import { amountInWords, BRAND, branchLabel, indianAmount, styles } from "./shared";
 
 export interface ReceiptPdfData {
   receiptNo: string;
@@ -62,8 +62,11 @@ export function ReceiptDocument({ data }: { data: ReceiptPdfData }) {
 
         <View style={styles.amountBox}>
           <Text style={styles.amountLabel}>Amount received</Text>
-          <Text style={styles.amountValue}>{"₹"} {indianAmount(data.amount)}</Text>
+          <Text style={styles.amountValue}>Rs. {indianAmount(data.amount)}</Text>
         </View>
+        <Text style={styles.amountWords}>({amountInWords(data.amount)})</Text>
+
+        <Text style={{ fontSize: 9, color: BRAND.gray, marginTop: 30 }}>Thank you for your payment.</Text>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>This is a computer-generated receipt and needs no signature.</Text>
