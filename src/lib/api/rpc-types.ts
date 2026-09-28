@@ -140,6 +140,24 @@ export interface TeacherListResponse extends RpcEnvelope {
   teachers: Teacher[];
 }
 
+export interface TeacherAttendanceRow {
+  teacherId: string;
+  teacherName: string;
+  scheduled: number;
+  held: number;
+  cancelled: number;
+  substituted: number;
+  unanswered: number;
+}
+
+export interface TeacherAttendanceReportResponse extends RpcEnvelope {
+  from: string;
+  to: string;
+  teachers: TeacherAttendanceRow[];
+  scheduledToday: number;
+  unansweredToday: number;
+}
+
 export interface InstrumentOption {
   id: string;
   name: string;

@@ -77,9 +77,14 @@ export default function StaffTeachersPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-dash-fg">Teachers</h1>
           <p className="mt-1 text-sm text-dash-fg/55">Academy teaching panel.</p>
         </div>
-        <Button className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" aria-hidden /> Request Teacher
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
+            <Link href="/staff/teachers/attendance">Attendance report</Link>
+          </Button>
+          <Button className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden /> Request Teacher
+          </Button>
+        </div>
       </motion.div>
 
       <motion.div variants={fadeUp} className="flex flex-wrap gap-2">

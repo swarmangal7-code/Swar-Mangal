@@ -118,7 +118,18 @@ export default function StaffAddStudentPage() {
 
   const dueDayNum = Number(dueDay);
   const validDueDay = Number.isInteger(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
-  const valid = name.trim().length > 0 && validDueDay && classCode.length > 0;
+  const valid =
+    name.trim().length > 0 &&
+    phone.trim().length > 0 &&
+    guardian.trim().length > 0 &&
+    guardianPhone.trim().length > 0 &&
+    joiningDate.trim().length > 0 &&
+    instrument.trim().length > 0 &&
+    classCode.length > 0 &&
+    plan.length > 0 &&
+    source.length > 0 &&
+    teacherId.length > 0 &&
+    validDueDay;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,33 +195,33 @@ export default function StaffAddStudentPage() {
               <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Full name" className={inputClass} />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Phone">
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="numeric" placeholder="98xxxxxx00" className={inputClass} />
+              <Field label="Phone *">
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="numeric" required placeholder="98xxxxxx00" className={inputClass} />
               </Field>
               <Field label="Email">
                 <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="parent@example.com" className={inputClass} />
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Parent / guardian name">
-                <Input value={guardian} onChange={(e) => setGuardian(e.target.value)} placeholder="Guardian name" className={inputClass} />
+              <Field label="Parent / guardian name *">
+                <Input value={guardian} onChange={(e) => setGuardian(e.target.value)} required placeholder="Guardian name" className={inputClass} />
               </Field>
-              <Field label="Guardian contact number">
-                <Input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} type="tel" inputMode="numeric" placeholder="98xxxxxx00" className={inputClass} />
+              <Field label="Guardian contact number *">
+                <Input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} type="tel" inputMode="numeric" required placeholder="98xxxxxx00" className={inputClass} />
               </Field>
             </div>
-            <Field label="Joining date">
-              <Input value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} type="date" className={inputClass} />
+            <Field label="Joining date *">
+              <Input value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} type="date" required className={inputClass} />
             </Field>
-            <Field label="Instrument / course">
-              <Input value={instrument} onChange={(e) => setInstrument(e.target.value)} placeholder="Keyboard, Violin, Vocal…" className={inputClass} />
+            <Field label="Instrument / course *">
+              <Input value={instrument} onChange={(e) => setInstrument(e.target.value)} required placeholder="Keyboard, Violin, Vocal…" className={inputClass} />
             </Field>
           </CardContent>
         </Card>
 
         <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-4 pt-5">
-            <Field label="Branch / class code">
+            <Field label="Branch / class code *">
               <select value={classCode} onChange={(e) => setClassCode(e.target.value)} className={selectClass}>
                 {classCodes.map((c) => (
                   <option key={c} value={c}>
@@ -220,12 +231,14 @@ export default function StaffAddStudentPage() {
               </select>
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Fee plan">
+              <Field label="Fee plan *">
                 {boot.isPending ? (
                   <Skeleton className="h-11 bg-dash-fg/[0.04]" />
                 ) : (
-                  <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selectClass}>
-                    <option value="">No plan yet</option>
+                  <select value={plan} onChange={(e) => setPlan(e.target.value)} required className={selectClass}>
+                    <option value="" disabled>
+                      Select a plan
+                    </option>
                     {plans.map((p) => (
                       <option key={p.name} value={p.name}>
                         {p.name} — {formatINR(p.amount)}
@@ -255,7 +268,7 @@ export default function StaffAddStudentPage() {
         <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-4 pt-5">
             <div>
-              <Label className="text-[13px] font-medium text-dash-fg/70">How did they come to us?</Label>
+              <Label className="text-[13px] font-medium text-dash-fg/70">How did they come to us? *</Label>
               <div className="mt-2 flex flex-wrap gap-2">
                 {ADMISSION_SOURCES.map((src) => {
                   const active = source === src;
@@ -263,7 +276,7 @@ export default function StaffAddStudentPage() {
                     <button
                       key={src}
                       type="button"
-                      onClick={() => setSource(active ? "" : src)}
+                      onClick={() => setSource(src)}
                       aria-pressed={active}
                       className={cn(
                         "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60",
@@ -278,12 +291,14 @@ export default function StaffAddStudentPage() {
                 })}
               </div>
             </div>
-            <Field label="Teacher (optional)">
+            <Field label="Teacher *">
               {teachers.isPending ? (
                 <Skeleton className="h-11 bg-dash-fg/[0.04]" />
               ) : (
-                <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={selectClass}>
-                  <option value="">No teacher assigned yet</option>
+                <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required className={selectClass}>
+                  <option value="" disabled>
+                    Select a teacher
+                  </option>
                   {teacherOptions.map((t) => (
                     <option key={t.teacherId} value={t.teacherId}>
                       {t.teacherName}

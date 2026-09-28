@@ -32,6 +32,7 @@ import type {
   StudentSearchResponse,
   TeacherListResponse,
   TeacherProfileResponse,
+  TeacherAttendanceReportResponse,
   TimetableResponse,
   TimetableWeekResponse,
   TimetableSessionDetailResponse,
@@ -163,6 +164,14 @@ export function useStudentHub(id: string, branch = "ALL", options?: QueryOptions
 
 export function useTeachers(options?: QueryOptions<TeacherListResponse>) {
   return useRpc<TeacherListResponse>("api_listTeachers", undefined, { staleTime: 5 * 60_000, ...options });
+}
+
+export function useTeacherAttendanceReport(
+  from: string,
+  to: string,
+  options?: QueryOptions<TeacherAttendanceReportResponse>,
+) {
+  return useRpc<TeacherAttendanceReportResponse>("api_teacherAttendanceReport", { from, to }, options);
 }
 
 // --------------------------------------------------------------- instruments

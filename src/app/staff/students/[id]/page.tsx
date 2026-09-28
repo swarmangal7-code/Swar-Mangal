@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageComposeDialog } from "@/components/message-compose-dialog";
+import { StudentRequestsMenu } from "@/components/student-requests-menu";
 import { useMutationRpc, useStudentHub, useStudentProfile } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
@@ -181,6 +182,7 @@ export default function StaffStudentProfilePage() {
                 </Link>
               </Button>
               <MessageComposeDialog studentId={id} studentName={student.studentName} branch={student.location} />
+              <StudentRequestsMenu studentId={id} studentName={student.studentName} studentStatus={student.status} />
               <Button asChild size="sm" variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
                 <Link href="/staff/attendance">
                   <UserRoundCheck className="h-3.5 w-3.5" aria-hidden /> Attendance

@@ -28,6 +28,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   final _phone = TextEditingController();
   final _email = TextEditingController();
   final _parent = TextEditingController();
+  final _guardianPhone = TextEditingController();
   final _instrument = TextEditingController();
   final _fee = TextEditingController();
   final _months = TextEditingController();
@@ -39,9 +40,15 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   String _admissionSource = '';
   String _teacherId = '';
   int _feeDueDay = 5;
+  late String _joiningDate = _todayIso();
   bool _busy = false;
   String? _result; // server message after a save
   bool _success = false;
+
+  static String _todayIso() {
+    final d = DateTime.now();
+    return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
 
   List<Teacher> _teachers = [];
   bool _teachersBusy = true;
@@ -86,7 +93,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _phone, _email, _parent, _instrument, _fee, _months, _batch, _notes]) {
+    for (final c in [_name, _phone, _email, _parent, _guardianPhone, _instrument, _fee, _months, _batch, _notes]) {
       c.dispose();
     }
     super.dispose();
@@ -94,6 +101,20 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_editing) {
+      if (_admissionSource.isEmpty) {
+        setState(() => _result = 'Say how they came to us.');
+        return;
+      }
+      if (_plan.isEmpty) {
+        setState(() => _result = 'Pick a fee plan.');
+        return;
+      }
+      if (_teacherId.isEmpty) {
+        setState(() => _result = 'Pick a teacher.');
+        return;
+      }
+    }
     final auth = context.read<AuthProvider>();
     if (auth.service == null) return;
     setState(() {
@@ -109,9 +130,10 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               'phone': _phone.text.trim(),
               'email': _email.text.trim(),
               'parentName': _parent.text.trim(),
+              'guardianPhone': _guardianPhone.text.trim(),
               'course': _instrument.text.trim(),
               'branch': auth.branch ?? '',
-              'joiningDate': '',
+              'joiningDate': _joiningDate,
               'monthlyFee': _fee.text.trim(),
               'monthsPaid': _months.text.trim(),
               'batch': _batch.text.trim(),
@@ -126,6 +148,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               'phone': _phone.text.trim(),
               'email': _email.text.trim(),
               'guardianName': _parent.text.trim(),
+              'guardianPhone': _guardianPhone.text.trim(),
               'classCode': _classCode,
               if (_plan.isNotEmpty)
                 'feeCycleType': _plan
@@ -133,6 +156,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                 'feeCycleType': _feeCycle,
               'feeDueDay': _feeDueDay,
               'instrument': _instrument.text.trim(),
+              'enrollmentDate': _joiningDate,
               if (_admissionSource.isNotEmpty) 'admissionSource': _admissionSource,
               if (_teacherId.isNotEmpty) 'teacherId': _teacherId,
               if (_editing) 'studentId': widget.edit!.studentId,
@@ -201,7 +225,8 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   TextFormField(
                     controller: _phone,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined)),
+                    decoration: const InputDecoration(labelText: 'Phone *', prefixIcon: Icon(Icons.phone_outlined)),
+                    validator: (v) => (!_editing && (v == null || v.trim().isEmpty)) ? 'Phone is required' : null,
                   ),
                   const SizedBox(height: AppSpace.s3),
                   TextFormField(
@@ -213,18 +238,46 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   TextFormField(
                     controller: _parent,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(labelText: 'Parent / guardian name', prefixIcon: Icon(Icons.people_outline)),
+                    decoration: const InputDecoration(labelText: 'Parent / guardian name *', prefixIcon: Icon(Icons.people_outline)),
+                    validator: (v) => (!_editing && (v == null || v.trim().isEmpty)) ? 'Guardian name is required' : null,
+                  ),
+                  const SizedBox(height: AppSpace.s3),
+                  TextFormField(
+                    controller: _guardianPhone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: 'Guardian contact number *', prefixIcon: Icon(Icons.contact_phone_outlined)),
+                    validator: (v) => (!_editing && (v == null || v.trim().isEmpty)) ? 'Guardian contact number is required' : null,
+                  ),
+                  const SizedBox(height: AppSpace.s3),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.tryParse(_joiningDate) ?? DateTime.now(),
+                        firstDate: DateTime(2015),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setState(() => _joiningDate =
+                            '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Joining date *', prefixIcon: Icon(Icons.event_outlined)),
+                      child: Text(_joiningDate),
+                    ),
                   ),
                   const SizedBox(height: AppSpace.s3),
                   TextFormField(
                     controller: _instrument,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(labelText: 'Instrument / course', prefixIcon: Icon(Icons.music_note_outlined)),
+                    decoration: const InputDecoration(labelText: 'Instrument / course *', prefixIcon: Icon(Icons.music_note_outlined)),
+                    validator: (v) => (!_editing && (v == null || v.trim().isEmpty)) ? 'Instrument / course is required' : null,
                   ),
                   const SizedBox(height: AppSpace.s3),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text('HOW DID THEY COME TO US?',
+                    child: Text('HOW DID THEY COME TO US? *',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.adaptive(context, AppColors.muted))),
                   ),
                   const SizedBox(height: AppSpace.s2),
@@ -236,7 +289,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                         ChoiceChip(
                           label: Text(src.label),
                           selected: _admissionSource == src.value,
-                          onSelected: (_) => setState(() => _admissionSource = _admissionSource == src.value ? '' : src.value),
+                          onSelected: (_) => setState(() => _admissionSource = src.value),
                         ),
                     ],
                   ),
@@ -253,8 +306,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   DropdownButtonFormField<String>(
                     isExpanded: true,
                     initialValue: _plan.isEmpty ? null : _plan,
-                    decoration: const InputDecoration(labelText: 'Fee plan'),
+                    decoration: const InputDecoration(labelText: 'Fee plan *'),
                     hint: const Text('Select plan…'),
+                    validator: (v) => (!_editing && (v == null || v.isEmpty)) ? 'Pick a fee plan' : null,
                     items: [
                       for (final p in academyPlans)
                         DropdownMenuItem(
@@ -298,8 +352,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                       : DropdownButtonFormField<String>(
                           isExpanded: true,
                           initialValue: _teacherId.isEmpty ? null : _teacherId,
-                          decoration: const InputDecoration(labelText: 'Teacher (optional)'),
-                          hint: const Text('No teacher assigned yet'),
+                          decoration: const InputDecoration(labelText: 'Teacher *'),
+                          hint: const Text('Select teacher…'),
+                          validator: (v) => (!_editing && (v == null || v.isEmpty)) ? 'Pick a teacher' : null,
                           items: [
                             for (final t in _teachers)
                               DropdownMenuItem(value: t.teacherId, child: Text('${t.teacherName}${t.primaryRole.isNotEmpty ? ' · ${t.primaryRole}' : ''}')),
@@ -319,7 +374,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                 padding: const EdgeInsets.all(AppSpace.s4),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   if (!widget.staff) ...[
-                    Text('CLASS CODE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.adaptive(context, AppColors.muted))),
+                    Text('CLASS CODE *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.adaptive(context, AppColors.muted))),
                     const SizedBox(height: AppSpace.s2),
                     SegmentedButton<String>(
                       segments: const [
@@ -333,7 +388,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     DropdownButtonFormField<String>(
                       isExpanded: true,
                       initialValue: _feeCycle,
-                      decoration: const InputDecoration(labelText: 'Fee cycle'),
+                      decoration: const InputDecoration(labelText: 'Fee cycle *'),
                       items: const [
                         DropdownMenuItem(value: 'Monthly', child: Text('Monthly')),
                         DropdownMenuItem(value: '3 Months', child: Text('3 Months')),
@@ -346,7 +401,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     TextFormField(
                       initialValue: '$_feeDueDay',
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Fee due day (1-31)'),
+                      decoration: const InputDecoration(labelText: 'Fee due day (1-31) *'),
                       onChanged: (v) => _feeDueDay = int.tryParse(v) ?? 5,
                       validator: (v) {
                         final n = int.tryParse(v ?? '');

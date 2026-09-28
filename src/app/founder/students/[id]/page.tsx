@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageComposeDialog } from "@/components/message-compose-dialog";
+import { TermsLinkButton } from "@/components/student-requests-menu";
 import { rpcKeys, useMutationRpc, useStudentHub, useStudentProfile } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
@@ -196,6 +197,7 @@ export default function FounderStudentProfilePage() {
                 </Link>
               </Button>
               <MessageComposeDialog studentId={id} studentName={student.studentName} branch={student.location} />
+              <TermsLinkButton studentId={id} studentName={student.studentName} />
               <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
                 <Pencil className="h-3.5 w-3.5" aria-hidden /> Edit
               </Button>

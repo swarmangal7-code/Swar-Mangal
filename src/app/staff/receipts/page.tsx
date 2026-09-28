@@ -141,11 +141,12 @@ function ReceiptItem({ row }: { row: ReceiptRow }) {
     </>
   );
 
+  const receiptKey = row.receiptNo ?? row.entityId;
   return (
     <li>
-      {row.studentId ? (
+      {receiptKey ? (
         <Link
-          href={`/staff/students/${encodeURIComponent(row.studentId)}`}
+          href={`/staff/receipts/${encodeURIComponent(receiptKey)}`}
           className="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-dash-fg/[0.04] sm:px-5"
         >
           {inner}

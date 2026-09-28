@@ -113,10 +113,21 @@ export default function FounderAddStudentPage() {
 
   const dueDayNum = Number(dueDay);
   const validDueDay = Number.isInteger(dueDayNum) && dueDayNum >= 1 && dueDayNum <= 31;
+  const formValid =
+    name.trim() &&
+    phone.trim() &&
+    guardian.trim() &&
+    guardianPhone.trim() &&
+    joiningDate.trim() &&
+    instrument.trim() &&
+    plan &&
+    source &&
+    teacherId &&
+    validDueDay;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !validDueDay) return;
+    if (!formValid) return;
     setFeedback(null);
     addStudent.mutate({
       studentName: name.trim(),
@@ -187,12 +198,13 @@ export default function FounderAddStudentPage() {
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Phone">
+              <Field label="Phone *">
                 <Input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   type="tel"
                   inputMode="numeric"
+                  required
                   placeholder="98xxxxxx00"
                   className={inputClass}
                 />
@@ -208,37 +220,41 @@ export default function FounderAddStudentPage() {
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Parent / guardian name">
+              <Field label="Parent / guardian name *">
                 <Input
                   value={guardian}
                   onChange={(e) => setGuardian(e.target.value)}
+                  required
                   placeholder="Guardian name"
                   className={inputClass}
                 />
               </Field>
-              <Field label="Guardian contact number">
+              <Field label="Guardian contact number *">
                 <Input
                   value={guardianPhone}
                   onChange={(e) => setGuardianPhone(e.target.value)}
                   type="tel"
                   inputMode="numeric"
+                  required
                   placeholder="98xxxxxx00"
                   className={inputClass}
                 />
               </Field>
             </div>
-            <Field label="Joining date">
+            <Field label="Joining date *">
               <Input
                 value={joiningDate}
                 onChange={(e) => setJoiningDate(e.target.value)}
                 type="date"
+                required
                 className={inputClass}
               />
             </Field>
-            <Field label="Instrument / course">
+            <Field label="Instrument / course *">
               <Input
                 value={instrument}
                 onChange={(e) => setInstrument(e.target.value)}
+                required
                 placeholder="Keyboard, Violin, Vocal…"
                 className={inputClass}
               />
@@ -248,7 +264,7 @@ export default function FounderAddStudentPage() {
 
         <Card className="border-dash-fg/10 bg-dash-card">
           <CardContent className="space-y-4 pt-5">
-            <Field label="Class code">
+            <Field label="Class code *">
               <SegmentedControl
                 value={classCode}
                 onChange={setClassCode}
@@ -257,12 +273,14 @@ export default function FounderAddStudentPage() {
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Fee plan">
+              <Field label="Fee plan *">
                 {boot.isLoading ? (
                   <Skeleton className="h-11 bg-dash-fg/[0.04]" />
                 ) : (
-                  <select value={plan} onChange={(e) => setPlan(e.target.value)} className={selectClass}>
-                    <option value="">No plan yet</option>
+                  <select value={plan} onChange={(e) => setPlan(e.target.value)} required className={selectClass}>
+                    <option value="" disabled>
+                      Select a plan
+                    </option>
                     {plans.map((p) => (
                       <option key={p.name} value={p.name}>
                         {p.name} — {formatINR(p.amount)}
@@ -313,7 +331,7 @@ export default function FounderAddStudentPage() {
           <CardContent className="space-y-4 pt-5">
             <div>
               <Label className="text-[13px] font-medium text-dash-fg/70">
-                How did they come to us?
+                How did they come to us? *
               </Label>
               <div className="mt-2 flex flex-wrap gap-2">
                 {ADMISSION_SOURCES.map((src) => {
@@ -322,7 +340,7 @@ export default function FounderAddStudentPage() {
                     <button
                       key={src}
                       type="button"
-                      onClick={() => setSource(active ? "" : src)}
+                      onClick={() => setSource(src)}
                       aria-pressed={active}
                       className={cn(
                         "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60",
@@ -337,16 +355,19 @@ export default function FounderAddStudentPage() {
                 })}
               </div>
             </div>
-            <Field label="Teacher (optional)">
+            <Field label="Teacher *">
               {teachers.isPending ? (
                 <Skeleton className="h-11 bg-dash-fg/[0.04]" />
               ) : (
                 <select
                   value={teacherId}
                   onChange={(e) => setTeacherId(e.target.value)}
+                  required
                   className={selectClass}
                 >
-                  <option value="">No teacher assigned yet</option>
+                  <option value="" disabled>
+                    Select a teacher
+                  </option>
                   {teacherOptions.map((t) => (
                     <option key={t.teacherId} value={t.teacherId}>
                       {t.teacherName}
@@ -372,7 +393,7 @@ export default function FounderAddStudentPage() {
           <Button
             type="submit"
             loading={addStudent.isPending}
-            disabled={!name.trim() || !validDueDay}
+            disabled={!formValid}
             className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
           >
             Add Student
