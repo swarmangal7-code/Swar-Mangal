@@ -67,7 +67,7 @@ const inv = StyleSheet.create({
   totalValue: {
     fontFamily: "Helvetica-Bold",
     fontSize: 15,
-    color: BRAND.gold,
+    color: BRAND.navy,
   },
   signRow: {
     flexDirection: "row",
@@ -107,12 +107,19 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
     <Document title={`Invoice ${data.invoiceNo}`}>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerBand}>
-          <Text style={styles.academyName}>SWAR MANGAL</Text>
-          <Text style={styles.academySub}>Music Academy</Text>
+          <View style={styles.logoBadge}>
+            <Text style={styles.logoBadgeText}>SM</Text>
+          </View>
+          <View>
+            <Text style={styles.academyName}>SWAR MANGAL</Text>
+            <Text style={styles.academySub}>MUSIC ACADEMY</Text>
+          </View>
         </View>
 
         <View style={styles.titleRow}>
-          <Text style={styles.docTitle}>SCHOOL INVOICE</Text>
+          <View style={styles.docTitlePill}>
+            <Text style={styles.docTitle}>SCHOOL INVOICE</Text>
+          </View>
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.docNo}>{data.invoiceNo}</Text>
             <Text style={styles.docMeta}>{data.invoiceDate}</Text>
@@ -154,7 +161,8 @@ export function InvoiceDocument({ data }: { data: InvoicePdfData }) {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerBrand}>Swar Mangal Music Academy</Text>
+          <Text style={styles.footerText}>Thank you for choosing Swar Mangal.</Text>
+          <Text style={styles.footerBrand}>SWAR MANGAL MUSIC ACADEMY</Text>
         </View>
       </Page>
     </Document>
