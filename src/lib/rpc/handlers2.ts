@@ -61,6 +61,10 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return expenseDraftApprove(arg, session);
     case "api_founder_expenseDraftReject":
       return expenseDraftReject(arg, session);
+    case "api_listInstruments":
+      return listInstruments();
+    case "api_addInstrument":
+      return addInstrument(arg);
     case "api_listTeachers":
       return listTeachers();
     case "api_addTeacher":
@@ -422,6 +426,25 @@ async function dashboardOverviewSections(scope: BranchScope, today: string, requ
     },
     teacherAttendance: teacherAttendanceFromClasses(classRows),
   };
+}
+
+// ------------------------------------------------------------ instruments
+/** Shared, growable picklist for the teacher instrument dropdown (not a FK — teachers_acad.instrument stays free text). */
+async function listInstruments(): Promise<Record<string, unknown>> {
+  const rows = await query<{ id: string; name: string }>(`select id, name from instrument_options order by name asc`);
+  return ok({ instruments: rows.map((r) => ({ id: r.id, name: r.name })) });
+}
+
+async function addInstrument(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const name = s(arg["name"]).trim();
+  if (!name) return { ok: false, code: "NO_NAME", error: "Instrument name required" };
+  const row = await queryOne<{ id: string; name: string }>(
+    `insert into instrument_options (name) values ($1)
+     on conflict (name) do update set name = instrument_options.name
+     returning id, name`,
+    [name],
+  );
+  return ok({ instrument: row });
 }
 
 // ---------------------------------------------------------------- teachers

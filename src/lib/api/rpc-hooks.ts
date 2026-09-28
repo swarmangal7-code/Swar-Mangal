@@ -22,6 +22,7 @@ import type {
   DashboardMetricsResponse,
   DueRemindersResponse,
   InquiryQueueResponse,
+  InstrumentListResponse,
   PaymentDraftsResponse,
   PayoutPreviewResponse,
   ReceiptSearchResponse,
@@ -159,6 +160,12 @@ export function useStudentHub(id: string, branch = "ALL", options?: QueryOptions
 
 export function useTeachers(options?: QueryOptions<TeacherListResponse>) {
   return useRpc<TeacherListResponse>("api_listTeachers", undefined, { staleTime: 5 * 60_000, ...options });
+}
+
+// --------------------------------------------------------------- instruments
+
+export function useInstruments(options?: QueryOptions<InstrumentListResponse>) {
+  return useRpc<InstrumentListResponse>("api_listInstruments", undefined, { staleTime: 5 * 60_000, ...options });
 }
 
 export function useTeacherProfile(teacherId: string, branch = "ALL", options?: QueryOptions<TeacherProfileResponse>) {

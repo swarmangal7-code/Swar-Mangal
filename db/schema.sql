@@ -1390,4 +1390,19 @@ alter table inquiries add column if not exists former_teacher_id text;
 alter table teacher_add_requests add column if not exists action text not null default 'ADD';
 alter table teacher_add_requests add column if not exists email text;
 alter table teacher_add_requests add column if not exists lifecycle_status text;
+
+-- Founder request 2026-09-28: teacher instrument becomes a dropdown fed by a
+-- shared, growable list (founder/staff can add a new one inline) instead of
+-- free typing. teachers_acad.instrument stays plain text — this table is
+-- only the picklist source, not a foreign key, so existing free-text rows
+-- from before this list existed keep working unchanged.
+create table if not exists instrument_options (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz not null default now()
+);
+insert into instrument_options (name) values
+  ('Vocals'), ('Guitar'), ('Piano / Keyboard'), ('Violin'), ('Tabla'),
+  ('Drums'), ('Flute'), ('Harmonium'), ('Ukulele')
+on conflict (name) do nothing;
 alter table teacher_add_requests add column if not exists status_reason text;

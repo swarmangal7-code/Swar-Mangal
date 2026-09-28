@@ -208,6 +208,50 @@ class _TeachersScreenState extends State<TeachersScreen> {
     final busy = ValueNotifier(false);
     final staff = widget.staff;
     final intentKey = 'TCHREQ-${DateTime.now().microsecondsSinceEpoch}';
+    final instrumentOptions = ValueNotifier<List<String>?>(null);
+    final selectedInstrument = ValueNotifier<String?>(null);
+    final addingInstrument = ValueNotifier<bool>(false);
+    final newInstrumentCtrl = TextEditingController();
+    final instrumentErr = ValueNotifier<String?>(null);
+
+    Future<void> loadInstruments() async {
+      try {
+        final r = await context.read<AuthProvider>().service!.raw('api_listInstruments', {});
+        final m = r as Map<String, dynamic>;
+        final list = ((m['instruments'] as List?) ?? const [])
+            .map((e) => (e as Map)['name'].toString())
+            .toList();
+        instrumentOptions.value = list;
+      } catch (_) {
+        instrumentOptions.value = const [];
+      }
+    }
+
+    loadInstruments();
+
+    Future<void> addNewInstrument(BuildContext dialogCtx) async {
+      final name0 = newInstrumentCtrl.text.trim();
+      if (name0.isEmpty) return;
+      instrumentErr.value = null;
+      try {
+        final auth = dialogCtx.read<AuthProvider>();
+        final r = await auth.service!.raw('api_addInstrument', {'name': name0});
+        final m = r as Map<String, dynamic>;
+        if (m['ok'] != true) {
+          instrumentErr.value = (m['error'] ?? 'Could not add instrument.').toString();
+          return;
+        }
+        final added = ((m['instrument'] as Map?)?['name'] ?? name0).toString();
+        instrumentOptions.value = [...?instrumentOptions.value, added]..sort();
+        selectedInstrument.value = added;
+        role.text = added;
+        addingInstrument.value = false;
+        newInstrumentCtrl.clear();
+      } on ApiException catch (e) {
+        instrumentErr.value = e.message;
+      }
+    }
+
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -217,7 +261,66 @@ class _TeachersScreenState extends State<TeachersScreen> {
           const SizedBox(height: AppSpace.s3),
           TextField(controller: phone, decoration: const InputDecoration(labelText: 'Phone'), keyboardType: TextInputType.phone),
           const SizedBox(height: AppSpace.s3),
-          TextField(controller: role, decoration: const InputDecoration(labelText: 'Primary instrument / role')),
+          ValueListenableBuilder<bool>(
+            valueListenable: addingInstrument,
+            builder: (_, adding, _) {
+              if (adding) {
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  TextField(
+                    controller: newInstrumentCtrl,
+                    autofocus: true,
+                    decoration: const InputDecoration(labelText: 'New instrument name'),
+                  ),
+                  ValueListenableBuilder<String?>(
+                    valueListenable: instrumentErr,
+                    builder: (_, e, _) => e == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(e, style: TextStyle(color: AppColors.adaptive(context, AppColors.blockFg), fontSize: 12)),
+                          ),
+                  ),
+                  const SizedBox(height: AppSpace.s2),
+                  Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    TextButton(
+                      onPressed: () {
+                        addingInstrument.value = false;
+                        instrumentErr.value = null;
+                        newInstrumentCtrl.clear();
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(onPressed: () => addNewInstrument(ctx), child: const Text('Add')),
+                  ]),
+                ]);
+              }
+              return ValueListenableBuilder<List<String>?>(
+                valueListenable: instrumentOptions,
+                builder: (_, options, _) => ValueListenableBuilder<String?>(
+                  valueListenable: selectedInstrument,
+                  builder: (_, selected, _) => DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: selected,
+                    decoration: const InputDecoration(labelText: 'Primary instrument / role'),
+                    hint: Text(options == null ? 'Loading…' : 'Select an instrument'),
+                    items: [
+                      ...?options?.map((o) => DropdownMenuItem(value: o, child: Text(o))),
+                      const DropdownMenuItem(value: '__add_new__', child: Text('+ Add new instrument…')),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      if (v == '__add_new__') {
+                        addingInstrument.value = true;
+                        return;
+                      }
+                      selectedInstrument.value = v;
+                      role.text = v;
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
           if (staff) ...[
             const SizedBox(height: AppSpace.s3),
             Text('Sent to Sharvil for approval — not added until approved.', style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),

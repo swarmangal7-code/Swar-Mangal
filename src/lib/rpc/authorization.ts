@@ -72,6 +72,10 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_dueReminders: STAFF,
 
   // ------------------------------------------------------------ teachers
+  // Instrument picklist for the teacher dropdown — either role can read it
+  // or grow it inline via "Add new instrument".
+  api_listInstruments: STAFF,
+  api_addInstrument: STAFF,
   // Teacher list/profile are read surfaces reachable from both shells.
   api_listTeachers: STAFF,
   api_teacherProfile: STAFF,
@@ -300,6 +304,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_addFeePayment", "api_staff_prepareReceiptDraft",
   "api_founder_paymentDraftApprove", "api_founder_paymentDraftReject",
   "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft",
+  "api_addInstrument",
   "api_addTeacher", "api_staff_requestAddTeacher", "api_founder_addTeacherRequestApprove", "api_founder_addTeacherRequestReject",
   "api_updateTeacherStatus", "api_updateTeacherCompensation", "api_recordTeacherPayout", "api_assignSharedStudent",
   "api_addExpenseEntry", "api_staff_submitExpenseDraft",

@@ -1,0 +1,237 @@
+"use client";
+
+import * as React from "react";
+import { MessageCircle } from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useMutationRpc, useRpc } from "@/lib/api/rpc-hooks";
+import type { RpcEnvelope } from "@/lib/api/rpc-types";
+
+const MESSAGE_TYPES = [
+  "FEE_REMINDER",
+  "DUE_SOON",
+  "DUE_TODAY",
+  "OVERDUE_ACCRUING",
+  "RENEWAL",
+  "TERMS",
+  "ABSENT_TODAY",
+] as const;
+
+interface CommGenerateRes extends RpcEnvelope {
+  kind?: string;
+  subject?: string;
+  body?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  warnings?: string[];
+  mode?: "WHATSAPP" | "COPY_ONLY";
+}
+
+interface SendWhatsAppRes extends RpcEnvelope {
+  message?: { status?: string; to?: string };
+  note?: string;
+}
+
+interface HistoryRow {
+  id: string;
+  kind: string;
+  to: string;
+  status: string;
+  body: string;
+  error?: string;
+  created_at?: string;
+}
+
+interface HistoryRes extends RpcEnvelope {
+  rows?: HistoryRow[];
+}
+
+/**
+ * "Message parent" — generates a WhatsApp reminder from the student's real
+ * record, lets staff/founder edit it, then sends with one tap. Mirrors the
+ * Flutter app's MessageComposeScreen so the capability exists on web too.
+ */
+export function MessageComposeDialog({
+  studentId,
+  studentName,
+  branch,
+}: {
+  studentId: string;
+  studentName: string;
+  branch?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [type, setType] = React.useState<(typeof MESSAGE_TYPES)[number]>("FEE_REMINDER");
+  const [msg, setMsg] = React.useState<CommGenerateRes | null>(null);
+  const [body, setBody] = React.useState("");
+  const [sent, setSent] = React.useState<SendWhatsAppRes | null>(null);
+  const intentKeyRef = React.useRef("");
+
+  const history = useRpc<HistoryRes>("api_staff_messageHistory", { studentId }, { enabled: open });
+
+  const generate = useMutationRpc<{ type: string; studentId: string; branch?: string }, CommGenerateRes>(
+    "api_staff_commGenerate",
+    {
+      onSuccess: (res) => {
+        setMsg(res);
+        setBody(res.body ?? "");
+        setSent(null);
+      },
+      onError: (err) => toast.error(err.message),
+    },
+  );
+
+  const send = useMutationRpc<
+    { studentId: string; kind: string; body: string; clientIntentKey: string },
+    SendWhatsAppRes
+  >("api_staff_sendWhatsApp", {
+    invalidate: [["rpc", "api_staff_messageHistory", { studentId }]],
+    onSuccess: (res) => {
+      setSent(res);
+      toast.success(res.note || "Sent on WhatsApp.");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const reset = () => {
+    setMsg(null);
+    setBody("");
+    setSent(null);
+  };
+
+  const doSend = () => {
+    if (!msg || !body.trim()) return;
+    if (!confirm(`Send this message to ${msg.recipientName ?? "the registered number"}? A sent message cannot be recalled.`)) return;
+    intentKeyRef.current = intentKeyRef.current || `WA-${Date.now()}`;
+    send.mutate({ studentId, kind: msg.kind ?? "CUSTOM", body: body.trim(), clientIntentKey: intentKeyRef.current });
+  };
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <MessageCircle className="h-3.5 w-3.5" aria-hidden /> Message parent
+      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) reset();
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto border-dash-fg/10 bg-dash-card sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Message {studentName}&rsquo;s parent</DialogTitle>
+            <DialogDescription className="text-dash-fg/50">
+              Generated from the student&rsquo;s real record. Edit before sending — one tap delivers it, nothing sends automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap gap-1.5">
+            {MESSAGE_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  setType(t);
+                  reset();
+                }}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  type === t
+                    ? "border-dash-accent bg-dash-accent/15 text-dash-accent"
+                    : "border-dash-fg/10 text-dash-fg/60 hover:border-dash-fg/25"
+                }`}
+              >
+                {t.replaceAll("_", " ")}
+              </button>
+            ))}
+          </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={generate.isPending}
+            onClick={() => generate.mutate({ type, studentId, branch })}
+          >
+            {generate.isPending ? "Generating…" : "Generate message"}
+          </Button>
+
+          {msg && (
+            <div className="space-y-3">
+              <p className="text-xs text-dash-fg/55">
+                TO: {msg.recipientName || "(unknown)"}
+                {msg.recipientPhone ? ` · ${msg.recipientPhone}` : ""}
+              </p>
+              {msg.subject && <p className="text-sm font-semibold text-dash-accent">{msg.subject}</p>}
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={7}
+                disabled={!!sent}
+                className="border-dash-fg/10 bg-dash-surface text-sm text-dash-fg"
+              />
+              {!!msg.warnings?.length && (
+                <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5">
+                  {msg.warnings.map((w) => (
+                    <p key={w} className="text-[11px] text-amber-600 dark:text-amber-400">
+                      • {w}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {msg.mode === "WHATSAPP" ? (
+                <Button
+                  size="sm"
+                  className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+                  disabled={!!sent || send.isPending}
+                  onClick={doSend}
+                >
+                  {sent ? "Sent ✓" : send.isPending ? "Sending…" : "Send on WhatsApp"}
+                </Button>
+              ) : (
+                <p className="text-xs text-dash-fg/50">
+                  WhatsApp sending is off, or this student has no valid registered number. Copy the text and send it by hand.
+                </p>
+              )}
+              {sent?.message?.status && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  Sent to {sent.message.to} · {sent.message.status}.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!!history.data?.rows?.length && (
+            <div className="space-y-2 border-t border-dash-fg/10 pt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-dash-fg/40">Sent before</p>
+              {history.data.rows.slice(0, 5).map((h) => (
+                <div key={h.id} className="flex items-center justify-between text-xs text-dash-fg/60">
+                  <span>{h.kind.replaceAll("_", " ")}</span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {h.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

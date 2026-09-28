@@ -140,6 +140,15 @@ export interface TeacherListResponse extends RpcEnvelope {
   teachers: Teacher[];
 }
 
+export interface InstrumentOption {
+  id: string;
+  name: string;
+}
+
+export interface InstrumentListResponse extends RpcEnvelope {
+  instruments: InstrumentOption[];
+}
+
 export interface TeacherProfileResponse extends RpcEnvelope {
   teacher: Teacher & { compensationPercent: string; compensationEffectiveFrom: string };
   students: Student[];

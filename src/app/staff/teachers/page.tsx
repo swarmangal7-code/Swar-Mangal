@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { InstrumentSelect } from "@/components/instrument-select";
 import { useMutationRpc, useTeachers } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
@@ -205,12 +206,7 @@ export default function StaffTeachersPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] text-dash-fg/70">Primary instrument / role</Label>
-              <Input
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="Violin, Tabla, Vocal…"
-                className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
-              />
+              <InstrumentSelect value={role} onChange={setRole} />
             </div>
           </div>
           <DialogFooter>
