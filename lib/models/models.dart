@@ -1246,6 +1246,10 @@ class PayoutPreview {
     required this.unattributedAmount,
     this.earningBaseDefined = false,
     this.note = '',
+    this.projected = true,
+    this.closed = false,
+    this.closedAt = '',
+    this.closedBy = '',
   });
   factory PayoutPreview.fromApi(Map<String, dynamic> b) {
     num n(dynamic v) {
@@ -1266,6 +1270,10 @@ class PayoutPreview {
       unattributedAmount: n(b['unattributedAmount']),
       earningBaseDefined: b['earningBaseDefined'] == true,
       note: _s(b['note']),
+      projected: b['projected'] != false,
+      closed: b['closed'] == true,
+      closedAt: _s(b['closedAt']),
+      closedBy: _s(b['closedBy']),
     );
   }
   final List<PayoutRow> rows;
@@ -1277,6 +1285,12 @@ class PayoutPreview {
   /// (brief §15.1). While false, every row above is a named refusal.
   final bool earningBaseDefined;
   final String note;
+  /// Handover spec §10: PROJECTED (live, recomputed every read) until the
+  /// period is closed, after which it is a frozen snapshot.
+  final bool projected;
+  final bool closed;
+  final String closedAt;
+  final String closedBy;
 }
 
 /// One payment actually made to a teacher (api_recordTeacherPayout /

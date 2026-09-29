@@ -23,8 +23,13 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
   num _awaitingAmount = 0;
   bool _earningBaseDefined = false;
   String _note = '';
+  bool _projected = true;
+  bool _closed = false;
+  String _closedAt = '';
+  String _closedBy = '';
   String? _error;
   bool _busy = false;
+  bool _closing = false;
 
   @override
   void initState() {
@@ -59,6 +64,10 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
         _awaitingAmount = preview.awaitingAmount;
         _earningBaseDefined = preview.earningBaseDefined;
         _note = preview.note;
+        _projected = preview.projected;
+        _closed = preview.closed;
+        _closedAt = preview.closedAt;
+        _closedBy = preview.closedBy;
         _busy = false;
       });
     } on ApiException catch (e) {
@@ -73,6 +82,36 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
         _error = e.message;
         _busy = false;
       });
+    }
+  }
+
+  Future<void> _closePeriod() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Close $_month?'),
+        content: const Text('Its payout figures will be frozen and won\'t change even if rules or records are edited later.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Close period')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _closing = true);
+    try {
+      await auth.service!.founderClosePayoutPeriod(_month);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$_month closed.')));
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _closing = false);
     }
   }
 
@@ -103,6 +142,18 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
             const SizedBox(width: AppSpace.s2),
             TextButton(onPressed: () { setState(() => _month = _previousMonth()); _load(); },
                 child: const Text('Previous')),
+          ]),
+          const SizedBox(height: AppSpace.s2),
+          Row(children: [
+            if (_closed)
+              StatusBadge('CLOSED${_closedAt.isNotEmpty ? ' · ${_closedAt.substring(0, 10)}' : ''}${_closedBy.isNotEmpty ? ' by $_closedBy' : ''}')
+            else ...[
+              StatusBadge(_projected ? 'PROJECTED — not payable yet' : ''),
+              if (_rows.isNotEmpty) ...[
+                const SizedBox(width: AppSpace.s2),
+                TextButton(onPressed: _closing ? null : _closePeriod, child: Text(_closing ? 'Closing…' : 'Close period')),
+              ],
+            ],
           ]),
           const SizedBox(height: AppSpace.s2),
           Card(

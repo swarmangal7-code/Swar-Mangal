@@ -1517,3 +1517,16 @@ create table if not exists recovery_credits (
 );
 create index if not exists idx_recovery_credits_student on recovery_credits (student_id);
 create index if not exists idx_recovery_credits_status on recovery_credits (status);
+
+-- Handover spec §10: "Projected values are not payable values. Future
+-- periods may be PROJECTED using current effective membership; closed
+-- periods use effective facts and frozen snapshots." Closing a month freezes
+-- its whole computed payout preview as JSON so later edits to rules,
+-- attendance or receipts can never silently reshape a period that was
+-- already reviewed and closed.
+create table if not exists payout_period_closures (
+  month text primary key,
+  closed_at timestamptz not null default now(),
+  closed_by text,
+  snapshot jsonb not null
+);

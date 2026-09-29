@@ -85,6 +85,8 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return updateTeacherCompensation(arg);
     case "api_teacherPayoutPreview":
       return payoutPreview(arg);
+    case "api_founder_closePayoutPeriod":
+      return closePayoutPeriod(arg, session);
     case "api_recordTeacherPayout":
       return recordTeacherPayout(arg, scope);
     case "api_teacherPayoutHistory":
@@ -690,8 +692,8 @@ async function updateTeacherCompensation(arg: Record<string, unknown>): Promise<
  * written with, and only counts inside the requested month. Receipts that
  * cannot be attributed are reported rather than silently dropped.
  */
-async function payoutPreview(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const month = isServiceMonth(s(arg["month"])) ? s(arg["month"]) : todayIso().slice(0, 7);
+async function computePayoutPreviewLive(monthArg: string): Promise<Record<string, unknown>> {
+  const month = isServiceMonth(monthArg) ? monthArg : todayIso().slice(0, 7);
   const monthStart = `${month}-01`;
   const teachers = await acadTeachers();
 
@@ -864,7 +866,7 @@ async function payoutPreview(arg: Record<string, unknown>): Promise<Record<strin
     };
   });
 
-  return ok({
+  return {
     results,
     month,
     monthLabel: monthLabel(month),
@@ -878,7 +880,45 @@ async function payoutPreview(arg: Record<string, unknown>): Promise<Record<strin
     note: base
       ? "preview only: writes nothing"
       : "No academy payout amount exists until Sharvil rules what the percentage is a percentage of (EARNING_BASE_NOT_DEFINED).",
-  });
+  };
+}
+
+/**
+ * Handover spec §10: "Projected values are not payable values. Future
+ * periods may be PROJECTED using current effective membership; closed
+ * periods use effective facts and frozen snapshots." A closed month returns
+ * exactly what was frozen at close time — never recomputed from whatever the
+ * rules/attendance/receipts look like today.
+ */
+async function payoutPreview(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const month = isServiceMonth(s(arg["month"])) ? s(arg["month"]) : todayIso().slice(0, 7);
+  const closure = await queryOne<{ snapshot: unknown; closed_at: string; closed_by: string }>(
+    `select snapshot, closed_at::text, closed_by from payout_period_closures where month = $1`,
+    [month],
+  );
+  if (closure) {
+    return ok({ ...(closure.snapshot as Record<string, unknown>), projected: false, closed: true, closedAt: closure.closed_at, closedBy: closure.closed_by });
+  }
+  const live = await computePayoutPreviewLive(month);
+  return ok({ ...live, projected: true, closed: false, closedAt: "", closedBy: "" });
+}
+
+async function closePayoutPeriod(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const month = s(arg["month"]);
+  if (!isServiceMonth(month)) return { ok: false, code: "BAD_MONTH", error: "Give a month as YYYY-MM." };
+  const currentMonth = todayIso().slice(0, 7);
+  if (month > currentMonth) return { ok: false, code: "FUTURE_PERIOD", error: "A period that hasn't happened yet cannot be closed." };
+  const existing = await queryOne<{ closed_at: string }>(`select closed_at::text from payout_period_closures where month = $1`, [month]);
+  if (existing) {
+    return { ok: false, code: "ALREADY_CLOSED", error: `${monthLabel(month)} was already closed on ${existing.closed_at.slice(0, 16)}.` };
+  }
+  const snapshot = await computePayoutPreviewLive(month);
+  await query(
+    `insert into payout_period_closures (month, closed_by, snapshot) values ($1,$2,$3)`,
+    [month, session?.deviceLabel || session?.email || "", JSON.stringify(snapshot)],
+  );
+  await bumpRevisions(["payouts"]);
+  return ok({ month, closed: true, note: `${monthLabel(month)} closed. Its payout figures are now frozen.` });
 }
 
 /**

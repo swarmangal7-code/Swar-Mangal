@@ -94,6 +94,7 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_updateTeacherStatus: FOUNDER,
   api_updateTeacherCompensation: FOUNDER,
   api_teacherPayoutPreview: FOUNDER,
+  api_founder_closePayoutPeriod: FOUNDER,
   // Paying a teacher is money leaving the academy: founder only.
   api_recordTeacherPayout: FOUNDER,
   api_teacherPayoutHistory: FOUNDER,
@@ -324,7 +325,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft",
   "api_addInstrument",
   "api_addTeacher", "api_staff_requestAddTeacher", "api_founder_addTeacherRequestApprove", "api_founder_addTeacherRequestReject",
-  "api_updateTeacherStatus", "api_updateTeacherCompensation", "api_recordTeacherPayout", "api_assignSharedStudent",
+  "api_updateTeacherStatus", "api_updateTeacherCompensation", "api_recordTeacherPayout", "api_assignSharedStudent", "api_founder_closePayoutPeriod",
   "api_addExpenseEntry", "api_staff_submitExpenseDraft",
   "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject",
   "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject",

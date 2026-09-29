@@ -515,6 +515,12 @@ class ApiService {
     return PayoutPreview.fromApi(b as Map<String, dynamic>);
   }
 
+  /// Founder-only: freeze a month's payout figures (handover spec §10). A
+  /// closed period is no longer PROJECTED — it returns exactly what was
+  /// computed at close time even if rules or records change later.
+  Future<dynamic> founderClosePayoutPeriod(String month) =>
+      _api.call('api_founder_closePayoutPeriod', {'month': month});
+
   /// Founder-only: approve a staff expense draft. The backend turns it into
   /// a real expense plus the matching cashbook outflow.
   Future<dynamic> founderExpenseDraftApprove(String draftId) =>

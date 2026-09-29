@@ -722,6 +722,12 @@ export interface PayoutPreviewResponse extends RpcEnvelope {
   unattributedAmount: number;
   earningBaseDefined: boolean;
   note: string;
+  /** Handover spec §10: a future/open period is PROJECTED (recomputed live
+   *  every time); a closed period returns a frozen snapshot instead. */
+  projected: boolean;
+  closed: boolean;
+  closedAt: string;
+  closedBy: string;
 }
 
 // --------------------------------------------------------------- sync

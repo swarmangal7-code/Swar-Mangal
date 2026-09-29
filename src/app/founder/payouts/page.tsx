@@ -62,6 +62,12 @@ export default function FounderPayoutsPage() {
   const remaining = rows.reduce((s, r) => s + (Number(r.balance) || 0), 0);
   const awaiting = data?.awaitingDecision ?? [];
 
+  const closePeriod = useMutationRpc<{ month: string }, RpcEnvelope & { note?: string }>("api_founder_closePayoutPeriod", {
+    invalidate: [["rpc", "api_teacherPayoutPreview", { month }]],
+    onSuccess: (res) => toast.success(res.note ?? "Period closed."),
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not close the period."),
+  });
+
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
       <motion.div variants={fadeUp} className="flex flex-wrap items-end justify-between gap-4">
@@ -70,13 +76,42 @@ export default function FounderPayoutsPage() {
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Teacher Payouts</h1>
           <p className="mt-1 text-sm text-dash-fg/55">Earnings are computed server-side — nothing is calculated on this screen.</p>
         </div>
-        <Input
-          type="month"
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="w-fit border-dash-fg/12 bg-dash-card text-dash-fg"
-        />
+        <div className="flex items-center gap-2">
+          <Input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="w-fit border-dash-fg/12 bg-dash-card text-dash-fg"
+          />
+        </div>
       </motion.div>
+
+      {data && (
+        <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-3">
+          {data.closed ? (
+            <Badge className="border-dash-fg/15 bg-dash-fg/[0.06] text-dash-fg/70">
+              Closed {data.closedAt ? `on ${data.closedAt.slice(0, 10)}` : ""}{data.closedBy ? ` by ${data.closedBy}` : ""}
+            </Badge>
+          ) : (
+            <>
+              <Badge className="border-amber-400/30 bg-amber-400/10 text-amber-300">Projected — not payable yet</Badge>
+              {rows.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={closePeriod.isPending}
+                  onClick={() => {
+                    if (!confirm(`Close ${month}? Its payout figures will be frozen and won't change even if rules or records are edited later.`)) return;
+                    closePeriod.mutate({ month });
+                  }}
+                >
+                  Close period
+                </Button>
+              )}
+            </>
+          )}
+        </motion.div>
+      )}
 
       <motion.div variants={fadeUp} className="grid gap-3 sm:grid-cols-3">
         <SummaryCard icon={BadgeIndianRupee} label="Total payable" value={inr(totalPayable)} />

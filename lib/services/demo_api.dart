@@ -403,6 +403,8 @@ class DemoApiClient extends ApiClient {
         };
       case 'api_teacherPayoutPreview':
         return _payoutPreview(a);
+      case 'api_founder_closePayoutPeriod':
+        return {'ok': false, 'code': 'DEMO_READ_ONLY', 'error': 'Payout periods are not editable in demo mode.'};
       case 'api_recordTeacherPayout':
         return {
           'ok': true,
