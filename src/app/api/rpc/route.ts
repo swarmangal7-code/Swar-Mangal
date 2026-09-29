@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateToken } from "@/lib/rpc/auth";
-import { rpcDispatch } from "@/lib/rpc/handlers";
+import { rpcDispatch, HANDLERS1_FUNCTIONS } from "@/lib/rpc/handlers";
 import { dispatch2 } from "@/lib/rpc/handlers2";
 import { dispatchMessaging, MESSAGING_FUNCTIONS } from "@/lib/rpc/messaging";
 import { dispatchGovernance, GOVERNANCE_FUNCTIONS } from "@/lib/rpc/governance";
@@ -140,14 +140,6 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- execute handler (only after authz) ----
-  const inHandlers1 = [
-    "api_bootstrap", "api_staff_boot",
-    "api_searchStudent", "api_staff_searchStudents", "api_staff_getStudentProfile", "api_studentProfile",
-    "api_staff_studentHub", "api_addStudent", "api_staff_saveStudentDraft", "api_founder_setStudentStatus", "api_founder_mergeStudentDraft",
-    "api_searchReceipt", "api_receiptPreflight", "api_addFeePayment", "api_staff_prepareReceiptDraft",
-    "api_founder_listPaymentDrafts", "api_founder_paymentDraftApprove", "api_founder_paymentDraftReject",
-    "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft", "api_founder_studentDraftReject",
-  ];
   try {
     const scope = scopeForSession(session);
     const result = MESSAGING_FUNCTIONS.has(functionName)
@@ -156,7 +148,7 @@ export async function POST(req: NextRequest) {
         ? await dispatchGovernance(functionName, argMap, scope, session)
         : PUSH_FUNCTIONS.has(functionName)
           ? await dispatchPush(functionName, argMap, scope, session)
-          : inHandlers1.includes(functionName)
+          : HANDLERS1_FUNCTIONS.has(functionName)
             ? await rpcDispatch(session.role, functionName, argMap, scope, session)
             : await dispatch2(session.role, functionName, argMap, scope, session);
     await recordAudit(session, functionName, argMap, result);

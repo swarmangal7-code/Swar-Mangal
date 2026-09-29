@@ -34,6 +34,24 @@ const PLAN_TYPES = ["Monthly", "3 Months", "6 Months", "Yearly"];
 const CLASS_CODES = ["GMC", "KMC"];
 const BRANCHES = [...ALL_BRANCHES];
 
+/**
+ * Every function this dispatcher handles — route.ts uses this to decide
+ * whether a call belongs here or falls through to handlers2.ts's dispatcher.
+ * Kept as a literal set alongside the switch below (not derived from it)
+ * so both can be visually diffed against each other; a function added to
+ * one without the other fails loudly ("No gateway handler") instead of
+ * silently misrouting to the wrong dispatcher's default case.
+ */
+export const HANDLERS1_FUNCTIONS = new Set([
+  "api_bootstrap", "api_staff_boot",
+  "api_searchStudent", "api_staff_searchStudents", "api_staff_getStudentProfile", "api_studentProfile",
+  "api_staff_studentHub", "api_addStudent", "api_addDemoStudent", "api_listDemoStudents", "api_founder_convertDemoStudent",
+  "api_staff_saveStudentDraft", "api_founder_setStudentStatus", "api_founder_mergeDuplicateStudent", "api_founder_mergeStudentDraft",
+  "api_searchReceipt", "api_receiptPreflight", "api_addFeePayment", "api_staff_prepareReceiptDraft",
+  "api_founder_listPaymentDrafts", "api_founder_paymentDraftApprove", "api_founder_paymentDraftReject",
+  "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft", "api_founder_studentDraftReject",
+]);
+
 export async function rpcDispatch(role: RpcRole, fn: string, arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession) {
   switch (fn) {
     // ------------------------------------------------------------ boot
