@@ -16,6 +16,228 @@ import 'pause_membership_screen.dart';
 import 'teacher_profile_screen.dart';
 import 'terms_screen.dart';
 
+/// Handover spec §8.4 "Goodwill recovery window": a missed class may earn a
+/// separate Recovery Credit with its own use-by date — package validity
+/// never extends. AVAILABLE -> SCHEDULED -> DELIVERED / NO_SHOW, or
+/// AVAILABLE -> LAPSED if nobody schedules it in time.
+class RecoveryCreditsSection extends StatefulWidget {
+  const RecoveryCreditsSection({super.key, required this.studentId, required this.studentName});
+  final String studentId;
+  final String studentName;
+  @override
+  State<RecoveryCreditsSection> createState() => _RecoveryCreditsSectionState();
+}
+
+class _RecoveryCreditsSectionState extends State<RecoveryCreditsSection> {
+  List<RecoveryCredit> _credits = [];
+  bool _busy = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    setState(() => _busy = true);
+    try {
+      final rows = await auth.service!.listRecoveryCredits(widget.studentId);
+      if (mounted) setState(() => _credits = rows);
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable {
+      // quiet — this is a supplementary section
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _grant() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final reasonCtrl = TextEditingController();
+    var useBy = DateTime.now().add(const Duration(days: 30));
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text('Grant a recovery credit to ${widget.studentName}'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: reasonCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Why is this class eligible?')),
+            const SizedBox(height: AppSpace.s3),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Use by'),
+              subtitle: Text(useBy.toIso8601String().slice(0, 10)),
+              trailing: const Icon(Icons.edit_calendar_outlined),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: ctx,
+                  initialDate: useBy,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (picked != null) setD(() => useBy = picked);
+              },
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Grant')),
+          ],
+        ),
+      ),
+    );
+    if (go != true || reasonCtrl.text.trim().isEmpty) return;
+    try {
+      await auth.service!.grantRecoveryCredit(widget.studentId, reasonCtrl.text.trim(), useBy.toIso8601String().slice(0, 10));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recovery credit granted.')));
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _schedule(RecoveryCredit c) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    List<Teacher> teachers = [];
+    try {
+      teachers = await auth.service!.listTeachers();
+    } catch (_) {
+      // handled below via empty list -> dialog still opens, just no options
+    }
+    if (!mounted) return;
+    var date = DateTime.now();
+    String? teacherId;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Schedule the recovery class'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Date'),
+              subtitle: Text(date.toIso8601String().slice(0, 10)),
+              trailing: const Icon(Icons.edit_calendar_outlined),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: ctx,
+                  initialDate: date,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.tryParse(c.useByDate) ?? DateTime.now().add(const Duration(days: 30)),
+                );
+                if (picked != null) setD(() => date = picked);
+              },
+            ),
+            DropdownButtonFormField<String>(
+              initialValue: teacherId,
+              decoration: const InputDecoration(labelText: 'Teacher'),
+              items: teachers.map((t) => DropdownMenuItem(value: t.teacherId, child: Text(t.teacherName))).toList(),
+              onChanged: (v) => setD(() => teacherId = v),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: teacherId == null ? null : () => Navigator.pop(ctx, true), child: const Text('Schedule')),
+          ],
+        ),
+      ),
+    );
+    if (go != true || teacherId == null) return;
+    try {
+      await auth.service!.scheduleRecoveryCredit(c.creditId, date.toIso8601String().slice(0, 10), teacherId!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recovery class scheduled.')));
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _resolve(RecoveryCredit c, String outcome) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    try {
+      await auth.service!.resolveRecoveryCredit(c.creditId, outcome);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated.')));
+      await _load();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.s4),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Recovery credits', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            TextButton(onPressed: _grant, child: const Text('Grant credit')),
+          ]),
+          if (_busy)
+            const Padding(padding: EdgeInsets.symmetric(vertical: AppSpace.s3), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+          else if (_credits.isEmpty)
+            Text('No recovery credits on record.', style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)))
+          else
+            for (final c in _credits)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.s2),
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpace.s3),
+                  decoration: BoxDecoration(border: Border.all(color: AppColors.adaptive(context, AppColors.muted).withValues(alpha: .25)), borderRadius: BorderRadius.circular(10)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      StatusBadge(c.status),
+                      Text('Use by ${c.useByDate}', style: TextStyle(fontSize: 11, color: AppColors.adaptive(context, AppColors.muted))),
+                    ]),
+                    const SizedBox(height: 4),
+                    Text(c.reason, style: const TextStyle(fontSize: 12.5)),
+                    if (c.status == 'SCHEDULED')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text('Scheduled ${c.scheduledDate}${c.teacherName.isNotEmpty ? ' with ${c.teacherName}' : ''}',
+                            style: TextStyle(fontSize: 11, color: AppColors.adaptive(context, AppColors.muted))),
+                      ),
+                    if (c.status == 'AVAILABLE')
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpace.s2),
+                        child: OutlinedButton(onPressed: () => _schedule(c), child: const Text('Schedule')),
+                      ),
+                    if (c.status == 'SCHEDULED')
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpace.s2),
+                        child: Wrap(spacing: AppSpace.s2, children: [
+                          FilledButton(onPressed: () => _resolve(c, 'DELIVERED'), child: const Text('Delivered')),
+                          OutlinedButton(onPressed: () => _resolve(c, 'NO_SHOW'), child: const Text('No-show')),
+                        ]),
+                      ),
+                  ]),
+                ),
+              ),
+        ]),
+      ),
+    );
+  }
+}
+
+extension _IsoSlice on String {
+  String slice(int start, int end) => substring(start, end);
+}
+
 /// Student profile — the shared one-screen view of a student for both apps.
 class StudentProfileScreen extends StatefulWidget {
   const StudentProfileScreen({super.key, required this.student, required this.staff});
@@ -407,6 +629,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                     : null,
               ),
             ),
+            const SizedBox(height: AppSpace.s3),
+            RecoveryCreditsSection(studentId: s.studentId, studentName: s.studentName),
             const SizedBox(height: AppSpace.s3),
             FilledButton.icon(
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(

@@ -115,6 +115,14 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return timetableWeek(arg, scope);
     case "api_timetableSessionDetail":
       return timetableSessionDetail(arg, scope);
+    case "api_staff_grantRecoveryCredit":
+      return grantRecoveryCredit(arg, scope, session);
+    case "api_staff_listRecoveryCredits":
+      return listRecoveryCredits(arg, scope);
+    case "api_staff_scheduleRecoveryCredit":
+      return scheduleRecoveryCredit(arg, scope);
+    case "api_staff_resolveRecoveryCredit":
+      return resolveRecoveryCredit(arg, scope, session);
     case "api_staff_attendanceRoster":
       return attendanceRoster(arg, scope);
     case "api_staff_markAttendance":
@@ -2056,6 +2064,139 @@ async function sessionRoster(arg: Record<string, unknown>, scope: BranchScope): 
     teacherName: st.teacher,
   }));
   return ok({ scheduledSessionId: s(arg["scheduledSessionId"]), status: "OPEN", closed: false, unanswered: true, sessionDate: s(session?.session_date) || todayIso(), sessionCredit: 1, total: rows.length, present: 0, absent: 0, excused: 0, notMarked: rows.length, rows });
+}
+
+// ------------------------------------------------------- recovery credits
+// Handover spec §8.4 "Goodwill recovery window". Package validity never
+// extends; an eligible missed class instead gets a separate credit with its
+// own use-by date: AVAILABLE -> SCHEDULED -> DELIVERED / NO_SHOW, or
+// AVAILABLE -> LAPSED if nobody schedules it before the deadline.
+const RECOVERY_DEFAULT_WINDOW_DAYS = 30;
+
+function recoveryCreditView(r: Record<string, unknown>) {
+  return {
+    creditId: s(r.id),
+    studentId: s(r.student_id),
+    studentName: s(r.student_name),
+    branch: s(r.branch),
+    course: s(r.course),
+    reason: s(r.reason),
+    sourceEventId: s(r.source_event_id),
+    status: s(r.status),
+    useByDate: s(r.use_by_date),
+    scheduledEventId: s(r.scheduled_event_id),
+    scheduledDate: s(r.scheduled_date),
+    teacherId: s(r.teacher_id),
+    teacherName: s(r.teacher_name),
+    createdAt: s(r.created_at),
+  };
+}
+
+/** Lazy, read-triggered sweep — no cron exists in this system, by rule. */
+async function applyRecoveryCreditLapses(): Promise<void> {
+  await query(
+    `update recovery_credits set status = 'LAPSED', resolved_at = now()
+     where status = 'AVAILABLE' and use_by_date < current_date`,
+  );
+}
+
+async function grantRecoveryCredit(arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession): Promise<Record<string, unknown>> {
+  const studentId = s(arg["studentId"]);
+  const reason = s(arg["reason"]).trim();
+  if (!studentId) return { ok: false, code: "STUDENT_ID_REQUIRED", error: "Choose the student." };
+  if (!reason) return { ok: false, code: "REASON_REQUIRED", error: "Say why this student is eligible for a recovery credit." };
+  const student = await acadStudentById(studentId);
+  if (!student) return { ok: false, code: "STUDENT_NOT_FOUND", error: `No student ${studentId}` };
+  if (!inScope(scope, student.branch)) return branchForbidden(recordBranch(student.branch));
+  const useByDate = isoDate(arg["useByDate"]) || addDays(todayIso(), RECOVERY_DEFAULT_WINDOW_DAYS);
+  const sourceEventId = s(arg["sourceEventId"]).trim() || null;
+  const id = newId("REC");
+  await query(
+    `insert into recovery_credits (id, student_id, student_name, branch, course, reason, source_event_id, status, use_by_date, created_by)
+     values ($1,$2,$3,$4,$5,$6,$7,'AVAILABLE',$8,$9)`,
+    [id, studentId, student.name, recordBranch(student.branch), s(student.instrument), reason, sourceEventId, useByDate, session?.deviceLabel || session?.email || ""],
+  );
+  await bumpRevisions(["students", "dashboard"]);
+  return ok({ creditId: id, status: "AVAILABLE", useByDate, note: `Recovery credit granted to ${student.name}, usable by ${useByDate}.` });
+}
+
+async function listRecoveryCredits(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  await applyRecoveryCreditLapses();
+  const studentId = s(arg["studentId"]).trim();
+  const status = s(arg["status"]).trim().toUpperCase();
+  const rows = (
+    await query<Record<string, unknown>>(
+      `select * from recovery_credits ${studentId ? "where student_id = $1" : ""} order by created_at desc`,
+      studentId ? [studentId] : [],
+    )
+  ).filter((r) => inScope(scope, s(r.branch)) && (!status || s(r.status).toUpperCase() === status));
+  return ok({ count: rows.length, credits: rows.map(recoveryCreditView) });
+}
+
+async function scheduleRecoveryCredit(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  await applyRecoveryCreditLapses();
+  const creditId = s(arg["creditId"]);
+  const credit = await queryOne<Record<string, unknown>>(`select * from recovery_credits where id = $1`, [creditId]);
+  if (!credit) return { ok: false, code: "CREDIT_NOT_FOUND", error: `No recovery credit ${creditId}` };
+  if (!inScope(scope, s(credit.branch))) return branchForbidden(recordBranch(s(credit.branch)));
+  if (s(credit.status) !== "AVAILABLE") {
+    return { ok: false, code: "NOT_AVAILABLE", error: `This credit is ${s(credit.status)}, not available to schedule.` };
+  }
+  const sessionDate = isoDate(arg["sessionDate"]);
+  if (!sessionDate) return { ok: false, code: "DATE_REQUIRED", error: "Pick the recovery class date." };
+  if (sessionDate > s(credit.use_by_date)) {
+    return { ok: false, code: "PAST_USE_BY", error: `This credit's use-by date is ${s(credit.use_by_date)} — pick an earlier date.` };
+  }
+  const lockedSession = await closedMonthRefusal(sessionDate);
+  if (lockedSession) return lockedSession;
+  const teacherId = s(arg["teacherId"]);
+  const teacher = teacherId ? await acadTeacherById(teacherId) : null;
+  if (teacherId && !teacher) return { ok: false, code: "TEACHER_NOT_FOUND", error: `No teacher ${teacherId}` };
+  const scheduledEventId = newId("SCSS");
+  await withTransaction(async (tx) => {
+    // Payable = true here, unlike other custom-session kinds (brief §8.4: the
+    // teacher is paid on scheduling even if the student later no-shows).
+    await tx.query(
+      `insert into scheduled_sessions (id, session_date, start_time, teacher_id, teacher_name, branch, course, resolved, answerable,
+                                       custom_kind, custom_reason, payable, original_event_id)
+       values ($1,$2,$3,$4,$5,$6,$7,false,true,'GOODWILL_RECOVERY',$8,true,$9)`,
+      [scheduledEventId, sessionDate, s(arg["startTime"]), teacherId || null, s(teacher?.name) || s(arg["teacherName"]), s(credit.branch), s(credit.course), s(credit.reason), s(credit.source_event_id) || null],
+    );
+    await tx.query(
+      `update recovery_credits set status = 'SCHEDULED', scheduled_event_id = $1, scheduled_date = $2, teacher_id = $3, teacher_name = $4
+       where id = $5`,
+      [scheduledEventId, sessionDate, teacherId || null, s(teacher?.name) || s(arg["teacherName"]) || null, creditId],
+    );
+  });
+  await bumpRevisions(["students", "sessions", "tasks", "dashboard"]);
+  return ok({ creditId, status: "SCHEDULED", scheduledEventId, sessionDate, note: `Recovery class scheduled for ${sessionDate}.` });
+}
+
+async function resolveRecoveryCredit(arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession): Promise<Record<string, unknown>> {
+  const creditId = s(arg["creditId"]);
+  const outcome = s(arg["outcome"]).toUpperCase();
+  if (!["DELIVERED", "NO_SHOW"].includes(outcome)) return { ok: false, code: "BAD_OUTCOME", error: "Outcome must be DELIVERED or NO_SHOW." };
+  const credit = await queryOne<Record<string, unknown>>(`select * from recovery_credits where id = $1`, [creditId]);
+  if (!credit) return { ok: false, code: "CREDIT_NOT_FOUND", error: `No recovery credit ${creditId}` };
+  if (!inScope(scope, s(credit.branch))) return branchForbidden(recordBranch(s(credit.branch)));
+  if (s(credit.status) !== "SCHEDULED") {
+    return { ok: false, code: "NOT_SCHEDULED", error: `This credit is ${s(credit.status)}, not awaiting resolution.` };
+  }
+  const scheduledEventId = s(credit.scheduled_event_id);
+  await withTransaction(async (tx) => {
+    // The teacher was available either way (brief §8.4: "Paid if available"
+    // even on a no-show), so the linked class always resolves HELD; only the
+    // student-facing recovery outcome differs.
+    await tx.query(
+      `update scheduled_sessions set outcome = 'HELD', payee_teacher_id = teacher_id, recorded_by = $2,
+         evidence_class = 'VERIFIED', evidence_reason = $3, resolved = true, answerable = false
+       where id = $1`,
+      [scheduledEventId, session?.deviceLabel || session?.email || "", `Recovery ${outcome.toLowerCase()}`],
+    );
+    await tx.query(`update recovery_credits set status = $1, resolved_at = now() where id = $2`, [outcome, creditId]);
+  });
+  await bumpRevisions(["students", "sessions", "tasks", "dashboard", "payouts"]);
+  return ok({ creditId, status: outcome, note: outcome === "DELIVERED" ? "Recovery class delivered." : "Recorded as a no-show — credit used, teacher still paid." });
 }
 
 async function feeDueList(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {

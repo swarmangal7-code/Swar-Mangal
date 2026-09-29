@@ -471,6 +471,37 @@ class ApiService {
         'survivorId': survivorId,
       });
 
+  /// Handover spec §8.4: recovery credits. Package validity never extends —
+  /// an eligible missed class gets a separate credit with its own use-by date.
+  Future<List<RecoveryCredit>> listRecoveryCredits(String studentId) async {
+    final b = await _api.call('api_staff_listRecoveryCredits', {'studentId': studentId});
+    return ((b as Map)['credits'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(RecoveryCredit.fromApi)
+            .toList() ??
+        [];
+  }
+
+  Future<dynamic> grantRecoveryCredit(String studentId, String reason, String useByDate) =>
+      _api.call('api_staff_grantRecoveryCredit', {
+        'studentId': studentId,
+        'reason': reason,
+        'useByDate': useByDate,
+      });
+
+  Future<dynamic> scheduleRecoveryCredit(String creditId, String sessionDate, String teacherId) =>
+      _api.call('api_staff_scheduleRecoveryCredit', {
+        'creditId': creditId,
+        'sessionDate': sessionDate,
+        'teacherId': teacherId,
+      });
+
+  Future<dynamic> resolveRecoveryCredit(String creditId, String outcome) =>
+      _api.call('api_staff_resolveRecoveryCredit', {
+        'creditId': creditId,
+        'outcome': outcome,
+      });
+
   /// Founder-only teacher payout preview (server-computed payable). Never compute on client.
   Future<List<PayoutRow>> founderPayoutPreview(String month, {String? entityId}) async =>
       (await founderPayoutPreviewFull(month, entityId: entityId)).rows;

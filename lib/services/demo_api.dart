@@ -377,6 +377,12 @@ class DemoApiClient extends ApiClient {
         return _timetableDelete(a);
       case 'api_syncChanges':
         return _syncChanges(a);
+      case 'api_staff_listRecoveryCredits':
+        return {'ok': true, 'count': 0, 'credits': []};
+      case 'api_staff_grantRecoveryCredit':
+      case 'api_staff_scheduleRecoveryCredit':
+      case 'api_staff_resolveRecoveryCredit':
+        return {'ok': false, 'code': 'DEMO_READ_ONLY', 'error': 'Recovery credits are not editable in demo mode.'};
       case 'api_staff_studentHub':
         return _staffStudentHub(a);
       case 'api_teacherProfile':

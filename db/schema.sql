@@ -1488,3 +1488,32 @@ alter table attendance_acad add column if not exists absence_reason text;
 -- through this link, instead of being silently merged into the survivor's
 -- financial totals.
 alter table students_acad add column if not exists duplicate_of_id text references students_acad(id);
+
+-- Handover spec §8.4 "Goodwill recovery window": an eligible missed class may
+-- receive a separate Recovery Credit with its own use-by date. Package
+-- validity does NOT extend — this is a distinct object with its own
+-- lifecycle: AVAILABLE -> SCHEDULED -> DELIVERED / NO_SHOW, or
+-- AVAILABLE -> LAPSED if the use-by date passes unscheduled. Once scheduled,
+-- the teacher is paid under recovery policy even if the student no-shows —
+-- that earning lives on the linked scheduled_sessions row (custom_kind
+-- 'GOODWILL_RECOVERY'), not on this table.
+create table if not exists recovery_credits (
+  id text primary key,
+  student_id text references students_acad(id),
+  student_name text,
+  branch text,
+  course text,
+  reason text,
+  source_event_id text,
+  status text not null default 'AVAILABLE',
+  use_by_date date not null,
+  scheduled_event_id text references scheduled_sessions(id),
+  scheduled_date date,
+  teacher_id text,
+  teacher_name text,
+  created_at timestamptz not null default now(),
+  created_by text,
+  resolved_at timestamptz
+);
+create index if not exists idx_recovery_credits_student on recovery_credits (student_id);
+create index if not exists idx_recovery_credits_status on recovery_credits (status);

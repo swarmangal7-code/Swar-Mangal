@@ -111,6 +111,28 @@ export interface StudentAttendanceRow {
   instrument: string;
 }
 
+export interface RecoveryCredit {
+  creditId: string;
+  studentId: string;
+  studentName: string;
+  branch: string;
+  course: string;
+  reason: string;
+  sourceEventId: string;
+  status: string;
+  useByDate: string;
+  scheduledEventId: string;
+  scheduledDate: string;
+  teacherId: string;
+  teacherName: string;
+  createdAt: string;
+}
+
+export interface RecoveryCreditListResponse extends RpcEnvelope {
+  count: number;
+  credits: RecoveryCredit[];
+}
+
 export interface StudentProfileResponse extends RpcEnvelope {
   student: Student & { branch: string };
   teacher: { teacherId: string; teacherName: string };

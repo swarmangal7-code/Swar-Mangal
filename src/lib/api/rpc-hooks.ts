@@ -22,6 +22,7 @@ import type {
   DashboardMetricsResponse,
   DueRemindersResponse,
   DemoStudentListResponse,
+  RecoveryCreditListResponse,
   InquiryQueueResponse,
   InstrumentListResponse,
   PaymentDraftsResponse,
@@ -151,6 +152,14 @@ export function useStudentProfile(id: string, options?: QueryOptions<StudentProf
     "api_staff_getStudentProfile",
     { studentId: id },
     { enabled: id.length > 0, ...options },
+  );
+}
+
+export function useRecoveryCredits(studentId: string, options?: QueryOptions<RecoveryCreditListResponse>) {
+  return useRpc<RecoveryCreditListResponse>(
+    "api_staff_listRecoveryCredits",
+    { studentId },
+    { enabled: studentId.length > 0, ...options },
   );
 }
 

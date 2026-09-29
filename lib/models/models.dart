@@ -1571,6 +1571,39 @@ class TeacherProfile {
 }
 
 /// Rich, role-appropriate student profile detail.
+/// Handover spec §8.4 "Goodwill recovery window": AVAILABLE -> SCHEDULED ->
+/// DELIVERED / NO_SHOW, or AVAILABLE -> LAPSED if the use-by date passes.
+class RecoveryCredit {
+  const RecoveryCredit({
+    required this.creditId,
+    required this.studentId,
+    required this.studentName,
+    required this.reason,
+    required this.status,
+    required this.useByDate,
+    this.scheduledDate = '',
+    this.teacherName = '',
+  });
+  factory RecoveryCredit.fromApi(Map<String, dynamic> b) => RecoveryCredit(
+        creditId: _s(b['creditId']),
+        studentId: _s(b['studentId']),
+        studentName: _s(b['studentName']),
+        reason: _s(b['reason']),
+        status: _s(b['status']),
+        useByDate: _s(b['useByDate']),
+        scheduledDate: _s(b['scheduledDate']),
+        teacherName: _s(b['teacherName']),
+      );
+  final String creditId;
+  final String studentId;
+  final String studentName;
+  final String reason;
+  final String status;
+  final String useByDate;
+  final String scheduledDate;
+  final String teacherName;
+}
+
 class DuplicateStudentRef {
   const DuplicateStudentRef({required this.studentId, required this.name});
   factory DuplicateStudentRef.fromApi(Map<String, dynamic> b) =>

@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageComposeDialog } from "@/components/message-compose-dialog";
+import { RecoveryCreditsPanel } from "@/components/dashboard/recovery-credits-panel";
 import { TermsLinkButton } from "@/components/student-requests-menu";
 import { rpcKeys, useMutationRpc, useStudentHub, useStudentProfile } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
@@ -288,7 +289,14 @@ export default function FounderStudentProfilePage() {
             <TabsTrigger value="receipts" className="flex-1">
               Receipts
             </TabsTrigger>
+            <TabsTrigger value="recovery" className="flex-1">
+              Recovery
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="recovery">
+            <RecoveryCreditsPanel studentId={id} studentName={student.studentName} />
+          </TabsContent>
 
           <TabsContent value="details">
             <Card className="border-dash-fg/10 bg-dash-card">

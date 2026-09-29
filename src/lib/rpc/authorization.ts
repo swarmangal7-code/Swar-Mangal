@@ -199,6 +199,10 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   // ------------------------------------------------------ attendance/today
   api_staff_attendanceRoster: STAFF,
   api_staff_markAttendance: STAFF,
+  api_staff_grantRecoveryCredit: STAFF,
+  api_staff_listRecoveryCredits: STAFF,
+  api_staff_scheduleRecoveryCredit: STAFF,
+  api_staff_resolveRecoveryCredit: STAFF,
   api_staff_todaysTasks: STAFF,
   api_staff_doToday: STAFF,
   api_staff_todaysClasses: STAFF,
@@ -337,6 +341,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_founder_addAuthorizedEmail", "api_founder_removeAuthorizedEmail", "api_founder_revokeDeviceToken",
   "api_timetableCreate", "api_timetableUpdate", "api_timetableDelete",
   "api_staff_markAttendance", "api_staff_resolveTodaysClass", "api_staff_scheduleSession",
+  "api_staff_grantRecoveryCredit", "api_staff_scheduleRecoveryCredit", "api_staff_resolveRecoveryCredit",
   "api_staff_inquiryQuickAdd", "api_staff_inquiryTransition",
   "api_staff_sendWhatsApp", "api_staff_sendWhatsAppDocument", "api_founder_whatsappOptOut",
 ]);
