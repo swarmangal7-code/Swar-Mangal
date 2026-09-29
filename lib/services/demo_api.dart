@@ -97,6 +97,7 @@ class DemoApiClient extends ApiClient {
     'api_founder_paymentDraftReject': {'approvals', 'payments', 'students'},
     'api_addStudent': {'students', 'dashboard'},
     'api_staff_saveStudentDraft': {'students', 'dashboard'},
+    'api_founder_editStudent': {'students', 'dashboard'},
     'api_addDemoStudent': {'students', 'dashboard'},
     'api_founder_convertDemoStudent': {'students', 'dashboard', 'tasks'},
     'api_addSchool': {'invoices'},
@@ -155,6 +156,7 @@ class DemoApiClient extends ApiClient {
   static const _writes = <String>{
     'api_addStudent',
     'api_staff_saveStudentDraft',
+    'api_founder_editStudent',
     'api_addDemoStudent',
     'api_founder_convertDemoStudent',
     'api_addSchool',
@@ -807,6 +809,13 @@ class DemoApiClient extends ApiClient {
           'studentName': a['name'] ?? a['studentName'] ?? '',
           'duplicateWarning': {'hasDuplicates': false},
           'note': 'demo saved',
+        };
+      case 'api_founder_editStudent':
+        return {
+          'ok': true,
+          'changed': true,
+          'studentId': a['studentId'] ?? '',
+          'note': 'Student updated (demo mode).',
         };
       case 'api_addFeePayment':
         return {

@@ -47,13 +47,17 @@ interface SendWhatsAppRes extends RpcEnvelope {
 }
 
 interface HistoryRow {
-  id: string;
+  messageId: string;
   kind: string;
   to: string;
   status: string;
   body: string;
+  fileName?: string;
   error?: string;
-  created_at?: string;
+  createdAt?: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  readAt?: string;
 }
 
 interface HistoryRes extends RpcEnvelope {
@@ -83,6 +87,7 @@ export function MessageComposeDialog({
   const [msg, setMsg] = React.useState<CommGenerateRes | null>(null);
   const [body, setBody] = React.useState("");
   const [sent, setSent] = React.useState<SendWhatsAppRes | null>(null);
+  const [selectedHistory, setSelectedHistory] = React.useState<HistoryRow | null>(null);
   const intentKeyRef = React.useRef("");
 
   const history = useRpc<HistoryRes>("api_staff_messageHistory", { studentId }, { enabled: open });
@@ -223,17 +228,56 @@ export function MessageComposeDialog({
 
           {!!history.data?.rows?.length && (
             <div className="space-y-2 border-t border-dash-fg/10 pt-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-dash-fg/40">Sent before</p>
-              {history.data.rows.slice(0, 5).map((h) => (
-                <div key={h.id} className="flex items-center justify-between text-xs text-dash-fg/60">
-                  <span>{h.kind.replaceAll("_", " ")}</span>
-                  <Badge variant="outline" className="text-[10px]">
+              <p className="text-xs font-medium uppercase tracking-wide text-dash-fg/40">
+                Messages sent to this student ({history.data.rows.length})
+              </p>
+              {history.data.rows.map((h) => (
+                <button
+                  key={h.messageId}
+                  type="button"
+                  onClick={() => setSelectedHistory(h)}
+                  className="flex w-full items-center justify-between rounded-lg px-1.5 py-1 text-left text-xs text-dash-fg/60 transition-colors hover:bg-dash-fg/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
+                >
+                  <span className="truncate">{h.fileName || h.kind.replaceAll("_", " ")}</span>
+                  <Badge variant="outline" className="ml-2 shrink-0 text-[10px]">
                     {h.status}
                   </Badge>
-                </div>
+                </button>
               ))}
             </div>
           )}
+
+          <Dialog open={!!selectedHistory} onOpenChange={(v) => !v && setSelectedHistory(null)}>
+            <DialogContent className="border-dash-fg/10 bg-dash-card sm:max-w-md">
+              {selectedHistory && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center justify-between gap-2 text-dash-fg">
+                      <span>{selectedHistory.fileName || selectedHistory.kind.replaceAll("_", " ")}</span>
+                      <Badge variant="outline">{selectedHistory.status}</Badge>
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3 text-sm">
+                    <HistoryField label="To" value={selectedHistory.to} />
+                    <HistoryField label="Message" value={selectedHistory.body} multiline />
+                    {selectedHistory.fileName && <HistoryField label="Attachment" value={selectedHistory.fileName} />}
+                    <HistoryField label="Created" value={selectedHistory.createdAt} />
+                    {selectedHistory.sentAt && <HistoryField label="Sent" value={selectedHistory.sentAt} />}
+                    {selectedHistory.deliveredAt && <HistoryField label="Delivered" value={selectedHistory.deliveredAt} />}
+                    {selectedHistory.readAt && <HistoryField label="Read" value={selectedHistory.readAt} />}
+                    {selectedHistory.status === "FAILED" && selectedHistory.error && (
+                      <HistoryField label="Error" value={selectedHistory.error} />
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setSelectedHistory(null)}>
+                      Close
+                    </Button>
+                  </DialogFooter>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>
@@ -243,5 +287,14 @@ export function MessageComposeDialog({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function HistoryField({ label, value, multiline }: { label: string; value?: string; multiline?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wide text-dash-fg/40">{label}</p>
+      <p className={`mt-0.5 text-dash-fg/85 ${multiline ? "whitespace-pre-wrap" : ""}`}>{value || "—"}</p>
+    </div>
   );
 }

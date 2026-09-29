@@ -53,6 +53,7 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_addDemoStudent: STAFF,
   api_listDemoStudents: STAFF,
   api_founder_convertDemoStudent: FOUNDER,
+  api_founder_editStudent: FOUNDER,
   api_founder_setStudentStatus: FOUNDER,
   api_founder_mergeDuplicateStudent: FOUNDER,
   api_founder_mergeStudentDraft: FOUNDER,
@@ -319,7 +320,7 @@ export function scopeForSession(session: RpcSession): BranchScope {
  * worth recording; reads are not logged.
  */
 export const WRITE_FUNCTIONS = new Set<string>([
-  "api_addStudent", "api_addDemoStudent", "api_founder_convertDemoStudent", "api_staff_saveStudentDraft", "api_founder_setStudentStatus", "api_founder_mergeDuplicateStudent", "api_founder_mergeStudentDraft", "api_founder_studentDraftReject",
+  "api_addStudent", "api_addDemoStudent", "api_founder_convertDemoStudent", "api_staff_saveStudentDraft", "api_founder_editStudent", "api_founder_setStudentStatus", "api_founder_mergeDuplicateStudent", "api_founder_mergeStudentDraft", "api_founder_studentDraftReject",
   "api_addFeePayment", "api_staff_prepareReceiptDraft",
   "api_founder_paymentDraftApprove", "api_founder_paymentDraftReject",
   "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft",

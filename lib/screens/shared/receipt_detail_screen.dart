@@ -194,20 +194,38 @@ class _ReceiptDetailScreenState extends State<ReceiptDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpace.s4),
         children: [
+          // Same maroon letterhead as the downloaded PDF, so this preview
+          // doesn't look like a different, generic document.
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpace.s4),
-              child: Column(children: [
-                AmountText(r.amount),
-                const SizedBox(height: AppSpace.s2),
-                Text(r.student, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                const SizedBox(height: AppSpace.s2),
-                Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
-                  StatusBadge(r.status),
-                  if (r.excluded) const StatusBadge('EXCLUDED FROM ACCOUNTS'),
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              Container(
+                color: const Color(0xFF7A1F2B),
+                padding: const EdgeInsets.all(AppSpace.s4),
+                child: Column(children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Image.asset('assets/images/logo-mark.png', width: 26, height: 26),
+                    const SizedBox(width: AppSpace.s2),
+                    const Text('Swar Mangal™', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+                  ]),
+                  const SizedBox(height: 2),
+                  const Text('FEE RECEIPT', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 10)),
                 ]),
-              ]),
-            ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpace.s4),
+                child: Column(children: [
+                  AmountText(r.amount),
+                  const SizedBox(height: AppSpace.s2),
+                  Text(r.student, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  const SizedBox(height: AppSpace.s2),
+                  Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
+                    StatusBadge(r.status),
+                    if (r.excluded) const StatusBadge('EXCLUDED FROM ACCOUNTS'),
+                  ]),
+                ]),
+              ),
+            ]),
           ),
           const SectionTitle('Details'),
           Card(

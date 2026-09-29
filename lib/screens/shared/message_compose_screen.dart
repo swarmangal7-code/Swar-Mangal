@@ -86,6 +86,42 @@ class _MessageComposeScreenState extends State<MessageComposeScreen> {
     }
   }
 
+  void _showHistoryDetail(WaMessage h) {
+    Widget field(String label, String value) => Padding(
+          padding: const EdgeInsets.only(bottom: AppSpace.s3),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label.toUpperCase(),
+                style: TextStyle(fontSize: 10, letterSpacing: .4, color: AppColors.adaptive(context, AppColors.muted))),
+            const SizedBox(height: 2),
+            Text(value.isEmpty ? '—' : value, style: const TextStyle(fontSize: 13)),
+          ]),
+        );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(children: [
+          Expanded(child: Text(h.fileName.isNotEmpty ? h.fileName : h.kind.replaceAll('_', ' '))),
+          StatusBadge(h.status),
+        ]),
+        content: SingleChildScrollView(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            field('To', h.to),
+            field('Message', h.body),
+            if (h.fileName.isNotEmpty) field('Attachment', h.fileName),
+            field('Created', h.createdAt),
+            if (h.sentAt.isNotEmpty) field('Sent', h.sentAt),
+            if (h.deliveredAt.isNotEmpty) field('Delivered', h.deliveredAt),
+            if (h.readAt.isNotEmpty) field('Read', h.readAt),
+            if (h.status == 'FAILED' && h.error.isNotEmpty) field('Error', h.error),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _generate() async {
     final auth = context.read<AuthProvider>();
     if (auth.service == null) return;
@@ -331,35 +367,40 @@ class _MessageComposeScreenState extends State<MessageComposeScreen> {
             ),
           ],
           if (_history.isNotEmpty) ...[
-            const SectionTitle('Messages sent to this student'),
+            SectionTitle('Messages sent to this student (${_history.length})'),
             for (final h in _history)
               Card(
                 margin: const EdgeInsets.only(bottom: AppSpace.s2),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpace.s3),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Expanded(
-                        child: Text(
-                          h.fileName.isNotEmpty ? h.fileName : h.kind.replaceAll('_', ' '),
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                child: InkWell(
+                  onTap: () => _showHistoryDetail(h),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpace.s3),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(
+                          child: Text(
+                            h.fileName.isNotEmpty ? h.fileName : h.kind.replaceAll('_', ' '),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
                         ),
-                      ),
-                      StatusBadge(h.status),
+                        StatusBadge(h.status),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right, size: 18, color: AppColors.adaptive(context, AppColors.muted)),
+                      ]),
+                      const SizedBox(height: 2),
+                      Text('${h.when} · ${h.to}', style: TextStyle(fontSize: 11, color: AppColors.adaptive(context, AppColors.muted))),
+                      if (h.status == 'FAILED' && h.error.isNotEmpty)
+                        Text(h.error, style: TextStyle(fontSize: 11, color: AppColors.adaptive(context, AppColors.blockFg))),
+                      if (h.body.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(h.body,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
+                        ),
                     ]),
-                    const SizedBox(height: 2),
-                    Text('${h.when} · ${h.to}', style: TextStyle(fontSize: 11, color: AppColors.adaptive(context, AppColors.muted))),
-                    if (h.status == 'FAILED' && h.error.isNotEmpty)
-                      Text(h.error, style: TextStyle(fontSize: 11, color: AppColors.adaptive(context, AppColors.blockFg))),
-                    if (h.body.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(h.body,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
-                      ),
-                  ]),
+                  ),
                 ),
               ),
           ],

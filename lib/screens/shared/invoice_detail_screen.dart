@@ -86,17 +86,33 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpace.s4),
         children: [
+          // Same maroon letterhead as the downloaded PDF, so this preview
+          // doesn't look like a different, generic document.
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpace.s4),
-              child: Column(children: [
-                const Text('SCHOOL INVOICE', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
-                const SizedBox(height: AppSpace.s2),
-                AmountText(inv.amount),
-                const SizedBox(height: AppSpace.s2),
-                StatusBadge(inv.demo ? 'DEMO' : 'ISSUED'),
-              ]),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(children: [
+              Container(
+                color: _maroon,
+                padding: const EdgeInsets.all(AppSpace.s4),
+                child: Column(children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Image.asset('assets/images/logo-mark.png', width: 28, height: 28),
+                    const SizedBox(width: AppSpace.s2),
+                    const Text('Swar Mangal™', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                  ]),
+                  const SizedBox(height: 2),
+                  const Text('SCHOOL INVOICE', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, letterSpacing: 1.2, fontSize: 11)),
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpace.s4),
+                child: Column(children: [
+                  AmountText(inv.amount),
+                  const SizedBox(height: AppSpace.s2),
+                  StatusBadge(inv.demo ? 'DEMO' : 'ISSUED'),
+                ]),
+              ),
+            ]),
           ),
           const SectionTitle('Issued to'),
           Card(
@@ -120,13 +136,13 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               ]),
             ),
           ),
-          const SectionTitle('Owners'),
+          const SectionTitle('Authorised signatories'),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpace.s4),
               child: Row(children: [
-                Expanded(child: _owner(inv.owner1)),
-                Expanded(child: _owner(inv.owner2)),
+                Expanded(child: _owner(inv.owner1, 'assets/images/signature-sharvil.png')),
+                Expanded(child: _owner(inv.owner2, 'assets/images/signature-piyush.png')),
               ]),
             ),
           ),
@@ -149,9 +165,14 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
   }
 
-  Widget _owner(InvoiceOwner o) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(o.name.isNotEmpty ? o.name : 'Owner', style: const TextStyle(fontWeight: FontWeight.w700)),
-        if (o.title.isNotEmpty)
-          Text(o.title, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+  Widget _owner(InvoiceOwner o, String signatureAsset) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(height: 32, child: Image.asset(signatureAsset, fit: BoxFit.contain, alignment: Alignment.centerLeft)),
+        const SizedBox(height: 2),
+        Container(height: 1, width: 70, color: Theme.of(context).colorScheme.outline),
+        const SizedBox(height: 4),
+        Text(o.name.isNotEmpty ? o.name : 'Owner', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        Text(o.title.isNotEmpty ? o.title : 'Authorised Signatory', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
       ]);
 }
+
+const _maroon = Color(0xFF7A1F2B);

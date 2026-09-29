@@ -65,6 +65,12 @@ class ApiService {
   Future<dynamic> saveStudentDraft(Map<String, dynamic> form) =>
       _api.call('api_staff_saveStudentDraft', form);
 
+  /// Founder edit — applies immediately (no approval queue, the founder IS
+  /// the approval authority). The confirmation popup is the only gate; the
+  /// write is still audit-logged.
+  Future<dynamic> founderEditStudent(Map<String, dynamic> form) =>
+      _api.call('api_founder_editStudent', form);
+
   // ---------------------------------------------------------- demo students
   Future<dynamic> addDemoStudent(Map<String, dynamic> form) =>
       _api.call('api_addDemoStudent', form);

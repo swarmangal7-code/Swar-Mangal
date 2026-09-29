@@ -51,7 +51,9 @@ export default function FounderStudentsPage() {
       >
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-dash-fg">Students</h1>
-          <p className="mt-1 text-sm text-dash-fg/55">Search the academy roster.</p>
+          <p className="mt-1 text-sm text-dash-fg/55">
+            Search the academy roster.{!isPending && !isError && ` ${rows.length} student${rows.length === 1 ? "" : "s"}.`}
+          </p>
         </div>
         <Button asChild className="hidden bg-dash-accent text-dash-bg hover:bg-dash-accent-hover lg:inline-flex">
           <Link href="/founder/students/add">

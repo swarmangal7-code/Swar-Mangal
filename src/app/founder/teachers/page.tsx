@@ -74,7 +74,10 @@ export default function FounderTeachersPage() {
       >
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-dash-fg">Teachers</h1>
-          <p className="mt-1 text-sm text-dash-fg/55">Academy teaching panel and compensation.</p>
+          <p className="mt-1 text-sm text-dash-fg/55">
+            Academy teaching panel and compensation.
+            {!teachers.isPending && ` ${filtered.length} of ${rows.length} teacher${rows.length === 1 ? "" : "s"}.`}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">

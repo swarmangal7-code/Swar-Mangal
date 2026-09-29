@@ -40,6 +40,9 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
     _classCodes = context.read<AuthProvider>().boot?.classCodes.isNotEmpty == true
         ? context.read<AuthProvider>().boot!.classCodes
         : const ['GMC', 'KMC'];
+    // Loads the full roster immediately, same as the web app — no extra tap
+    // should be needed just to see who's already there.
+    _search();
   }
 
   @override
@@ -123,6 +126,14 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
                   ),
                 ]),
               ],
+              if (_rows.isNotEmpty) ...[
+                const SizedBox(height: AppSpace.s2),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('${_rows.length} student${_rows.length == 1 ? '' : 's'}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                ),
+              ],
             ]),
           ),
           Expanded(
@@ -145,6 +156,8 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
   }
 
   Widget _initialHint() {
+    // The roster loads automatically on open, so an empty list here means a
+    // search/filter genuinely matched nothing — not that nobody has looked yet.
     return ListView(children: [
       Padding(
         padding: const EdgeInsets.all(AppSpace.s4),
@@ -152,14 +165,12 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
           const Icon(Icons.person_search_outlined,
               size: 40, color: AppColors.muted),
           const SizedBox(height: AppSpace.s3),
-          const Text('Search for a student by name or phone.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.muted)),
-          const SizedBox(height: AppSpace.s4),
-          FilledButton.icon(
-            onPressed: _search,
-            icon: const Icon(Icons.list_alt),
-            label: const Text('Show all students'),
+          Text(
+            _q.text.isEmpty && _classFilter == 'ALL'
+                ? 'No students yet.'
+                : 'No students match this search.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted),
           ),
         ]),
       ),

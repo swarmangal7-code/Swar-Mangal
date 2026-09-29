@@ -101,6 +101,21 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!widget.staff && _editing) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Save changes?'),
+          content: Text('Save these changes to ${_name.text.trim()}? This applies immediately.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      if (!mounted) return;
+    }
     if (!_editing) {
       if (_admissionSource.isEmpty) {
         setState(() => _result = 'Say how they came to us.');
@@ -162,7 +177,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               if (_editing) 'studentId': widget.edit!.studentId,
             };
       final r = _editing
-          ? await auth.service!.saveStudentDraft(payload) // EDIT draft → founder merge
+          ? (!widget.staff
+              ? await auth.service!.founderEditStudent(payload) // founder edit → applies immediately
+              : await auth.service!.saveStudentDraft(payload)) // staff edit → draft, founder merges
           : widget.staff
               ? await auth.service!.saveStudentDraft(payload)
               : await auth.service!.addStudent(payload);
@@ -176,7 +193,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         // Staff changes are drafts until the founder merges them — never "Saved".
         _result = _success
             ? !widget.staff && _editing
-                ? 'Edit draft created — merge it from Approvals to update the student.'
+                ? 'Student updated.'
                 : widget.staff
                 ? 'Sent for approval.${dup ? ' A possible duplicate was flagged for review.' : ''}'
                     ' It appears in the student list once merged.'
@@ -459,7 +476,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             const SizedBox(height: AppSpace.s4),
             LoadingButton(
               label: _editing
-                  ? 'Save changes (founder approves)'
+                  ? (widget.staff ? 'Save changes (founder approves)' : 'Save changes')
                   : widget.staff
                       ? 'Save as draft for Sharvil'
                       : 'Add student',

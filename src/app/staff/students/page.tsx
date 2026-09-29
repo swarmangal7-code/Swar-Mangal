@@ -35,7 +35,10 @@ export default function StaffStudentsPage() {
       <motion.div variants={fadeUp}>
         <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Students</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Students</h1>
-        <p className="mt-1 text-sm text-dash-fg/55">The full roster — search to narrow it down.</p>
+        <p className="mt-1 text-sm text-dash-fg/55">
+          The full roster — search to narrow it down.
+          {!search.isPending && !search.isError && ` ${rows.length} student${rows.length === 1 ? "" : "s"}.`}
+        </p>
       </motion.div>
 
       <motion.div variants={fadeUp} className="relative">

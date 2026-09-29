@@ -127,10 +127,10 @@ export default function FounderStudentProfilePage() {
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not delete student."),
   });
 
-  const saveEdit = useMutationRpc<EditStudentArg, RpcEnvelope>("api_staff_saveStudentDraft", {
+  const saveEdit = useMutationRpc<EditStudentArg, RpcEnvelope>("api_founder_editStudent", {
     invalidate: [rpcKeys.root],
     onSuccess: () => {
-      toast.success("Edit draft created — merge it from Approvals to update the student.");
+      toast.success("Student updated.");
       setEditOpen(false);
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not save edit."),
@@ -538,7 +538,8 @@ export default function FounderStudentProfilePage() {
             <Button
               loading={saveEdit.isPending}
               disabled={!editName.trim()}
-              onClick={() =>
+              onClick={() => {
+                if (!confirm(`Save these changes to ${editName.trim() || student.studentName}? This applies immediately.`)) return;
                 saveEdit.mutate({
                   studentId: id,
                   studentName: editName.trim(),
@@ -547,10 +548,10 @@ export default function FounderStudentProfilePage() {
                   parentName: editGuardian.trim(),
                   course: editInstrument.trim(),
                   lenient: true,
-                })
-              }
+                });
+              }}
             >
-              Save draft
+              Save changes
             </Button>
           </DialogFooter>
         </DialogContent>

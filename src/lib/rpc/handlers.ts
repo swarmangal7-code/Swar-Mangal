@@ -46,7 +46,7 @@ export const HANDLERS1_FUNCTIONS = new Set([
   "api_bootstrap", "api_staff_boot",
   "api_searchStudent", "api_staff_searchStudents", "api_staff_getStudentProfile", "api_studentProfile",
   "api_staff_studentHub", "api_addStudent", "api_addDemoStudent", "api_listDemoStudents", "api_founder_convertDemoStudent",
-  "api_staff_saveStudentDraft", "api_founder_setStudentStatus", "api_founder_mergeDuplicateStudent", "api_founder_mergeStudentDraft",
+  "api_staff_saveStudentDraft", "api_founder_editStudent", "api_founder_setStudentStatus", "api_founder_mergeDuplicateStudent", "api_founder_mergeStudentDraft",
   "api_searchReceipt", "api_receiptPreflight", "api_addFeePayment", "api_staff_prepareReceiptDraft",
   "api_founder_listPaymentDrafts", "api_founder_paymentDraftApprove", "api_founder_paymentDraftReject",
   "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft", "api_founder_studentDraftReject",
@@ -79,6 +79,8 @@ export async function rpcDispatch(role: RpcRole, fn: string, arg: Record<string,
       return convertDemoStudent(arg, scope);
     case "api_staff_saveStudentDraft":
       return saveStudentDraft(arg, scope, session);
+    case "api_founder_editStudent":
+      return founderEditStudent(arg, scope);
     case "api_founder_setStudentStatus":
       return setStudentStatus(arg);
     case "api_founder_mergeDuplicateStudent":
@@ -479,6 +481,66 @@ async function convertDemoStudent(arg: Record<string, unknown>, scope: BranchSco
   return ok({ studentId, note: "Converted to an admitted student." });
 }
 
+/** The one place an existing student row's fields are actually written —
+ *  shared by the founder's direct edit and a merged staff draft, so both
+ *  paths update exactly the same columns the exact same way. */
+async function applyStudentFieldEdit(studentId: string, f: StudentFields, runner: Pick<Tx, "query"> = { query }): Promise<void> {
+  const plan = resolvePlan(f.planText);
+  await runner.query(
+    `update students_acad set
+       name = coalesce(nullif($2,''), name), phone = coalesce(nullif($3,''), phone),
+       email = coalesce(nullif($4,''), email), guardian_name = coalesce(nullif($5,''), guardian_name),
+       guardian_phone = coalesce(nullif($6,''), guardian_phone),
+       instrument = coalesce(nullif($7,''), instrument), batch = coalesce(nullif($8,''), batch),
+       notes = coalesce(nullif($9,''), notes),
+       fee_plan_name = coalesce($10, fee_plan_name), monthly_fee = coalesce($11, monthly_fee),
+       fee_cycle_months = coalesce($12, fee_cycle_months),
+       admission_source = coalesce(nullif($13,''), admission_source),
+       assigned_teacher_id = coalesce(nullif($14,''), assigned_teacher_id),
+       enrollment_date = coalesce($15::date, enrollment_date)
+     where id = $1`,
+    [studentId, f.name, f.phone, f.email, f.parentName, f.guardianPhone, f.course, f.batch, f.notes, plan?.name ?? null, plan?.amount ?? null, plan?.months ?? null, f.admissionSource, f.teacherId, f.enrollmentDate],
+  );
+}
+
+async function applyStudentLifecycleChange(studentId: string, status: string, reason: string, runner: Pick<Tx, "query" | "queryOne"> = { query, queryOne }): Promise<void> {
+  await runner.query(
+    "update students_acad set status = $2, notes = coalesce(notes,'') || ' [' || $3 || ']', status_changed_at = case when status is distinct from $2 then now() else status_changed_at end where id = $1",
+    [studentId, status, `${status}: ${reason}`],
+  );
+  if (status === "LEFT") await createWinBackLeadIfNeeded(studentId, reason, runner);
+}
+
+/**
+ * Founder edit — applies immediately, no approval queue. The founder is
+ * already the approval authority, so routing their own edit through
+ * student_drafts just meant they had to separately go approve themselves.
+ * A confirmation popup on the client is the only gate; the write still goes
+ * through the normal audit_log (WRITE_FUNCTIONS) so there is a record.
+ */
+async function founderEditStudent(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const editingId = s(arg["studentId"]).trim();
+  if (!editingId) return { ok: false, code: "STUDENT_ID_REQUIRED", error: "studentId required" };
+  const existing = await acadStudentById(editingId);
+  if (!existing) return { ok: false, code: "STUDENT_NOT_FOUND", error: `No student ${editingId}` };
+  if (!inScope(scope, existing.branch)) return branchForbidden(recordBranch(existing.branch));
+
+  const lifecycle = s(arg["lifecycleStatus"]).trim().toUpperCase();
+  const statusReason = s(arg["statusReason"]).trim();
+  if (lifecycle) {
+    if (!STUDENT_STATUSES.includes(lifecycle)) return { ok: false, code: "BAD_STATUS", error: `Status must be one of ${STUDENT_STATUSES.join(", ")}.` };
+    if (!statusReason) return { ok: false, code: "REASON_REQUIRED", error: "Say why the status should change." };
+  }
+
+  const f = studentFieldsFrom(arg);
+  await withTransaction(async (tx) => {
+    await applyStudentFieldEdit(editingId, f, tx);
+    if (lifecycle) await applyStudentLifecycleChange(editingId, lifecycle, statusReason, tx);
+  });
+  await bumpRevisions(["students", "dashboard", "tasks", "inquiries"]);
+  return ok({ changed: true, studentId: editingId, note: "Student updated." });
+}
+
 /**
  * Staff add/edit is a PROPOSAL (brief pattern B). It lands in student_drafts
  * for the founder to merge; it never creates or changes a student directly.
@@ -555,28 +617,9 @@ async function mergeStudentDraft(arg: Record<string, unknown>, session?: RpcSess
     };
     let studentId = s(draft.student_id);
     if (s(draft.action) === "EDIT") {
-      const plan = resolvePlan(f.planText);
-      await tx.query(
-        `update students_acad set
-           name = coalesce(nullif($2,''), name), phone = coalesce(nullif($3,''), phone),
-           email = coalesce(nullif($4,''), email), guardian_name = coalesce(nullif($5,''), guardian_name),
-           guardian_phone = coalesce(nullif($6,''), guardian_phone),
-           instrument = coalesce(nullif($7,''), instrument), batch = coalesce(nullif($8,''), batch),
-           notes = coalesce(nullif($9,''), notes),
-           fee_plan_name = coalesce($10, fee_plan_name), monthly_fee = coalesce($11, monthly_fee),
-           fee_cycle_months = coalesce($12, fee_cycle_months),
-           admission_source = coalesce(nullif($13,''), admission_source),
-           assigned_teacher_id = coalesce(nullif($14,''), assigned_teacher_id),
-           enrollment_date = coalesce($15::date, enrollment_date)
-         where id = $1`,
-        [studentId, f.name, f.phone, f.email, f.parentName, f.guardianPhone, f.course, f.batch, f.notes, plan?.name ?? null, plan?.amount ?? null, plan?.months ?? null, f.admissionSource, f.teacherId, f.enrollmentDate],
-      );
+      await applyStudentFieldEdit(studentId, f, tx);
       if (s(draft.lifecycle_status)) {
-        await tx.query(
-          "update students_acad set status = $2, notes = coalesce(notes,'') || ' [' || $3 || ']', status_changed_at = case when status is distinct from $2 then now() else status_changed_at end where id = $1",
-          [studentId, s(draft.lifecycle_status), `${s(draft.lifecycle_status)}: ${s(draft.status_reason)}`],
-        );
-        if (s(draft.lifecycle_status) === "LEFT") await createWinBackLeadIfNeeded(studentId, s(draft.status_reason), tx);
+        await applyStudentLifecycleChange(studentId, s(draft.lifecycle_status), s(draft.status_reason), tx);
       }
     } else {
       studentId = await createStudent(f, tx);

@@ -4,38 +4,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 /// SWAR MANGAL — design system
 ///
-/// Warm ivory canvas, white cards on hairline borders, deep midnight-indigo
-/// for primary actions and the brand panel, and brass for the few things that
-/// deserve the eye (a selected tab, a headline figure). Inter for everything
-/// you read; Playfair Display only for display headings and hero numbers.
+/// Warm ivory canvas, white cards on hairline borders, and a single gold/brass
+/// accent for primary actions and the few things that deserve the eye (a
+/// selected tab, a headline figure) — matching the website dashboard's
+/// --dash-* palette exactly, light and dark. Inter for everything you read;
+/// Playfair Display only for display headings and hero numbers.
 /// Premium here means restraint: one accent, quiet borders, generous space.
 /// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 class AppColors {
   AppColors._();
 
-  // Canvas and surfaces.
-  static const background = Color(0xFFF5F3EE);
+  // Canvas and surfaces — exact hex equivalents of the website's --dash-*
+  // design tokens (src/app/globals.css), so both apps read as one product.
+  static const background = Color(0xFFF8F6F2); // --dash-bg (light)
   static const pageBg = background; // alias for existing callers
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceAlt = Color(0xFFF0EDE6);
+  static const surface = Color(0xFFFFFFFF); // --dash-card (light)
+  static const surfaceAlt = Color(0xFFFBFAF9); // --dash-elevated (light)
   static const line = Color(0xFFE6E1D7);
   static const border = line; // alias
 
   // Ink.
-  static const ink = Color(0xFF171A26);
+  static const ink = Color(0xFF1C1925); // --dash-fg (light)
   static const textPrimary = ink; // alias
   static const muted = Color(0xFF6B675F);
   static const textSecondary = muted; // alias
 
-  // Brand: midnight indigo + brass.
-  static const primary = Color(0xFF1F2747);
+  // Brand accent — the website's single gold/brass accent (--dash-accent),
+  // used as both primary and secondary here instead of a separate indigo.
+  static const primary = Color(0xFFB47A22); // --dash-accent (light)
   static const primaryLight = Color(0xFF2E3864);
-  static const brass = Color(0xFFA9824A);
+  static const brass = Color(0xFF956318); // --dash-accent-hover (light)
   static const brassSoft = Color(0xFFF3ECDF);
   static const secondaryAccent = brass;
   static const lavenderSoft = brassSoft; // alias: soft accent tint
   static const gold = brass;
-  static const focus = Color(0xFF3A4B8A);
+  static const focus = Color(0xFF956318); // --dash-accent-hover (light)
 
   // Deep surfaces (brand panel, dark chrome).
   static const navy = Color(0xFF151B31);
@@ -55,15 +58,16 @@ class AppColors {
   static const success = okFg;
   static const error = blockFg;
 
-  // Dark variant — "studio at night".
-  static const dPageBg = Color(0xFF0E1016);
-  static const dSurface = Color(0xFF171A22);
-  static const dSurfaceAlt = Color(0xFF1F232D);
+  // Dark variant — "studio at night", matching the website's dark --dash-*
+  // tokens exactly.
+  static const dPageBg = Color(0xFF08070B); // --dash-bg (dark)
+  static const dSurface = Color(0xFF131019); // --dash-card (dark)
+  static const dSurfaceAlt = Color(0xFF121016); // --dash-elevated (dark)
   static const dLine = Color(0xFF2B303B);
-  static const dInk = Color(0xFFEEEBE4);
+  static const dInk = Color(0xFFF7F2E8); // --dash-fg (dark)
   static const dMuted = Color(0xFFA39E94);
-  static const dPrimary = Color(0xFFD3B177);
-  static const dFocus = Color(0xFFE2C48F);
+  static const dPrimary = Color(0xFFD6A84F); // --dash-accent (dark)
+  static const dFocus = Color(0xFFE2BD68); // --dash-accent-hover (dark)
   static const dOkFg = Color(0xFF72C79E);
   static const dOkBg = Color(0xFF15291F);
   static const dWarnFg = Color(0xFFE4B266);

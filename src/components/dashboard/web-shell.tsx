@@ -3,23 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChevronsUpDown, Download, LogOut, Menu, Music2, X } from "lucide-react";
+import { Building2, ChevronsUpDown, Download, LogOut, Music2 } from "lucide-react";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -157,7 +149,6 @@ export function WebShell({ role, children }: WebShellProps) {
   const { session, isLoading, logout } = useTokenAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
   const sections = role === "FOUNDER_ADMIN" ? founderNav : staffNav;
 
@@ -181,10 +172,10 @@ export function WebShell({ role, children }: WebShellProps) {
 
   if (isLoading || !session) {
     return (
-      <div className="flex h-dvh flex-col overflow-hidden bg-dash-bg">
-        <Skeleton className="h-16 rounded-none bg-dash-fg/[0.03] lg:hidden" />
-        <div className="flex flex-1">
-          <Skeleton className="hidden w-60 rounded-none bg-dash-fg/[0.03] lg:block" />
+      <div className="flex h-dvh overflow-hidden bg-dash-bg">
+        <Skeleton className="w-60 shrink-0 rounded-none bg-dash-fg/[0.03]" />
+        <div className="flex flex-1 flex-col">
+          <Skeleton className="h-16 shrink-0 rounded-none bg-dash-fg/[0.03]" />
           <div className="flex-1 space-y-4 p-6">
             <Skeleton className="h-8 w-56 bg-dash-fg/[0.05]" />
             <Skeleton className="h-40 w-full bg-dash-fg/[0.05]" />
@@ -201,39 +192,11 @@ export function WebShell({ role, children }: WebShellProps) {
     .find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
   const pageTitle = activeItem?.title ?? "Dashboard";
 
-  const drawerNav = (
-    <div className="flex h-full flex-col p-5">
-      <div className="mb-6 flex items-center justify-between">
-        <Brand />
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(false)}
-          className="rounded-lg p-1.5 text-dash-fg/60 transition-colors hover:bg-dash-fg/[0.06] hover:text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
-          aria-label="Close navigation"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="overflow-y-auto no-scrollbar pr-1">
-        <NavList sections={sections} pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
-      </div>
-      <div className="mt-6 border-t border-dash-fg/10 pt-4">
-        <div className="flex items-center gap-3 px-1">
-          <Avatar name={session.name} size="sm" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-dash-fg">{session.name}</p>
-            <p className="truncate text-xs text-dash-fg/45">{session.email}</p>
-          </div>
-          <ThemeToggle className="text-dash-fg/60 hover:bg-dash-fg/[0.06] hover:text-dash-fg" />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="flex h-dvh overflow-hidden bg-dash-bg text-dash-fg">
-      {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-dash-fg/10 bg-dash-sidebar lg:flex">
+      {/* Sidebar — always visible, same at every window size (no separate
+          mobile-drawer variant). */}
+      <aside className="flex w-60 shrink-0 flex-col border-r border-dash-fg/10 bg-dash-sidebar">
         <div className="px-5 py-5">
           <Brand />
         </div>
@@ -263,29 +226,10 @@ export function WebShell({ role, children }: WebShellProps) {
         </div>
       </aside>
 
-      {/* Mobile drawer */}
-      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DialogContent
-          hideClose
-          className="fixed inset-y-0 left-0 top-0 h-dvh max-h-none w-[280px] max-w-[85vw] translate-x-0 translate-y-0 rounded-none border-0 border-r border-dash-fg/10 bg-dash-sidebar p-0 shadow-2xl"
-        >
-          <DialogTitle className="sr-only">Navigation</DialogTitle>
-          {drawerNav}
-        </DialogContent>
-      </Dialog>
-
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-dash-fg/10 bg-dash-bg/80 px-4 backdrop-blur-xl lg:px-6">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              className="rounded-lg p-2 text-dash-fg/70 transition-colors hover:bg-dash-fg/[0.06] hover:text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 lg:hidden"
-              aria-label="Open navigation"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
             <p className="text-[15px] font-semibold tracking-tight">{pageTitle}</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -306,32 +250,6 @@ export function WebShell({ role, children }: WebShellProps) {
               <Download className="h-4 w-4" aria-hidden />
             </a>
             {branches.length > 1 && <BranchSelector branches={branches} />}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 lg:hidden"
-                  aria-label="Account menu"
-                >
-                  <Avatar name={session.name} size="sm" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-dash-elevated border-dash-fg/10">
-                <DropdownMenuLabel>
-                  <p className="text-sm font-medium text-dash-fg">{session.name}</p>
-                  <p className="text-xs font-normal text-dash-fg/45">{session.email}</p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={handleSignOut}
-                  disabled={signingOut}
-                  className="text-red-300 focus:bg-dash-fg/[0.06] focus:text-red-300"
-                >
-                  <LogOut className="h-4 w-4" aria-hidden />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
 
