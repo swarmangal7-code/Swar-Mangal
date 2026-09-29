@@ -107,6 +107,15 @@ export default function FounderStudentProfilePage() {
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not update status."),
   });
 
+  const mergeDuplicate = useMutationRpc<{ studentId: string; survivorId: string }, RpcEnvelope & { note?: string }>(
+    "api_founder_mergeDuplicateStudent",
+    {
+      invalidate: [rpcKeys.root],
+      onSuccess: (res) => toast.success(res.note ?? "Marked as a duplicate."),
+      onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not merge."),
+    },
+  );
+
   const deleteStudent = useMutationRpc<StudentStatusArg, RpcEnvelope>("api_founder_setStudentStatus", {
     invalidate: [rpcKeys.root],
     onSuccess: () => {
@@ -168,6 +177,46 @@ export default function FounderStudentProfilePage() {
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to students
         </Link>
       </motion.div>
+
+      {prof.data?.duplicateOf && (
+        <motion.div variants={fadeUp}>
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-700 dark:text-amber-300">
+            Marked as a duplicate of{" "}
+            <Link href={`/founder/students/${encodeURIComponent(prof.data.duplicateOf.studentId)}`} className="font-semibold underline">
+              {prof.data.duplicateOf.name}
+            </Link>
+            . This record is kept for its history but is not counted as an active student.
+          </div>
+        </motion.div>
+      )}
+
+      {!!prof.data?.possibleDuplicates?.length && (
+        <motion.div variants={fadeUp}>
+          <div className="space-y-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-700 dark:text-amber-300">
+            <p>
+              This phone number is also registered to:{" "}
+              {prof.data.possibleDuplicates.map((m) => m.name).join(", ")}. If this is the same person, merge this
+              record into the correct one.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {prof.data.possibleDuplicates.map((m) => (
+                <Button
+                  key={m.studentId}
+                  size="sm"
+                  variant="outline"
+                  disabled={mergeDuplicate.isPending}
+                  onClick={() => {
+                    if (!confirm(`Mark ${student.studentName} as a duplicate of ${m.name}? This record's history is kept, not deleted.`)) return;
+                    mergeDuplicate.mutate({ studentId: id, survivorId: m.studentId });
+                  }}
+                >
+                  Same person as {m.name} — merge into them
+                </Button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <motion.div variants={fadeUp}>
         <Card className="border-dash-fg/10 bg-dash-card">

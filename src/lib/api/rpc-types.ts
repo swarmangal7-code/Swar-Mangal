@@ -116,6 +116,8 @@ export interface StudentProfileResponse extends RpcEnvelope {
   teacher: { teacherId: string; teacherName: string };
   receipts: ReceiptRow[];
   attendance: StudentAttendanceRow[];
+  duplicateOf: { studentId: string; name: string } | null;
+  possibleDuplicates: { studentId: string; name: string }[];
 }
 
 export interface PendingFinaliseDraft {

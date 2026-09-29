@@ -463,6 +463,14 @@ class ApiService {
         'reason': reason,
       });
 
+  /// Founder-only: flag a duplicate student record and link it to the
+  /// survivor. History (receipts/attendance) stays on the duplicate's own id.
+  Future<dynamic> founderMergeDuplicateStudent(String studentId, String survivorId) =>
+      _api.call('api_founder_mergeDuplicateStudent', {
+        'studentId': studentId,
+        'survivorId': survivorId,
+      });
+
   /// Founder-only teacher payout preview (server-computed payable). Never compute on client.
   Future<List<PayoutRow>> founderPayoutPreview(String month, {String? entityId}) async =>
       (await founderPayoutPreviewFull(month, entityId: entityId)).rows;

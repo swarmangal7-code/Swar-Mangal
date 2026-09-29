@@ -77,6 +77,36 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
     }
   }
 
+  Future<void> _mergeDuplicate(DuplicateStudentRef survivor) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Merge as duplicate?'),
+        content: Text('Mark ${widget.student.studentName} as a duplicate of ${survivor.name}? '
+            'This record\'s history (receipts, attendance) stays on file, it is just linked to the correct student.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Merge')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await auth.service!.founderMergeDuplicateStudent(widget.student.studentId, survivor.studentId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Marked as a duplicate of ${survivor.name}.')));
+      await _loadReceipts();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<void> _loadHub() async {
     final auth = context.read<AuthProvider>();
     if (auth.service == null) return;
@@ -274,6 +304,40 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpace.s4),
           children: [
+            if (_detail?.duplicateOf != null)
+              Card(
+                color: AppColors.warnBg,
+                margin: const EdgeInsets.only(bottom: AppSpace.s3),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.s3),
+                  child: Text(
+                    'Marked as a duplicate of ${_detail!.duplicateOf!.name}. Kept for history, not counted as active.',
+                    style: TextStyle(color: AppColors.warnFg, fontSize: 12.5),
+                  ),
+                ),
+              ),
+            if (!widget.staff && (_detail?.possibleDuplicates.isNotEmpty ?? false))
+              Card(
+                color: AppColors.warnBg,
+                margin: const EdgeInsets.only(bottom: AppSpace.s3),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpace.s3),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      'This phone is also registered to ${_detail!.possibleDuplicates.map((m) => m.name).join(', ')}.',
+                      style: TextStyle(color: AppColors.warnFg, fontSize: 12.5),
+                    ),
+                    const SizedBox(height: AppSpace.s2),
+                    Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
+                      for (final m in _detail!.possibleDuplicates)
+                        OutlinedButton(
+                          onPressed: () => _mergeDuplicate(m),
+                          child: Text('Same as ${m.name} — merge', style: const TextStyle(fontSize: 12)),
+                        ),
+                    ]),
+                  ]),
+                ),
+              ),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpace.s4),

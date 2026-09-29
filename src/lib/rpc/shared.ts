@@ -182,11 +182,12 @@ export interface AcadStudent {
   last_payment_date: string | null;
   admission_source: string | null;
   assigned_teacher_id: string | null;
+  duplicate_of_id: string | null;
 }
 
 const STUDENT_COLUMNS = `id, name, guardian_name, phone, email, instrument, branch, batch, fee_plan, status, notes,
      fee_plan_name, monthly_fee, fee_cycle_months, fee_due_day,
-     next_due_date::text, cycle_start::text, cycle_end::text, last_payment_date::text, admission_source, assigned_teacher_id`;
+     next_due_date::text, cycle_start::text, cycle_end::text, last_payment_date::text, admission_source, assigned_teacher_id, duplicate_of_id`;
 
 export interface AcadTeacher {
   id: string;

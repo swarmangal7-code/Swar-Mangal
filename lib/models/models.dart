@@ -1571,6 +1571,14 @@ class TeacherProfile {
 }
 
 /// Rich, role-appropriate student profile detail.
+class DuplicateStudentRef {
+  const DuplicateStudentRef({required this.studentId, required this.name});
+  factory DuplicateStudentRef.fromApi(Map<String, dynamic> b) =>
+      DuplicateStudentRef(studentId: _s(b['studentId']), name: _s(b['name']));
+  final String studentId;
+  final String name;
+}
+
 class StudentProfileDetail {
   StudentProfileDetail({
     required this.student,
@@ -1579,6 +1587,8 @@ class StudentProfileDetail {
     required this.branch,
     this.receipts = const [],
     this.attendance = const [],
+    this.duplicateOf,
+    this.possibleDuplicates = const [],
   });
   factory StudentProfileDetail.fromApi(Map<String, dynamic> b) {
     final s = b['student'] is Map<String, dynamic>
@@ -1608,6 +1618,13 @@ class StudentProfileDetail {
           .whereType<Map<String, dynamic>>()
           .map(AttendanceMark.fromApi)
           .toList(),
+      duplicateOf: b['duplicateOf'] is Map<String, dynamic>
+          ? DuplicateStudentRef.fromApi(b['duplicateOf'] as Map<String, dynamic>)
+          : null,
+      possibleDuplicates: ((b['possibleDuplicates'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(DuplicateStudentRef.fromApi)
+          .toList(),
     );
   }
   final Student student;
@@ -1618,6 +1635,8 @@ class StudentProfileDetail {
   final String branch;
   final List<ReceiptRow> receipts;
   final List<AttendanceMark> attendance;
+  final DuplicateStudentRef? duplicateOf;
+  final List<DuplicateStudentRef> possibleDuplicates;
 
   bool get hasTeacherId => teacherId.isNotEmpty && teacherId != '0' && teacherId != 'null';
   bool get hasTeacherName => student.teacher.isNotEmpty;

@@ -63,6 +63,8 @@ export async function rpcDispatch(role: RpcRole, fn: string, arg: Record<string,
       return saveStudentDraft(arg, scope, session);
     case "api_founder_setStudentStatus":
       return setStudentStatus(arg);
+    case "api_founder_mergeDuplicateStudent":
+      return mergeDuplicateStudent(arg, scope);
     case "api_founder_mergeStudentDraft":
       return mergeStudentDraft(arg, session);
     case "api_founder_studentDraftReject":
@@ -161,6 +163,12 @@ async function studentProfile(arg: Record<string, unknown>, scope: BranchScope):
      where student_id = $1 order by session_date desc limit 30`,
     [id],
   );
+  // Surfaced so staff/founder see it every time they open the record, not
+  // only at the moment of admission — a shared phone can be noticed weeks
+  // later when someone else opens the wrong profile.
+  const duplicateOf = x.duplicate_of_id ? await acadStudentById(x.duplicate_of_id) : null;
+  const possibleDuplicates =
+    s(x.status).toUpperCase() !== "DUPLICATE" ? await phoneMatches(x.phone, id) : [];
   return ok({
     student: { ...st, teacherName: st.teacher, branch: s(x.branch).toUpperCase() },
     teacher: { teacherId: st.teacherId ?? "", teacherName: st.teacher },
@@ -171,6 +179,41 @@ async function studentProfile(arg: Record<string, unknown>, scope: BranchScope):
       teacherName: s(a.teacher_name),
       instrument: s(a.instrument),
     })),
+    duplicateOf: duplicateOf ? { studentId: duplicateOf.id, name: duplicateOf.name } : null,
+    possibleDuplicates,
+  });
+}
+
+/**
+ * Handover spec: retire a duplicate student record instead of deleting it or
+ * rewriting its history. The duplicate keeps its own id, receipts,
+ * attendance and payout rows exactly as recorded; it is only flagged
+ * DUPLICATE and linked to the survivor so anyone opening either profile sees
+ * the connection.
+ */
+async function mergeDuplicateStudent(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const duplicateId = s(arg["studentId"]);
+  const survivorId = s(arg["survivorId"]);
+  if (!duplicateId || !survivorId) return { ok: false, code: "MISSING", error: "studentId + survivorId required" };
+  if (duplicateId === survivorId) return { ok: false, code: "SAME_STUDENT", error: "Pick two different students to merge." };
+  const [duplicate, survivor] = await Promise.all([acadStudentById(duplicateId), acadStudentById(survivorId)]);
+  if (!duplicate) return { ok: false, code: "STUDENT_NOT_FOUND", error: `No student ${duplicateId}` };
+  if (!survivor) return { ok: false, code: "SURVIVOR_NOT_FOUND", error: `No student ${survivorId}` };
+  if (!inScope(scope, duplicate.branch)) return branchForbidden(recordBranch(duplicate.branch));
+  if (!inScope(scope, survivor.branch)) return branchForbidden(recordBranch(survivor.branch));
+  await query(
+    `update students_acad set status = 'DUPLICATE', duplicate_of_id = $1,
+       notes = coalesce(notes,'') || '[Merged into ' || $1 || ' (' || $2 || ')]'
+     where id = $3`,
+    [survivorId, survivor.name, duplicateId],
+  );
+  await bumpRevisions(["students", "dashboard"]);
+  return ok({
+    merged: true,
+    studentId: duplicateId,
+    survivorId,
+    survivorName: survivor.name,
+    note: `${duplicate.name} marked as a duplicate of ${survivor.name}. Their receipts and attendance stay on record under ${duplicateId}.`,
   });
 }
 

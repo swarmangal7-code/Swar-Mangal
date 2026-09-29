@@ -1480,3 +1480,11 @@ alter table students_acad add column if not exists demo_time text;
 -- as a miss for attendance history, but should read differently and can
 -- carry a reason without requiring the backdated-mark reason flow.
 alter table attendance_acad add column if not exists absence_reason text;
+
+-- Handover spec: duplicate-student retirement. A duplicate row is flagged
+-- (status='DUPLICATE') and pointed at the surviving row rather than deleted
+-- or having its history rewritten — receipts/attendance/payouts already
+-- recorded against the duplicate id stay exactly as they were, discoverable
+-- through this link, instead of being silently merged into the survivor's
+-- financial totals.
+alter table students_acad add column if not exists duplicate_of_id text references students_acad(id);
