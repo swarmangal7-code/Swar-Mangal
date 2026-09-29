@@ -76,18 +76,6 @@ Future<Uint8List> buildReceiptPdf(ReceiptRow r, {bool demo = false}) async {
       pageFormat: pdf.PdfPageFormat.a5,
       margin: const pw.EdgeInsets.all(28),
       build: (_) => pw.Stack(children: [
-        pw.Positioned.fill(
-          child: pw.Center(
-            child: pw.Transform.rotateBox(
-              angle: -0.38,
-              child: pw.Opacity(
-                opacity: 0.5,
-                child: pw.Text(isVoid ? 'VOID' : 'PAID',
-                    style: pw.TextStyle(font: serifBold, fontSize: 46, color: _border)),
-              ),
-            ),
-          ),
-        ),
         pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
             pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
@@ -164,6 +152,20 @@ Future<Uint8List> buildReceiptPdf(ReceiptRow r, {bool demo = false}) async {
             ]),
           ),
         ]),
+        // Painted last so it overlays every card/box instead of sitting
+        // behind them — Stack paints children in order, first = bottom.
+        pw.Positioned.fill(
+          child: pw.Center(
+            child: pw.Transform.rotateBox(
+              angle: -0.38,
+              child: pw.Opacity(
+                opacity: 0.5,
+                child: pw.Text(isVoid ? 'VOID' : 'PAID',
+                    style: pw.TextStyle(font: serifBold, fontSize: 46, color: _border)),
+              ),
+            ),
+          ),
+        ),
       ]),
     ),
   );

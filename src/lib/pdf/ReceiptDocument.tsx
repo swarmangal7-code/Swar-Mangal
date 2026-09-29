@@ -181,8 +181,6 @@ export function ReceiptDocument({ data }: { data: ReceiptPdfData }) {
   return (
     <Document title={`Receipt ${data.receiptNo}`}>
       <Page size="A5" style={st.page}>
-        <Text style={st.watermark}>{isVoid ? "VOID" : "PAID"}</Text>
-
         <View style={st.headerRow}>
           <View style={st.headerLeft}>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image, not an HTML img */}
@@ -241,6 +239,10 @@ export function ReceiptDocument({ data }: { data: ReceiptPdfData }) {
           <Text style={st.footerBrand}>Swar Mangal™ Music Academy</Text>
           <Text style={st.footerText}>Branches: Goregaon | Kandivali · +91-9769419519 | +91-8169222089</Text>
         </View>
+
+        {/* Painted last so it overlays every card/box instead of sitting
+            behind them — react-pdf stacks elements in document order. */}
+        <Text style={st.watermark}>{isVoid ? "VOID" : "PAID"}</Text>
       </Page>
     </Document>
   );
