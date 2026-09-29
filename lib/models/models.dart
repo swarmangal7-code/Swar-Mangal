@@ -1730,6 +1730,33 @@ class InvoiceOwner {
   final String title;
 }
 
+/// One payee on a school invoice's payment split, already resolved to a
+/// rupee amount for this specific invoice (handover template redesign).
+class InvoiceBeneficiaryAmount {
+  const InvoiceBeneficiaryAmount({
+    required this.name,
+    required this.amount,
+    this.bankName = '',
+    this.accountNo = '',
+    this.ifsc = '',
+    this.upi = '',
+  });
+  factory InvoiceBeneficiaryAmount.fromApi(Map<String, dynamic> b) => InvoiceBeneficiaryAmount(
+        name: _s(b['name']),
+        amount: _n(b['amount']),
+        bankName: _s(b['bankName']),
+        accountNo: _s(b['accountNo']),
+        ifsc: _s(b['ifsc']),
+        upi: _s(b['upi']),
+      );
+  final String name;
+  final num amount;
+  final String bankName;
+  final String accountNo;
+  final String ifsc;
+  final String upi;
+}
+
 /// Authoritative SCHOOL-LEVEL invoice snapshot. No student dependency: the
 /// document bills a CLASS, not a student, at the school level.
 class SchoolInvoice {
@@ -1747,6 +1774,10 @@ class SchoolInvoice {
     this.schoolName = '',
     this.schoolAddress = '',
     this.schoolContact = '',
+    this.attn = 'The Principal',
+    this.billingBasis = 'Fixed Monthly',
+    this.serviceDescription = '',
+    this.beneficiaries = const [],
     this.pdfUrl = '',
     this.demo = false,
   });
@@ -1769,6 +1800,13 @@ class SchoolInvoice {
       schoolName: _s(b['schoolName']),
       schoolAddress: _s(b['schoolAddress']),
       schoolContact: _s(b['schoolContact']),
+      attn: _s(b['attn']).isEmpty ? 'The Principal' : _s(b['attn']),
+      billingBasis: _s(b['billingBasis']).isEmpty ? 'Fixed Monthly' : _s(b['billingBasis']),
+      serviceDescription: _s(b['serviceDescription']),
+      beneficiaries: ((b['beneficiaries'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(InvoiceBeneficiaryAmount.fromApi)
+          .toList(),
       pdfUrl: _s(b['pdfUrl']),
       demo: b['demo'] == true,
       owner1: o1,
@@ -1788,10 +1826,40 @@ class SchoolInvoice {
   final String schoolName;
   final String schoolAddress;
   final String schoolContact;
+  final String attn;
+  final String billingBasis;
+  final String serviceDescription;
+  final List<InvoiceBeneficiaryAmount> beneficiaries;
   final String pdfUrl;
   final bool demo;
   final InvoiceOwner owner1;
   final InvoiceOwner owner2;
+}
+
+/// One payee on a school's invoice split — a percentage of each month's total.
+class SchoolBeneficiary {
+  const SchoolBeneficiary({
+    required this.beneficiaryName,
+    required this.sharePercent,
+    this.bankName = '',
+    this.accountNo = '',
+    this.ifsc = '',
+    this.upi = '',
+  });
+  factory SchoolBeneficiary.fromApi(Map<String, dynamic> b) => SchoolBeneficiary(
+        beneficiaryName: _s(b['beneficiaryName']),
+        sharePercent: _n(b['sharePercent']),
+        bankName: _s(b['bankName']),
+        accountNo: _s(b['accountNo']),
+        ifsc: _s(b['ifsc']),
+        upi: _s(b['upi']),
+      );
+  final String beneficiaryName;
+  final num sharePercent;
+  final String bankName;
+  final String accountNo;
+  final String ifsc;
+  final String upi;
 }
 
 /// A school a class can be billed to. Code is what goes in the invoice number.
@@ -1802,7 +1870,11 @@ class School {
     required this.name,
     this.address = '',
     this.contact = '',
+    this.attn = 'The Principal',
+    this.billingBasis = 'Fixed Monthly',
+    this.serviceDescription = '',
     this.active = true,
+    this.beneficiaries = const [],
   });
   factory School.fromApi(Map<String, dynamic> b) => School(
         schoolId: _s(b['schoolId'] ?? b['id']),
@@ -1810,14 +1882,25 @@ class School {
         name: _s(b['name']),
         address: _s(b['address']),
         contact: _s(b['contact']),
+        attn: _s(b['attn']).isEmpty ? 'The Principal' : _s(b['attn']),
+        billingBasis: _s(b['billingBasis']).isEmpty ? 'Fixed Monthly' : _s(b['billingBasis']),
+        serviceDescription: _s(b['serviceDescription']),
         active: b['active'] != false,
+        beneficiaries: ((b['beneficiaries'] as List?) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(SchoolBeneficiary.fromApi)
+            .toList(),
       );
   final String schoolId;
   final String code;
   final String name;
   final String address;
   final String contact;
+  final String attn;
+  final String billingBasis;
+  final String serviceDescription;
   final bool active;
+  final List<SchoolBeneficiary> beneficiaries;
 
   String get label => name.isNotEmpty && name != code ? '$name ($code)' : code;
 }

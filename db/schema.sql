@@ -1530,3 +1530,51 @@ create table if not exists payout_period_closures (
   closed_by text,
   snapshot jsonb not null
 );
+
+-- Founder request 2026-09-29: the school-invoice PDF now matches the real
+-- letterhead template exactly (maroon corporate design, "Attn:" line,
+-- service-description paragraph, and one-or-more payment beneficiaries with
+-- bank/UPI details, replacing the old two-hardcoded-owner layout). These
+-- fields are editable per school so a brand-new school starts from the same
+-- template with nothing hardcoded.
+alter table schools add column if not exists attn text default 'The Principal';
+alter table schools add column if not exists billing_basis text default 'Fixed Monthly';
+alter table schools add column if not exists service_description text;
+
+create table if not exists school_payment_beneficiaries (
+  id text primary key,
+  school_id text not null references schools(id) on delete cascade,
+  seq int not null default 0,
+  beneficiary_name text not null,
+  -- Percent of the invoice total payable to this beneficiary. A single
+  -- beneficiary is share_percent = 100; a split (e.g. two founders) is
+  -- however many rows sum to 100. The invoice recomputes the payable rupee
+  -- amount from the actual total each month — nothing here is a fixed amount.
+  share_percent numeric(5,2) not null default 100,
+  bank_name text,
+  account_no text,
+  ifsc text,
+  upi text
+);
+create index if not exists idx_school_beneficiaries_school on school_payment_beneficiaries (school_id, seq);
+
+-- Backfill the two schools already being invoiced, from their real,
+-- already-issued letterheads — so existing invoices keep generating
+-- identically once the new template is live, with no manual re-entry.
+update schools set
+  attn = 'The Principal',
+  billing_basis = 'Fixed Monthly',
+  service_description = 'Guitar, Cajon Box, Keyboard, Flute, Djembe'
+where id = 'SCH-MHWS';
+
+update schools set
+  attn = 'The Principal / Music Department',
+  billing_basis = 'Fixed Monthly',
+  service_description = 'Teaching Tabla and Teaching Flute — monthly music education'
+where id = 'SCH-MXVILLE';
+
+insert into school_payment_beneficiaries (id, school_id, seq, beneficiary_name, share_percent, bank_name, account_no, ifsc, upi) values
+  ('SPB-MHWS-1', 'SCH-MHWS', 1, 'Sharvil Vaidya', 50, 'HDFC Bank · Jawahar Nagar', '50100029507651', 'HDFC0000322', 'sharvil87@ybl'),
+  ('SPB-MHWS-2', 'SCH-MHWS', 2, 'Piyush Kashyap', 50, 'HDFC Bank · Malad West', '50100098296140', 'HDFC0000411', ''),
+  ('SPB-MXVILLE-1', 'SCH-MXVILLE', 1, 'Swar Mangal', 100, 'HDFC Bank · Mahavir Nagar', '50200076920786', 'HDFC0000288', 'swarmangal.62697965@hdfcbank')
+on conflict (id) do nothing;

@@ -205,6 +205,20 @@ export interface School {
   name: string;
   address: string;
   contact: string;
+  attn: string;
+  billingBasis: string;
+  serviceDescription: string;
+}
+
+export interface SchoolBeneficiary {
+  id: string;
+  seq: number;
+  beneficiaryName: string;
+  sharePercent: number;
+  bankName: string;
+  accountNo: string;
+  ifsc: string;
+  upi: string;
 }
 
 /**
@@ -216,7 +230,7 @@ export async function schoolByIdOrCode(ref: string): Promise<School | null> {
   const key = s(ref).trim();
   if (!key) return null;
   const row = await queryOne<Record<string, unknown>>(
-    `select id, code, name, address, contact from schools
+    `select id, code, name, address, contact, attn, billing_basis, service_description from schools
      where upper(coalesce(code,'')) = upper($1) or id = $1 or upper(coalesce(name,'')) = upper($1)
      limit 1`,
     [key],
@@ -228,7 +242,52 @@ export async function schoolByIdOrCode(ref: string): Promise<School | null> {
     name: s(row.name),
     address: s(row.address),
     contact: s(row.contact),
+    attn: s(row.attn) || "The Principal",
+    billingBasis: s(row.billing_basis) || "Fixed Monthly",
+    serviceDescription: s(row.service_description),
   };
+}
+
+/** Payment split for a school, ordered the way it should print on the invoice. */
+export async function schoolBeneficiaries(schoolId: string): Promise<SchoolBeneficiary[]> {
+  const rows = await query<Record<string, unknown>>(
+    `select id, seq, beneficiary_name, share_percent, bank_name, account_no, ifsc, upi
+     from school_payment_beneficiaries where school_id = $1 order by seq, id`,
+    [schoolId],
+  );
+  return rows.map((r) => ({
+    id: s(r.id),
+    seq: n(r.seq),
+    beneficiaryName: s(r.beneficiary_name),
+    sharePercent: n(r.share_percent),
+    bankName: s(r.bank_name),
+    accountNo: s(r.account_no),
+    ifsc: s(r.ifsc),
+    upi: s(r.upi),
+  }));
+}
+
+/**
+ * Turns each beneficiary's percentage share into an actual rupee amount for
+ * one invoice's total. Rounds to paise, then folds the leftover paisa (from
+ * rounding several shares independently) into the LAST beneficiary, so the
+ * printed split always reconciles exactly to the printed total — never off
+ * by a paisa because two people's rounded shares didn't quite add up.
+ */
+export function computeBeneficiaryAmounts(totalAmount: number, beneficiaries: SchoolBeneficiary[]): { name: string; amount: number; bankName: string; accountNo: string; ifsc: string; upi: string }[] {
+  if (beneficiaries.length === 0) return [];
+  const rounded = beneficiaries.map((b) => Math.round(totalAmount * (b.sharePercent / 100) * 100) / 100);
+  const sum = rounded.reduce((a, v) => a + v, 0);
+  const drift = Math.round((totalAmount - sum) * 100) / 100;
+  rounded[rounded.length - 1] = Math.round((rounded[rounded.length - 1] + drift) * 100) / 100;
+  return beneficiaries.map((b, i) => ({
+    name: b.beneficiaryName,
+    amount: rounded[i],
+    bankName: b.bankName,
+    accountNo: b.accountNo,
+    ifsc: b.ifsc,
+    upi: b.upi,
+  }));
 }
 
 // A demo student (status 'DEMO') is a trial-stage record, not an admitted one:

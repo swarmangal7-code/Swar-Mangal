@@ -22,6 +22,13 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
   final _name = TextEditingController();
   final _address = TextEditingController();
   final _contact = TextEditingController();
+  final _attn = TextEditingController(text: 'The Principal');
+  final _serviceDescription = TextEditingController();
+  final _beneficiaryName = TextEditingController(text: 'Swar Mangal');
+  final _bankName = TextEditingController();
+  final _accountNo = TextEditingController();
+  final _ifsc = TextEditingController();
+  final _upi = TextEditingController();
   bool _busy = false;
   String? _error;
 
@@ -30,7 +37,7 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
 
   @override
   void dispose() {
-    for (final c in [_code, _name, _address, _contact]) {
+    for (final c in [_code, _name, _address, _contact, _attn, _serviceDescription, _beneficiaryName, _bankName, _accountNo, _ifsc, _upi]) {
       c.dispose();
     }
     super.dispose();
@@ -50,6 +57,18 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
         name: _name.text.trim(),
         address: _address.text.trim(),
         contact: _contact.text.trim(),
+        attn: _attn.text.trim(),
+        serviceDescription: _serviceDescription.text.trim(),
+        beneficiaries: [
+          {
+            'beneficiaryName': _beneficiaryName.text.trim().isEmpty ? 'Swar Mangal' : _beneficiaryName.text.trim(),
+            'sharePercent': 100,
+            'bankName': _bankName.text.trim(),
+            'accountNo': _accountNo.text.trim(),
+            'ifsc': _ifsc.text.trim(),
+            'upi': _upi.text.trim(),
+          },
+        ],
       );
       final m = r as Map<String, dynamic>;
       if (!mounted) return;
@@ -144,6 +163,58 @@ class _AddSchoolScreenState extends State<AddSchoolScreen> {
                 hintText: 'Phone or email',
                 prefixIcon: Icon(Icons.contact_phone_outlined),
               ),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextFormField(
+              controller: _attn,
+              decoration: const InputDecoration(
+                labelText: 'Attn (printed on the invoice)',
+                hintText: 'The Principal',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextFormField(
+              controller: _serviceDescription,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Service description',
+                hintText: 'e.g. Guitar, Cajon Box, Keyboard, Flute, Djembe',
+                prefixIcon: Icon(Icons.music_note_outlined),
+              ),
+            ),
+            const SizedBox(height: AppSpace.s4),
+            const Text('PAYMENT BENEFICIARY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.muted)),
+            const SizedBox(height: AppSpace.s2),
+            Text(
+              'A multi-way split (more than one beneficiary) can be set up later from the web app.',
+              style: TextStyle(fontSize: 11, color: AppColors.muted),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextFormField(
+              controller: _beneficiaryName,
+              decoration: const InputDecoration(labelText: 'Beneficiary name', prefixIcon: Icon(Icons.account_balance_outlined)),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextFormField(
+              controller: _bankName,
+              decoration: const InputDecoration(labelText: 'Bank · Branch (optional)', prefixIcon: Icon(Icons.account_balance)),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextFormField(
+              controller: _accountNo,
+              decoration: const InputDecoration(labelText: 'Account no. (optional)', prefixIcon: Icon(Icons.pin_outlined)),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextFormField(
+              controller: _ifsc,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(labelText: 'IFSC (optional)', prefixIcon: Icon(Icons.numbers_outlined)),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextFormField(
+              controller: _upi,
+              decoration: const InputDecoration(labelText: 'UPI (optional)', prefixIcon: Icon(Icons.qr_code_outlined)),
             ),
             if (_error != null)
               Padding(

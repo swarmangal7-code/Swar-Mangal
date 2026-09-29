@@ -568,6 +568,15 @@ export interface InvoiceOwner {
   title: string;
 }
 
+export interface InvoiceBeneficiaryAmount {
+  name: string;
+  amount: number;
+  bankName: string;
+  accountNo: string;
+  ifsc: string;
+  upi: string;
+}
+
 export interface SchoolInvoice {
   invoiceId: string;
   invoiceNo: string;
@@ -579,13 +588,27 @@ export interface SchoolInvoice {
   schoolName?: string;
   schoolAddress?: string;
   schoolContact?: string;
+  attn?: string;
+  billingBasis?: string;
+  serviceDescription?: string;
   className: string;
   amount: number;
   tenure: string;
   pdfUrl: string;
   demo: boolean;
+  beneficiaries?: InvoiceBeneficiaryAmount[];
   owner1: InvoiceOwner;
   owner2: InvoiceOwner;
+}
+
+/** One payee on a school's invoice split — a percentage of each month's total. */
+export interface SchoolBeneficiary {
+  beneficiaryName: string;
+  sharePercent: number;
+  bankName: string;
+  accountNo: string;
+  ifsc: string;
+  upi: string;
 }
 
 /** A school a class can be billed to. Its code goes on the invoice number. */
@@ -595,7 +618,11 @@ export interface School {
   name: string;
   address: string;
   contact: string;
+  attn: string;
+  billingBasis: string;
+  serviceDescription: string;
   active: boolean;
+  beneficiaries: SchoolBeneficiary[];
 }
 
 export interface SchoolListResponse extends RpcEnvelope {

@@ -91,6 +91,14 @@ flutter:
         - asset: assets/fonts/PlayfairDisplay-700.ttf
           weight: 700
 
+  # The school-invoice PDF letterhead: the real circular Swar Mangal mark and
+  # the two authorised signatures, extracted from an already-issued invoice
+  # so the app-generated PDF matches it exactly.
+  assets:
+    - assets/images/logo-mark.png
+    - assets/images/signature-sharvil.png
+    - assets/images/signature-piyush.png
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

@@ -1,6 +1,6 @@
-import { query, queryOne, withTransaction } from "@/lib/db";
+import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, newPersonId, nextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode } from "@/lib/rpc/shared";
+import { s, n, d, newId, newPersonId, nextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo } from "@/lib/rpc/numbering";
 import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, type FeeState } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
@@ -1302,11 +1302,80 @@ function schoolCodeRefusal(raw: unknown): { code: string; error: string } | null
   return null;
 }
 
+interface BeneficiaryInput {
+  beneficiaryName: string;
+  sharePercent: number;
+  bankName: string;
+  accountNo: string;
+  ifsc: string;
+  upi: string;
+}
+
+function parseBeneficiaryInput(raw: unknown): BeneficiaryInput[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw.map((e) => {
+    const r = e as Record<string, unknown>;
+    return {
+      beneficiaryName: s(r.beneficiaryName ?? r.name).trim(),
+      sharePercent: n(r.sharePercent ?? r.share),
+      bankName: s(r.bankName ?? r.bank).trim(),
+      accountNo: s(r.accountNo ?? r.account).trim(),
+      ifsc: s(r.ifsc).trim().toUpperCase(),
+      upi: s(r.upi).trim(),
+    };
+  });
+}
+
+/** Every beneficiary needs a name; shares must add to 100 so the invoice's
+ *  "split reconciles to the total" line is never a lie. */
+function beneficiariesRefusal(list: BeneficiaryInput[]): Record<string, unknown> | null {
+  if (list.length === 0) return { code: "BENEFICIARY_REQUIRED", error: "Add at least one payment beneficiary." };
+  if (list.some((b) => !b.beneficiaryName)) return { code: "BENEFICIARY_NAME_REQUIRED", error: "Every beneficiary needs a name." };
+  const total = list.reduce((sum, b) => sum + b.sharePercent, 0);
+  if (Math.abs(total - 100) > 0.01) {
+    return { code: "BENEFICIARY_SPLIT_INVALID", error: `Beneficiary shares add up to ${total}%, not 100%.` };
+  }
+  return null;
+}
+
+async function replaceSchoolBeneficiaries(schoolId: string, list: BeneficiaryInput[], runner: Pick<Tx, "query"> = { query }): Promise<void> {
+  await runner.query(`delete from school_payment_beneficiaries where school_id = $1`, [schoolId]);
+  let seq = 0;
+  for (const b of list) {
+    seq += 1;
+    await runner.query(
+      `insert into school_payment_beneficiaries (id, school_id, seq, beneficiary_name, share_percent, bank_name, account_no, ifsc, upi)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [newId("SPB"), schoolId, seq, b.beneficiaryName, b.sharePercent, b.bankName || null, b.accountNo || null, b.ifsc || null, b.upi || null],
+    );
+  }
+}
+
 async function listSchools(): Promise<Record<string, unknown>> {
-  const rows = await query<Record<string, unknown>>(
-    `select id, code, name, address, contact, active from schools
-     order by upper(coalesce(code, name, id)) asc`,
-  );
+  const [rows, beneficiaryRows] = await Promise.all([
+    query<Record<string, unknown>>(
+      `select id, code, name, address, contact, active, attn, billing_basis, service_description from schools
+       order by upper(coalesce(code, name, id)) asc`,
+    ),
+    query<Record<string, unknown>>(
+      `select id, school_id, seq, beneficiary_name, share_percent, bank_name, account_no, ifsc, upi
+       from school_payment_beneficiaries order by school_id, seq, id`,
+    ),
+  ]);
+  const beneficiariesOf = new Map<string, Record<string, unknown>[]>();
+  for (const b of beneficiaryRows) {
+    const key = s(b.school_id);
+    const list = beneficiariesOf.get(key) ?? [];
+    list.push({
+      beneficiaryName: s(b.beneficiary_name),
+      sharePercent: n(b.share_percent),
+      bankName: s(b.bank_name),
+      accountNo: s(b.account_no),
+      ifsc: s(b.ifsc),
+      upi: s(b.upi),
+    });
+    beneficiariesOf.set(key, list);
+  }
   return ok({
     schools: rows.map((r) => ({
       schoolId: s(r.id),
@@ -1314,7 +1383,11 @@ async function listSchools(): Promise<Record<string, unknown>> {
       name: s(r.name),
       address: s(r.address),
       contact: s(r.contact),
+      attn: s(r.attn) || "The Principal",
+      billingBasis: s(r.billing_basis) || "Fixed Monthly",
+      serviceDescription: s(r.service_description),
       active: r.active !== false,
+      beneficiaries: beneficiariesOf.get(s(r.id)) ?? [],
     })),
   });
 }
@@ -1326,18 +1399,34 @@ async function addSchool(arg: Record<string, unknown>): Promise<Record<string, u
   const name = s(arg["name"] ?? arg["code"]).trim() || code;
   const address = s(arg["address"]).trim();
   const contact = s(arg["contact"]).trim();
+  const attn = s(arg["attn"]).trim() || "The Principal";
+  const billingBasis = s(arg["billingBasis"]).trim() || "Fixed Monthly";
+  const serviceDescription = s(arg["serviceDescription"]).trim();
+  // Same template for a brand-new school as the ones already invoiced — no
+  // beneficiary given defaults to the school paying itself (Swar Mangal),
+  // 100%, so the invoice still renders; bank details can be added after.
+  const beneficiaries = parseBeneficiaryInput(arg["beneficiaries"]) ?? [
+    { beneficiaryName: "Swar Mangal", sharePercent: 100, bankName: "", accountNo: "", ifsc: "", upi: "" },
+  ];
+  const beneficiaryBad = beneficiariesRefusal(beneficiaries);
+  if (beneficiaryBad) return { ok: false, ...beneficiaryBad };
   const taken = await queryOne<{ id: string }>(`select id from schools where upper(coalesce(code,'')) = $1`, [code]);
   if (taken) {
     return { ok: false, code: "SCHOOL_CODE_TAKEN", error: `${code} is already used by another school — school codes go on the invoice number, so they cannot be shared.` };
   }
   const id = s(arg["schoolId"]).trim() || `SCH-${code}`;
-  await query(
-    `insert into schools (id, code, name, address, contact, active)
-     values ($1,$2,$3,$4,$5,true)
-     on conflict (id) do update set code = excluded.code, name = excluded.name,
-                               address = excluded.address, contact = excluded.contact`,
-    [id, code, name, address || null, contact || null],
-  );
+  await withTransaction(async (tx) => {
+    await tx.query(
+      `insert into schools (id, code, name, address, contact, active, attn, billing_basis, service_description)
+       values ($1,$2,$3,$4,$5,true,$6,$7,$8)
+       on conflict (id) do update set code = excluded.code, name = excluded.name,
+                                 address = excluded.address, contact = excluded.contact,
+                                 attn = excluded.attn, billing_basis = excluded.billing_basis,
+                                 service_description = excluded.service_description`,
+      [id, code, name, address || null, contact || null, attn, billingBasis, serviceDescription || null],
+    );
+    await replaceSchoolBeneficiaries(id, beneficiaries, tx);
+  });
   await bumpRevisions(["invoices"]);
   return ok({ schoolId: id, code, name, note: `School ${code} saved. It will use the same invoice template.` });
 }
@@ -1352,16 +1441,27 @@ async function updateSchool(arg: Record<string, unknown>): Promise<Record<string
   if (arg["code"] !== undefined && s(arg["code"]).trim().toUpperCase() !== existing.code) {
     return { ok: false, code: "SCHOOL_CODE_IMMUTABLE", error: `${existing.code} is already on issued invoices and cannot be renamed. Add a new school instead.` };
   }
-  await query(
-    `update schools set name = $2, address = $3, contact = $4, active = $5 where id = $1`,
-    [
-      existing.id,
-      s(arg["name"]).trim() || existing.name,
-      arg["address"] === undefined ? existing.address : s(arg["address"]).trim(),
-      arg["contact"] === undefined ? existing.contact : s(arg["contact"]).trim(),
-      arg["active"] === false ? false : true,
-    ],
-  );
+  const beneficiaries = parseBeneficiaryInput(arg["beneficiaries"]);
+  if (beneficiaries) {
+    const beneficiaryBad = beneficiariesRefusal(beneficiaries);
+    if (beneficiaryBad) return { ok: false, ...beneficiaryBad };
+  }
+  await withTransaction(async (tx) => {
+    await tx.query(
+      `update schools set name = $2, address = $3, contact = $4, active = $5, attn = $6, billing_basis = $7, service_description = $8 where id = $1`,
+      [
+        existing.id,
+        s(arg["name"]).trim() || existing.name,
+        arg["address"] === undefined ? existing.address : s(arg["address"]).trim(),
+        arg["contact"] === undefined ? existing.contact : s(arg["contact"]).trim(),
+        arg["active"] === false ? false : true,
+        arg["attn"] === undefined ? existing.attn : s(arg["attn"]).trim() || "The Principal",
+        arg["billingBasis"] === undefined ? existing.billingBasis : s(arg["billingBasis"]).trim() || "Fixed Monthly",
+        arg["serviceDescription"] === undefined ? existing.serviceDescription : s(arg["serviceDescription"]).trim(),
+      ],
+    );
+    if (beneficiaries) await replaceSchoolBeneficiaries(existing.id, beneficiaries, tx);
+  });
   await bumpRevisions(["invoices"]);
   return ok({ schoolId: existing.id, code: existing.code, name: s(arg["name"]).trim() || existing.name, note: "School updated." });
 }
@@ -1402,6 +1502,7 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     return invoiceNo;
   });
   await bumpRevisions(["invoices", "dashboard"]);
+  const beneficiaries = computeBeneficiaryAmounts(amount, await schoolBeneficiaries(school.id));
   return ok({
     invoiceId: id,
     invoiceNo: no,
@@ -1412,9 +1513,13 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     schoolName: school.name,
     schoolAddress: school.address,
     schoolContact: school.contact,
+    attn: school.attn,
+    billingBasis: school.billingBasis,
+    serviceDescription: school.serviceDescription,
     className: s(arg["className"]),
     amount,
     tenure: s(arg["tenure"]),
+    beneficiaries,
     owner1: { name: "Sharvil Vaidya", id: "OWNER-1", signatureUrl: "", title: "Owner 1" },
     owner2: { name: "Piyush Kashyap", id: "OWNER-2", signatureUrl: "", title: "Owner 2" },
     pdfUrl: "",
@@ -1449,13 +1554,16 @@ async function listSchoolInvoices(arg: Record<string, unknown>, scope: BranchSco
 async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const id = s(arg["invoiceId"]);
   const r = await queryOne<Record<string, unknown>>(
-    `select i.*, sc.code as school_code, sc.name as school_name, sc.address as school_address, sc.contact as school_contact
+    `select i.*, sc.code as school_code, sc.name as school_name, sc.address as school_address, sc.contact as school_contact,
+            sc.attn, sc.billing_basis, sc.service_description
      from school_invoices_rpc i left join schools sc on sc.id = i.school_id
      where i.id = $1`,
     [id],
   );
   if (!r) return { ok: false, code: "NOT_FOUND", error: `No invoice ${id}` };
   if (!inScope(scope, r.branch)) return branchForbidden(recordBranch(r.branch));
+  const amount = n(r.amount);
+  const beneficiaries = computeBeneficiaryAmounts(amount, s(r.school_id) ? await schoolBeneficiaries(s(r.school_id)) : []);
   return ok({
     invoice: {
       invoiceId: s(r.id),
@@ -1467,9 +1575,13 @@ async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope
       schoolName: s(r.school_name),
       schoolAddress: s(r.school_address),
       schoolContact: s(r.school_contact),
+      attn: s(r.attn) || "The Principal",
+      billingBasis: s(r.billing_basis) || "Fixed Monthly",
+      serviceDescription: s(r.service_description),
       className: s(r.class_name),
-      amount: n(r.amount),
+      amount,
       tenure: s(r.tenure),
+      beneficiaries,
       pdfUrl: "",
       owner1: { name: "Sharvil Vaidya", id: "OWNER-1", signatureUrl: "", title: "Owner 1" },
       owner2: { name: "Piyush Kashyap", id: "OWNER-2", signatureUrl: "", title: "Owner 2" },

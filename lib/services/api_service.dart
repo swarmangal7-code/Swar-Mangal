@@ -215,12 +215,20 @@ class ApiService {
     required String name,
     String address = '',
     String contact = '',
+    String attn = '',
+    String billingBasis = '',
+    String serviceDescription = '',
+    List<Map<String, dynamic>>? beneficiaries,
   }) =>
       _api.call('api_addSchool', {
         'code': code,
         'name': name,
         if (address.isNotEmpty) 'address': address,
         if (contact.isNotEmpty) 'contact': contact,
+        if (attn.isNotEmpty) 'attn': attn,
+        if (billingBasis.isNotEmpty) 'billingBasis': billingBasis,
+        if (serviceDescription.isNotEmpty) 'serviceDescription': serviceDescription,
+        'beneficiaries': ?beneficiaries,
       });
 
   /// School-level invoice history (global). No student dimension.

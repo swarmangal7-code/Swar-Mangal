@@ -1,7 +1,8 @@
 // Shared visual language for every generated PDF (receipts, invoices).
 // Uses @react-pdf/renderer's built-in Helvetica — no font files to bundle or
 // license-check, and it renders crisply at any size.
-import { StyleSheet } from "@react-pdf/renderer";
+import path from "path";
+import { Font, StyleSheet } from "@react-pdf/renderer";
 
 export const BRAND = {
   navy: "#161B33",
@@ -13,6 +14,40 @@ export const BRAND = {
   gray: "#6B6B6B",
   border: "#D8D2C6",
   zebra: "#FAF8F3",
+};
+
+// The school-invoice letterhead reuses the app's own brand fonts (the same
+// Inter/Playfair Display pairing the Flutter app already ships) instead of
+// the core Helvetica used above — Helvetica has no ₹ glyph, and the real
+// letterhead's serif wordmark needs something Helvetica can't give it.
+let schoolFontsRegistered = false;
+export function registerSchoolInvoiceFonts() {
+  if (schoolFontsRegistered) return;
+  schoolFontsRegistered = true;
+  const fontsDir = path.join(process.cwd(), "assets", "fonts");
+  Font.register({
+    family: "Inter",
+    fonts: [
+      { src: path.join(fontsDir, "Inter-400.ttf"), fontWeight: 400 },
+      { src: path.join(fontsDir, "Inter-600.ttf"), fontWeight: 600 },
+      { src: path.join(fontsDir, "Inter-700.ttf"), fontWeight: 700 },
+    ],
+  });
+  Font.register({
+    family: "Playfair Display",
+    fonts: [{ src: path.join(fontsDir, "PlayfairDisplay-700.ttf"), fontWeight: 700 }],
+  });
+}
+
+/** The real letterhead's palette, sampled from the issued PDFs. */
+export const SCHOOL_BRAND = {
+  maroon: "#7A1F2B",
+  cream: "#FAF6EF",
+  border: "#E6DDD3",
+  borderStrong: "#ECE2D5",
+  pillBg: "#F3E7E6",
+  ink: "#2B2B2B",
+  gray: "#6B6B6B",
 };
 
 export const styles = StyleSheet.create({
