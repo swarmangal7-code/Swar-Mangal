@@ -9,7 +9,8 @@ import '../../state/auth_provider.dart';
 import '../../widgets/atoms.dart';
 
 /// Expenses.
-/// staff:   submits an expense DRAFT (founder approval, no ledger write).
+/// staff:   submits an expense DRAFT (founder approval, no ledger write), and
+///          can read the cashbook same as founder.
 /// founder: records a real expense (locked + idempotency-guarded) and reads
 ///          the cashbook.
 class ExpensesScreen extends StatefulWidget {
@@ -25,17 +26,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      // Staff only have the log, so a one-option switcher is just noise.
-      if (!widget.staff)
       Padding(
         padding: const EdgeInsets.all(AppSpace.s4),
         child: SegmentedButton<int>(
           segments: [
             const ButtonSegment<int>(value: 0, label: Text('Log'),
                 icon: Icon(Icons.edit_note, size: 18)),
-            if (!widget.staff)
-              const ButtonSegment<int>(value: 1, label: Text('Cashbook'),
-                  icon: Icon(Icons.menu_book_outlined, size: 18)),
+            const ButtonSegment<int>(value: 1, label: Text('Cashbook'),
+                icon: Icon(Icons.menu_book_outlined, size: 18)),
           ],
           selected: {_tab},
           onSelectionChanged: (s) => setState(() => _tab = s.first),

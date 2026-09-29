@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { CashbookView } from "@/components/cashbook-view";
 import { useMutationRpc, useStaffBoot } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
@@ -46,6 +48,39 @@ interface DraftResponse extends RpcEnvelope {
 export default function StaffExpensesPage() {
   const { session } = useTokenAuth();
   const branches = session?.branches ?? [];
+
+  return (
+    <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
+      <motion.div variants={fadeUp}>
+        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Money</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Expenses & Cashbook</h1>
+        <p className="mt-1 text-sm text-dash-fg/55">
+          Read the ledger, or send an expense to Sharvil — he approves it and posts it to the cashbook.
+        </p>
+      </motion.div>
+
+      <Tabs defaultValue="cashbook">
+        <TabsList className="border border-dash-fg/10 bg-dash-fg/[0.03] text-dash-fg/55">
+          <TabsTrigger value="cashbook" className="data-[state=active]:bg-dash-accent/15 data-[state=active]:text-dash-accent">
+            Cashbook
+          </TabsTrigger>
+          <TabsTrigger value="add" className="data-[state=active]:bg-dash-accent/15 data-[state=active]:text-dash-accent">
+            Submit Expense
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="cashbook">
+          <CashbookView branches={branches} />
+        </TabsContent>
+        <TabsContent value="add">
+          <SubmitExpenseForm branches={branches} />
+        </TabsContent>
+      </Tabs>
+    </motion.div>
+  );
+}
+
+function SubmitExpenseForm({ branches }: { branches: string[] }) {
   const boot = useStaffBoot(branches.length === 1 ? branches[0] : undefined);
   const accounts = boot.data?.accounts ?? [];
   const modes = boot.data?.paymentModes?.length ? boot.data.paymentModes : ["Cash", "UPI", "Bank Transfer"];
@@ -115,15 +150,7 @@ export default function StaffExpensesPage() {
   };
 
   return (
-    <motion.div initial="hidden" animate="visible" variants={listVariants} className="mx-auto max-w-2xl space-y-5">
-      <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Money</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Submit Expense</h1>
-        <p className="mt-1 text-sm text-dash-fg/55">
-          Send an expense to Sharvil — he approves it and posts it to the cashbook.
-        </p>
-      </motion.div>
-
+    <div className="mx-auto max-w-2xl space-y-5">
       {success && (
         <motion.div variants={fadeUp}>
           <Card className="border-emerald-400/30 bg-emerald-400/5">
@@ -300,6 +327,6 @@ export default function StaffExpensesPage() {
           </Button>
         </div>
       </motion.form>
-    </motion.div>
+    </div>
   );
 }
