@@ -5,6 +5,7 @@ import '../../core/api.dart';
 import '../../core/theme.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/atoms.dart';
+import 'message_compose_screen.dart';
 
 /// Staff attendance: filter-first roster, three markable states.
 class AttendanceScreen extends StatefulWidget {
@@ -134,7 +135,26 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     super.dispose();
   }
 
-  Future<void> _mark(AttendanceRosterRow s, String state) async {
+  Future<void> _markInformedAbsence(AttendanceRosterRow s) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final ctrl = TextEditingController();
+        return AlertDialog(
+          title: Text('Reason ${s.name} will be absent'),
+          content: TextField(controller: ctrl, autofocus: true, maxLines: 2, decoration: const InputDecoration(hintText: 'Told in advance…')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Mark')),
+          ],
+        );
+      },
+    );
+    if (reason == null) return;
+    await _mark(s, 'INFORMED_ABSENCE', absenceReason: reason);
+  }
+
+  Future<void> _mark(AttendanceRosterRow s, String state, {String? absenceReason}) async {
     final auth = context.read<AuthProvider>();
     if (auth.service == null || _marking.contains(s.studentId)) return;
     if (_isBackdated && (_backdatedReason ?? '').trim().isEmpty) {
@@ -151,6 +171,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         'state': state,
         'workDate': _date,
         if (_isBackdated) 'backdatedReason': _backdatedReason!.trim(),
+        if (absenceReason != null && absenceReason.isNotEmpty) 'absenceReason': absenceReason,
       });
       if (!mounted) return;
       // Never optimistic: re-read the roster so the badge reflects what the
@@ -269,10 +290,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final busy = _marking.contains(s.studentId);
     final isPresent = s.state == 'PRESENT';
     final isAbsent = s.state == 'ABSENT';
+    final isInformed = s.state == 'INFORMED_ABSENCE';
     if (busy) {
       return const SizedBox(width: 32, height: 32, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
     }
-    return Column(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
       FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: isPresent ? AppColors.okFg : AppColors.okFg.withValues(alpha: .35),
@@ -294,6 +316,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         onPressed: () => _mark(s, 'ABSENT'),
         child: Text(isAbsent ? 'ABSENT ✓' : 'ABSENT', style: const TextStyle(fontSize: 11)),
       ),
+      const SizedBox(height: 4),
+      TextButton(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 30),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.s3),
+          foregroundColor: isInformed ? AppColors.blockFg : AppColors.muted,
+        ),
+        onPressed: () => _markInformedAbsence(s),
+        child: Text(isInformed ? 'INFORMED ✓' : 'INFORMED', style: const TextStyle(fontSize: 11)),
+      ),
+      if (isAbsent || isInformed) ...[
+        const SizedBox(height: 4),
+        TextButton.icon(
+          style: TextButton.styleFrom(minimumSize: const Size(0, 26), padding: const EdgeInsets.symmetric(horizontal: AppSpace.s2)),
+          icon: const Icon(Icons.notifications_active_outlined, size: 14),
+          label: const Text('Notify teacher', style: TextStyle(fontSize: 10)),
+          onPressed: () {
+            final auth = context.read<AuthProvider>();
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => MessageComposeScreen(
+                staff: auth.isStaff,
+                studentId: s.studentId,
+                studentName: s.name,
+                instrument: s.instrument,
+                initialType: 'NOTIFY_TEACHER_ABSENCE',
+              ),
+            ));
+          },
+        ),
+      ],
     ]);
   }
 }

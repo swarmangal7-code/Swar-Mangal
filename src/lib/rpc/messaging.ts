@@ -12,7 +12,7 @@
 import { randomBytes } from "crypto";
 import { query, queryOne } from "@/lib/db";
 import type { RpcSession } from "@/lib/rpc/auth";
-import { acadStudentById, s } from "@/lib/rpc/shared";
+import { acadStudentById, acadTeacherById, s } from "@/lib/rpc/shared";
 import { branchForbidden, inScope, recordBranch, type BranchScope } from "@/lib/rpc/scope";
 import { normalizeIndianMobile, parseAllowList } from "@/lib/whatsapp/phone";
 import { gatewayConfigFromEnv, sendDocument, sendText, sessionStatus } from "@/lib/whatsapp/gateway";
@@ -25,7 +25,7 @@ export const MESSAGING_FUNCTIONS = new Set([
   "api_founder_whatsappOptOut",
 ]);
 
-const KINDS = new Set(["FEE_REMINDER", "RECEIPT", "RENEWAL", "FOLLOW_UP", "TERMS", "CUSTOM"]);
+const KINDS = new Set(["FEE_REMINDER", "RECEIPT", "RENEWAL", "FOLLOW_UP", "TERMS", "CUSTOM", "NOTIFY_TEACHER"]);
 const NOT_CONTACTABLE = new Set(["LEFT", "TEST", "DUPLICATE", "ARCHIVED"]);
 const MAX_TEXT = 4000;
 const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
@@ -110,18 +110,28 @@ async function sendWhatsApp(
     return refuse("STUDENT_NOT_CONTACTABLE", `${student.name} is marked ${s(student.status).toUpperCase()} and is not messaged.`);
   }
 
-  const phone = normalizeIndianMobile(student.phone);
+  // NOTIFY_TEACHER targets the student's assigned teacher, not the parent —
+  // every other kind still goes to the student's own guardian phone.
+  let recipientRaw = student.phone;
+  let recipientLabel = student.name;
+  if (kind === "NOTIFY_TEACHER") {
+    const teacher = student.assigned_teacher_id ? await acadTeacherById(student.assigned_teacher_id) : null;
+    if (!teacher) return refuse("NO_ASSIGNED_TEACHER", `${student.name} has no assigned teacher to notify.`);
+    recipientRaw = teacher.phone;
+    recipientLabel = teacher.name;
+  }
+  const phone = normalizeIndianMobile(recipientRaw);
   if (!phone.ok) {
     return refuse(
       phone.code === "NO_PHONE" ? "NO_REGISTERED_PHONE" : "INVALID_REGISTERED_PHONE",
       phone.code === "NO_PHONE"
-        ? `${student.name} has no registered phone number.`
-        : `${student.name}'s registered number (${phone.masked}) is not a valid Indian mobile.`,
+        ? `${recipientLabel} has no registered phone number.`
+        : `${recipientLabel}'s registered number (${phone.masked}) is not a valid Indian mobile.`,
     );
   }
 
   const optedOut = await queryOne(`select phone from wa_optout where phone = $1`, [phone.e164]);
-  if (optedOut) return refuse("OPTED_OUT", `${student.name}'s number has opted out of WhatsApp messages.`);
+  if (optedOut) return refuse("OPTED_OUT", `${recipientLabel}'s number has opted out of WhatsApp messages.`);
 
   const allow = parseAllowList(process.env.WA_ALLOWED_NUMBERS);
   if (allow.size && !allow.has(phone.e164)) {
@@ -149,7 +159,7 @@ async function sendWhatsApp(
       [phone.e164, text, DUPLICATE_WINDOW_HOURS],
     );
     if (dup) {
-      return refuse("DUPLICATE_MESSAGE", `This exact message was already sent to ${student.name} at ${dup.sent_at.slice(0, 16)}.`);
+      return refuse("DUPLICATE_MESSAGE", `This exact message was already sent to ${recipientLabel} at ${dup.sent_at.slice(0, 16)}.`);
     }
   }
 
@@ -174,7 +184,7 @@ async function sendWhatsApp(
       [id, result.providerMessageId],
     );
     // messageId at the top level too, so the audit trail records it.
-    return ok({ messageId: id, message: view(row ?? {}), note: `Sent to ${student.name} (${phone.masked}).` });
+    return ok({ messageId: id, message: view(row ?? {}), note: `Sent to ${recipientLabel} (${phone.masked}).` });
   }
 
   const row = await queryOne<Record<string, unknown>>(
@@ -183,7 +193,7 @@ async function sendWhatsApp(
   );
   return refuse(
     "WHATSAPP_SEND_FAILED",
-    `Not sent to ${student.name}: ${result.error}. Nothing was delivered; you can copy the message and send it by hand.`,
+    `Not sent to ${recipientLabel}: ${result.error}. Nothing was delivered; you can copy the message and send it by hand.`,
     { messageId: id, message: view(row ?? {}) },
   );
 }

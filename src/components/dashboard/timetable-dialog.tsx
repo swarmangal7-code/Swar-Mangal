@@ -419,6 +419,7 @@ export function TimeSlotCard({
 const ATTENDANCE_LABEL: Record<string, string> = {
   PRESENT: "Present",
   ABSENT: "Absent",
+  INFORMED_ABSENCE: "Informed absence",
   LATE: "Late",
   EXCUSED: "Excused",
   NOT_MARKED: "Not marked",
@@ -502,13 +503,18 @@ export function SessionDetailDialog({
                       key={st.studentId}
                       className="flex items-center justify-between rounded-xl border border-dash-fg/10 bg-dash-fg/[0.02] px-3 py-2 text-sm"
                     >
-                      <span className="text-dash-fg">{st.name}</span>
+                      <div className="min-w-0">
+                        <span className="text-dash-fg">{st.name}</span>
+                        {!!st.absenceReason && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400">Reason: {st.absenceReason}</p>
+                        )}
+                      </div>
                       <Badge
                         variant="outline"
                         className={
                           st.status === "PRESENT"
                             ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                            : st.status === "ABSENT"
+                            : st.status === "ABSENT" || st.status === "INFORMED_ABSENCE"
                               ? "border-red-500/30 text-red-500"
                               : undefined
                         }

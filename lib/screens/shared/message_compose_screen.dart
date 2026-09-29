@@ -58,6 +58,7 @@ class _MessageComposeScreenState extends State<MessageComposeScreen> {
     'RENEWAL',
     'TERMS',
     'ABSENT_TODAY',
+    'NOTIFY_TEACHER_ABSENCE',
   ];
 
   @override

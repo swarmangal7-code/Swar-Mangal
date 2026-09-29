@@ -447,7 +447,7 @@ export interface TimetableSessionDetailResponse extends RpcEnvelope {
     reason: string;
     recordedBy: string;
   };
-  students: { studentId: string; name: string; status: string }[];
+  students: { studentId: string; name: string; status: string; absenceReason: string }[];
 }
 
 // -------------------------------------------------------------- inquiries

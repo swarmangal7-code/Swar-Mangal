@@ -149,6 +149,9 @@ class StatusBadge extends StatelessWidget {
     if (st.contains('DUE_SOON')) {
       return (label: 'DUE SOON', fg: AppColors.warnFg, bg: AppColors.warnBg);
     }
+    if (st.contains('INFORMED_ABSENCE')) {
+      return (label: 'INFORMED ABSENCE', fg: AppColors.warnFg, bg: AppColors.warnBg);
+    }
     // Checked before the "good" group below: 'UNPAID' and 'OVERPAID' contain
     // 'PAID', and 'INACTIVE' contains 'ACTIVE', so they used to show green.
     if (st.contains('UNPAID') || st.contains('OVERPAID')) {

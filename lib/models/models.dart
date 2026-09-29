@@ -1923,15 +1923,17 @@ class TimetableWeekEntry extends TimetableEntry {
 }
 
 class TimetableSessionStudent {
-  const TimetableSessionStudent({required this.studentId, required this.name, required this.status});
+  const TimetableSessionStudent({required this.studentId, required this.name, required this.status, this.absenceReason = ''});
   factory TimetableSessionStudent.fromApi(Map<String, dynamic> b) => TimetableSessionStudent(
         studentId: _s(b['studentId']),
         name: _s(b['name']),
         status: _s(b['status']),
+        absenceReason: _s(b['absenceReason']),
       );
   final String studentId;
   final String name;
   final String status;
+  final String absenceReason;
 }
 
 class TimetableSessionDetail {

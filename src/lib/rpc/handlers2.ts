@@ -1614,12 +1614,13 @@ async function timetableSessionDetail(arg: Record<string, unknown>, scope: Branc
   const [session, students, marks] = await Promise.all([
     queryOne<Record<string, unknown>>(`select * from scheduled_sessions where id = $1`, [eventId]),
     acadStudents(),
-    query<{ student_id: string; status: string }>(
-      `select student_id, status from attendance_acad where timetable_id = $1 and session_date = $2`,
+    query<{ student_id: string; status: string; absence_reason: string | null }>(
+      `select student_id, status, absence_reason from attendance_acad where timetable_id = $1 and session_date = $2`,
       [timetableId, date],
     ),
   ]);
   const statusOf = new Map(marks.map((m) => [m.student_id, s(m.status).toUpperCase()]));
+  const reasonOf = new Map(marks.map((m) => [m.student_id, s(m.absence_reason)]));
   const roster = students.filter(
     (x) =>
       s(x.status).toUpperCase() === "ACTIVE" &&
@@ -1649,6 +1650,7 @@ async function timetableSessionDetail(arg: Record<string, unknown>, scope: Branc
       studentId: st.studentId,
       name: st.studentName,
       status: statusOf.get(st.studentId) ?? "NOT_MARKED",
+      absenceReason: reasonOf.get(st.studentId) || "",
     })),
   });
 }
@@ -1688,18 +1690,22 @@ async function attendanceRoster(arg: Record<string, unknown>, scope: BranchScope
   });
 }
 
-const ATTENDANCE_STATES = new Set(["PRESENT", "ABSENT", "EXCUSED", "LATE"]);
+const ATTENDANCE_STATES = new Set(["PRESENT", "ABSENT", "INFORMED_ABSENCE", "EXCUSED", "LATE"]);
 
 async function markAttendance(arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession): Promise<Record<string, unknown>> {
   // The attendance screen sends ONE mark: { studentId, state: "PRESENT" }.
   // Older callers send a map or a list. Reading only the map shape saved
   // nothing while reporting success.
-  let entries: { studentId: string; status: string }[] = [];
+  let entries: { studentId: string; status: string; absenceReason?: string }[] = [];
   const raw = arg["state"] ?? arg["marks"] ?? arg["rows"];
   if (typeof raw === "string" && s(arg["studentId"])) {
-    entries = [{ studentId: s(arg["studentId"]), status: raw }];
+    entries = [{ studentId: s(arg["studentId"]), status: raw, absenceReason: s(arg["absenceReason"]).trim() || undefined }];
   } else if (Array.isArray(raw)) {
-    entries = raw.map((e) => ({ studentId: s((e as Record<string, unknown>).studentId), status: s((e as Record<string, unknown>).status ?? (e as Record<string, unknown>).state) }));
+    entries = raw.map((e) => ({
+      studentId: s((e as Record<string, unknown>).studentId),
+      status: s((e as Record<string, unknown>).status ?? (e as Record<string, unknown>).state),
+      absenceReason: s((e as Record<string, unknown>).absenceReason).trim() || undefined,
+    }));
   } else if (raw && typeof raw === "object") {
     entries = Object.entries(raw as Record<string, unknown>).map(([studentId, status]) => ({ studentId, status: s(status) }));
   }
@@ -1741,12 +1747,13 @@ async function markAttendance(arg: Record<string, unknown>, scope: BranchScope, 
     // adding a second row.
     await query(
       `insert into attendance_acad (id, session_date, student_id, student_name, teacher_id, teacher_name, instrument, status,
-                                    backdated_reason, recorded_by, recorded_at, timetable_id)
-       values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11)
+                                    backdated_reason, recorded_by, recorded_at, timetable_id, absence_reason)
+       values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11,$12)
        on conflict (id) do update set status = excluded.status, backdated_reason = coalesce(excluded.backdated_reason, attendance_acad.backdated_reason),
-         recorded_by = excluded.recorded_by, recorded_at = now(), timetable_id = coalesce(excluded.timetable_id, attendance_acad.timetable_id)`,
+         recorded_by = excluded.recorded_by, recorded_at = now(), timetable_id = coalesce(excluded.timetable_id, attendance_acad.timetable_id),
+         absence_reason = excluded.absence_reason`,
       [`ATT-${e.studentId}-${date}`, date, e.studentId, student!.name, s(teacher?.teacher_id), s(teacher?.teacher_name), s(student!.instrument), e.status.toUpperCase(),
-       backdatedReason || null, session?.deviceLabel || session?.email || "", timetableId],
+       backdatedReason || null, session?.deviceLabel || session?.email || "", timetableId, e.absenceReason || null],
     );
   }
   await bumpRevisions(["attendance", "sessions", "tasks", "dashboard"]);
@@ -2754,6 +2761,7 @@ const MESSAGE_KINDS: Record<string, string> = {
   TERMS: "TERMS",
   ABSENT_TODAY: "FOLLOW_UP",
   TEACHER_FEE_DUE: "FEE_REMINDER",
+  NOTIFY_TEACHER_ABSENCE: "NOTIFY_TEACHER",
 };
 
 const inr = (v: unknown) => {
@@ -2823,6 +2831,12 @@ async function commGenerate(arg: Record<string, unknown>, scope: BranchScope): P
       subject = "Missed class today";
       body = `${greeting}\n\nWe missed ${first} in ${s(st.instrument) || "class"} today. We hope all is well — please let us know if ${first} will be joining the next class.\n\n${sign}`;
       break;
+    case "NOTIFY_TEACHER_ABSENCE": {
+      const reason = s(arg["absenceReason"]).trim();
+      subject = "Student informed absence";
+      body = `Hi,\n\n${first} (${s(st.instrument) || "class"}) will not be attending the next class${reason ? ` — reason given: ${reason}` : ""}. Please plan accordingly.\n\n${sign}`;
+      break;
+    }
     case "TERMS":
       subject = "Admission terms";
       body = `${greeting}\n\nPlease read and accept SwarMangal's admission terms for ${first}.\n\n${sign}`;
@@ -2832,7 +2846,17 @@ async function commGenerate(arg: Record<string, unknown>, scope: BranchScope): P
       return { ok: false, code: "BAD_TYPE", error: `Unknown message type ${requested}` };
   }
 
-  const phone = normalizeIndianMobile(st.phone);
+  let recipientName = parent || `Parent of ${first}`;
+  let recipientType = "parent";
+  let recipientRawPhone = st.phone;
+  if (requested === "NOTIFY_TEACHER_ABSENCE") {
+    const teacher = st.assigned_teacher_id ? await acadTeacherById(st.assigned_teacher_id) : null;
+    if (!teacher) warnings.push(`${first} has no assigned teacher on record — pick the recipient by hand.`);
+    recipientName = s(teacher?.name) || "Teacher";
+    recipientType = "teacher";
+    recipientRawPhone = s(teacher?.phone);
+  }
+  const phone = normalizeIndianMobile(recipientRawPhone);
   if (!phone.ok) warnings.push(phone.code === "NO_PHONE" ? "No registered phone number — this cannot be sent on WhatsApp." : `The registered number (${phone.masked}) is not a valid Indian mobile.`);
   const whatsappReady = !!gatewayConfigFromEnv() && process.env.WA_SEND_ENABLED === "true";
 
@@ -2841,8 +2865,8 @@ async function commGenerate(arg: Record<string, unknown>, scope: BranchScope): P
     kind: MESSAGE_KINDS[requested] ?? "CUSTOM",
     subject,
     body,
-    recipientName: parent || `Parent of ${first}`,
-    recipientType: "parent",
+    recipientName,
+    recipientType,
     recipientPhone: phone.ok ? phone.masked : "",
     feeState: state,
     typeRequested: requested,

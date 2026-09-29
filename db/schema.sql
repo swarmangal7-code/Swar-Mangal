@@ -1474,3 +1474,9 @@ alter table attendance_acad add column if not exists timetable_id text;
 -- to ACTIVE later) instead of jumping straight to a paying admission.
 alter table students_acad add column if not exists demo_date date;
 alter table students_acad add column if not exists demo_time text;
+
+-- Handover spec: an "informed absence" (parent told the teacher/office in
+-- advance) is a distinct state from an unexplained ABSENT — it still counts
+-- as a miss for attendance history, but should read differently and can
+-- carry a reason without requiring the backdated-mark reason flow.
+alter table attendance_acad add column if not exists absence_reason text;

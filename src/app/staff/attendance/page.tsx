@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Check, UserRoundCheck, X } from "lucide-react";
+import { Check, PhoneCall, UserRoundCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { MessageComposeDialog } from "@/components/message-compose-dialog";
 import { useAttendanceRoster, useMutationRpc } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
@@ -22,6 +23,7 @@ interface MarkArg extends Record<string, unknown> {
   state: string;
   date: string;
   backdatedReason: string;
+  absenceReason?: string;
 }
 
 const selectClass =
@@ -48,13 +50,19 @@ export default function StaffAttendancePage() {
   const isBackdated = date < todayISO();
   const needsReason = isBackdated && backdatedReason.trim().length === 0;
 
-  const doMark = (studentId: string, state: string) => {
+  const doMark = (studentId: string, state: string, absenceReason?: string) => {
     if (needsReason) {
       toast.error("This is a past date — add a reason first.");
       return;
     }
     setPendingId(studentId);
-    mark.mutate({ studentId, state, date, backdatedReason: backdatedReason.trim() });
+    mark.mutate({ studentId, state, date, backdatedReason: backdatedReason.trim(), absenceReason });
+  };
+
+  const markInformedAbsence = (studentId: string, name: string) => {
+    const reason = window.prompt(`Reason ${name} will be absent (told in advance)?`, "");
+    if (reason === null) return;
+    doMark(studentId, "INFORMED_ABSENCE", reason.trim());
   };
 
   const markedCount = students.filter((s) => s.state && s.state !== "NOT_MARKED").length;
@@ -136,6 +144,8 @@ export default function StaffAttendancePage() {
               const busy = pendingId === s.studentId;
               const present = s.state === "PRESENT";
               const absent = s.state === "ABSENT";
+              const informedAbsence = s.state === "INFORMED_ABSENCE";
+              const missed = absent || informedAbsence;
               return (
                 <li key={s.studentId} className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                   <div className="min-w-0">
@@ -174,6 +184,24 @@ export default function StaffAttendancePage() {
                     >
                       <X className="h-4 w-4" aria-hidden />
                     </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => markInformedAbsence(s.studentId, s.name)}
+                      aria-label={`Mark ${s.name} informed absence`}
+                      title="Informed absence (told in advance)"
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-50",
+                        informedAbsence
+                          ? "border-amber-400/50 bg-amber-400/20 text-amber-300"
+                          : "border-dash-fg/12 text-dash-fg/60 hover:border-amber-400/40 hover:text-amber-300",
+                      )}
+                    >
+                      <PhoneCall className="h-4 w-4" aria-hidden />
+                    </button>
+                    {missed && (
+                      <MessageComposeDialog studentId={s.studentId} studentName={s.name} initialType="NOTIFY_TEACHER_ABSENCE" />
+                    )}
                   </div>
                 </li>
               );

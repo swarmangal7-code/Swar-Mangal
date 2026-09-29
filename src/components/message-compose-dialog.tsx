@@ -26,6 +26,7 @@ const MESSAGE_TYPES = [
   "RENEWAL",
   "TERMS",
   "ABSENT_TODAY",
+  "NOTIFY_TEACHER_ABSENCE",
 ] as const;
 
 export type MessageType = (typeof MESSAGE_TYPES)[number];
@@ -126,7 +127,8 @@ export function MessageComposeDialog({
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <MessageCircle className="h-3.5 w-3.5" aria-hidden /> Message parent
+        <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+        {initialType === "NOTIFY_TEACHER_ABSENCE" ? "Notify teacher" : "Message parent"}
       </Button>
       <Dialog
         open={open}
@@ -137,7 +139,9 @@ export function MessageComposeDialog({
       >
         <DialogContent className="max-h-[85vh] overflow-y-auto border-dash-fg/10 bg-dash-card sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-dash-fg">Message {studentName}&rsquo;s parent</DialogTitle>
+            <DialogTitle className="text-dash-fg">
+              {type === "NOTIFY_TEACHER_ABSENCE" ? `Notify ${studentName}'s teacher` : `Message ${studentName}'s parent`}
+            </DialogTitle>
             <DialogDescription className="text-dash-fg/50">
               Generated from the student&rsquo;s real record. Edit before sending — one tap delivers it, nothing sends automatically.
             </DialogDescription>

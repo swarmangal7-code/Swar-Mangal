@@ -684,6 +684,7 @@ const _outcomeLabels = {
 const _attendanceLabels = {
   'PRESENT': 'Present',
   'ABSENT': 'Absent',
+  'INFORMED_ABSENCE': 'Informed absence',
   'LATE': 'Late',
   'EXCUSED': 'Excused',
   'NOT_MARKED': 'Not marked',
@@ -767,6 +768,7 @@ class _SessionDetailSheetState extends State<_SessionDetailSheet> {
                         child: ListTile(
                           dense: true,
                           title: Text(st.name),
+                          subtitle: st.absenceReason.isNotEmpty ? Text('Reason: ${st.absenceReason}') : null,
                           trailing: StatusBadge(_attendanceLabels[st.status] ?? st.status),
                         ),
                       ),
