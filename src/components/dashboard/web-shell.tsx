@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChevronsUpDown, Download, LogOut, Music2 } from "lucide-react";
+import { Building2, ChevronsUpDown, Download, LogOut, Menu, Music2, X } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -150,7 +150,14 @@ export function WebShell({ role, children }: WebShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [signingOut, setSigningOut] = React.useState(false);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const sections = role === "FOUNDER_ADMIN" ? founderNav : staffNav;
+
+  // A route change (tapping a nav link) should close the mobile drawer —
+  // same effect as NavList's onNavigate, but also catches back/forward nav.
+  React.useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   React.useEffect(() => {
     if (isLoading) return;
@@ -194,14 +201,37 @@ export function WebShell({ role, children }: WebShellProps) {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-dash-bg text-dash-fg">
-      {/* Sidebar — always visible, same at every window size (no separate
-          mobile-drawer variant). */}
-      <aside className="flex w-60 shrink-0 flex-col border-r border-dash-fg/10 bg-dash-sidebar">
-        <div className="px-5 py-5">
+      {/* Backdrop — mobile only, closes the sidebar on tap outside it. */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* Sidebar — identical content and styling at every window size; on
+          narrow screens it's an off-canvas drawer (toggled by the header's
+          hamburger button) instead of a separately-designed mobile menu. */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 flex-col border-r border-dash-fg/10 bg-dash-sidebar transition-transform duration-200 ease-out lg:static lg:z-auto lg:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex items-center justify-between px-5 py-5">
           <Brand />
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+            className="rounded-lg p-1 text-dash-fg/50 hover:bg-dash-fg/[0.06] hover:text-dash-fg lg:hidden"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto no-scrollbar px-3 pb-3">
-          <NavList sections={sections} pathname={pathname} />
+          <NavList sections={sections} pathname={pathname} onNavigate={() => setSidebarOpen(false)} />
         </div>
         <div className="border-t border-dash-fg/10 p-4">
           <div className="flex items-center gap-3">
@@ -229,6 +259,14 @@ export function WebShell({ role, children }: WebShellProps) {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-dash-fg/10 bg-dash-bg/80 px-4 backdrop-blur-xl lg:px-6">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            className="-ml-1 flex items-center justify-center rounded-lg p-2 text-dash-fg/70 hover:bg-dash-fg/[0.06] hover:text-dash-fg lg:hidden"
+          >
+            <Menu className="h-5 w-5" aria-hidden />
+          </button>
           <div className="flex items-center gap-3">
             <p className="text-[15px] font-semibold tracking-tight">{pageTitle}</p>
           </div>
