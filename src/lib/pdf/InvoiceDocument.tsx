@@ -187,10 +187,13 @@ const st = StyleSheet.create({
   footerRight: { fontSize: 7.5, color: C.gray, textAlign: "right" },
 });
 
+// Abbreviated month ("02 Oct 2026") — the invoice date sits in a narrow
+// half-column next to the invoice number, where a full month name
+// ("October") wraps the year onto its own line.
 function niceDate(iso: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || "—";
   const [y, m, d] = iso.split("-").map(Number);
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${String(d).padStart(2, "0")} ${months[m - 1]} ${y}`;
 }
 
@@ -218,20 +221,20 @@ export function InvoiceDocument({ data, beneficiaries }: { data: InvoicePdfData;
         </View>
 
         <View style={st.infoBox}>
-          <View style={{ flex: 2 }}>
+          <View style={{ flex: 1.5 }}>
             <Text style={st.label}>BILLED TO</Text>
             <Text style={st.value}>{data.schoolName || "—"}</Text>
             {!!data.schoolAddress && <Text style={st.small}>{data.schoolAddress}</Text>}
             <Text style={st.small}>Attn: {data.attn || "The Principal"}</Text>
           </View>
           <View style={st.infoDivider} />
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1.3 }}>
             <View style={{ flexDirection: "row" }}>
               <View style={{ flex: 1 }}>
                 <Text style={st.label}>INVOICE NO.</Text>
                 <Text style={st.value}>{displayInvoiceNo(data.invoiceNo)}</Text>
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1.1 }}>
                 <Text style={st.label}>INVOICE DATE</Text>
                 <Text style={st.value}>{niceDate(data.invoiceDate)}</Text>
               </View>

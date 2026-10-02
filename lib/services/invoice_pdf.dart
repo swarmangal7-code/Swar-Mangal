@@ -69,7 +69,7 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
           decoration: pw.BoxDecoration(color: _cream, border: pw.Border.all(color: _border), borderRadius: pw.BorderRadius.circular(3)),
           child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
             pw.Expanded(
-              flex: 2,
+              flex: 8,
               child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                 _label('BILLED TO'),
                 pw.Text(inv.schoolName.isNotEmpty ? inv.schoolName : (inv.className.isNotEmpty ? inv.className : '—'),
@@ -80,16 +80,18 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
             ),
             pw.Container(width: 1, height: 58, margin: const pw.EdgeInsets.symmetric(horizontal: 12), color: _border),
             pw.Expanded(
-              flex: 1,
+              flex: 7,
               child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                 pw.Row(children: [
                   pw.Expanded(
+                    flex: 10,
                     child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                       _label('INVOICE NO.'),
                       _value(_displayInvoiceNo(inv.invoiceNo)),
                     ]),
                   ),
                   pw.Expanded(
+                    flex: 11,
                     child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
                       _label('INVOICE DATE'),
                       _value(_niceDate(inv.invoiceDate)),
@@ -322,7 +324,10 @@ String _displayInvoiceNo(String invoiceNo) => invoiceNo.replaceAll(RegExp(r'_SCH
   return (iso(firstOfPrevMonth), iso(lastOfPrevMonth));
 }
 
-const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+// Abbreviated month ("02 Oct 2026") — the invoice date sits in a narrow
+// half-column next to the invoice number, where a full month name
+// ("October") wraps the year onto its own line.
+const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 String _niceDate(String iso) {
   final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso);
