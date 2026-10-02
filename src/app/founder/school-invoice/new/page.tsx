@@ -249,6 +249,7 @@ export default function FounderNewSchoolInvoicePage() {
               type="number"
               min={0}
               inputMode="numeric"
+              onWheel={(e) => e.currentTarget.blur()}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               disabled={!!created}
