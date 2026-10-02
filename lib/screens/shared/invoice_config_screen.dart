@@ -22,10 +22,11 @@ class InvoiceConfigScreen extends StatefulWidget {
 
 class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   final _amount = TextEditingController(text: '18000');
-  final _class = TextEditingController();
+  final _billingMonthCtrl = TextEditingController();
   final _intent = 'SINV-${DateTime.now().microsecondsSinceEpoch}';
   String _tenure = '6 Months';
   String _invoiceDate = '';
+  String _billingMonth = '';
   bool _busy = false;
   String? _error;
   // Staff must see the rendered preview before it can be sent (brief P11.3).
@@ -42,6 +43,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     super.initState();
     final n = DateTime.now();
     _invoiceDate = '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+    // Schools are billed in arrears — the last fully-completed month.
+    final prev = DateTime(n.year, n.month - 1);
+    _billingMonth = '${prev.year}-${prev.month.toString().padLeft(2, '0')}';
+    _billingMonthCtrl.text = _billingMonth;
     _loadSchools();
   }
 
@@ -74,8 +79,21 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   @override
   void dispose() {
     _amount.dispose();
-    _class.dispose();
+    _billingMonthCtrl.dispose();
     super.dispose();
+  }
+
+  /// First/last day of a "YYYY-MM" billing month, mirroring the backend's
+  /// billingMonthRange so the preview matches what finalising will store.
+  static (String, String) _billingMonthBounds(String billingMonth) {
+    final m = RegExp(r'^(\d{4})-(\d{2})$').firstMatch(billingMonth);
+    if (m == null) return ('', '');
+    final year = int.parse(m.group(1)!);
+    final month = int.parse(m.group(2)!);
+    final from = '$year-${month.toString().padLeft(2, '0')}-01';
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final to = '$year-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+    return (from, to);
   }
 
   ({bool ok, num? amount})? _validate() {
@@ -93,9 +111,8 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       setState(() => _error = tErr);
       return null;
     }
-    final cErr = InvoiceValidator.className(_class.text);
-    if (cErr != null) {
-      setState(() => _error = cErr);
+    if (_billingMonth.isEmpty) {
+      setState(() => _error = 'Pick the month this invoice bills for.');
       return null;
     }
     return (ok: true, amount: a.amount);
@@ -114,10 +131,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     });
     try {
       final inv = await auth.service!.generateSchoolInvoice(
-        className: _class.text.trim(),
         amount: v.amount!,
         tenure: _tenure,
         invoiceDate: _invoiceDate,
+        billingMonth: _billingMonth,
         branch: auth.branch ?? 'ALL',
         schoolId: _school!.schoolId,
         intentKey: _intent,
@@ -154,12 +171,15 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     final auth = context.read<AuthProvider>();
     final v = _validate();
     if (v == null) return;
+    final billingBounds = _billingMonthBounds(_billingMonth);
     final preview = SchoolInvoice(
       invoiceId: '',
       invoiceNo: 'PREVIEW — not issued',
       invoiceDate: _invoiceDate,
+      billingPeriodFrom: billingBounds.$1,
+      billingPeriodTo: billingBounds.$2,
       branch: auth.branch ?? 'ALL',
-      className: _class.text.trim(),
+      className: '',
       amount: v.amount!,
       tenure: _tenure,
       schoolCode: _school?.code ?? '',
@@ -193,10 +213,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     });
     try {
       final res = await auth.service!.raw('api_staff_submitSchoolInvoiceDraft', {
-        'className': _class.text.trim(),
         'amount': v.amount,
         'tenure': _tenure,
         'invoiceDate': _invoiceDate,
+        'billingMonth': _billingMonth,
         'branch': auth.branch ?? 'ALL',
         'schoolId': _school!.schoolId,
         'previewConfirmed': true,
@@ -264,22 +284,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                     }),
                     validator: (v) => v == null ? 'Pick the school this invoice is for' : null,
                   ),
-                const SizedBox(height: AppSpace.s3),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('CLASS',
-                      style: AppType.eyebrow.copyWith(color: scheme.onSurfaceVariant)),
-                ),
-                const SizedBox(height: AppSpace.s2),
-                TextFormField(
-                  controller: _class,
-                  onChanged: (_) => setState(() => _previewed = false),
-                  decoration: const InputDecoration(
-                    labelText: 'Class name *',
-                    hintText: 'e.g. Keyboard',
-                    prefixIcon: Icon(Icons.music_note_outlined),
-                  ),
-                ),
+                if (_school != null && _school!.address.isNotEmpty) ...[
+                  const SizedBox(height: AppSpace.s2),
+                  Text(_school!.address, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                ],
                 const SizedBox(height: AppSpace.s3),
                 TextFormField(
                   controller: _amount,
@@ -312,6 +320,36 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: AppSpace.s3),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_month_outlined, color: AppColors.muted),
+                  title: Text(_billingMonth.isEmpty ? 'Billing period' : 'Billing period: $_billingMonth'),
+                  subtitle: const Text('The calendar month this invoice bills for.'),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      final f = _billingMonth.split('-');
+                      final p = await showDatePicker(
+                        context: context,
+                        initialDate: f.length == 2
+                            ? DateTime(int.parse(f[0]), int.parse(f[1]))
+                            : DateTime(now.year, now.month - 1),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(now.year + 1, 12),
+                        helpText: 'Pick any day in the billing month',
+                        fieldLabelText: 'Billing month',
+                      );
+                      if (p != null) {
+                        setState(() {
+                          _billingMonth = '${p.year}-${p.month.toString().padLeft(2, '0')}';
+                          _billingMonthCtrl.text = _billingMonth;
+                          _previewed = false;
+                        });
+                      }
+                    },
+                    child: const Text('Change'),
+                  ),
+                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event, color: AppColors.muted),

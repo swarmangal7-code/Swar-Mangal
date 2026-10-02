@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { API_ORIGIN } from "@/lib/api/rpc-client";
-import { useMutationRpc, rpcKeys } from "@/lib/api/rpc-hooks";
+import { useMutationRpc, useSchools, rpcKeys } from "@/lib/api/rpc-hooks";
 import type { InvoiceOwner, RpcEnvelope } from "@/lib/api/rpc-types";
 import { Button } from "@/components/ui/button";
 import { SchoolPicker } from "@/components/dashboard/school-picker";
@@ -23,6 +23,8 @@ interface GenerateInvoiceResponse extends RpcEnvelope {
   invoiceId: string;
   invoiceNo: string;
   invoiceDate: string;
+  billingPeriodFrom: string;
+  billingPeriodTo: string;
   branch: string;
   schoolId?: string;
   schoolCode?: string;
@@ -39,22 +41,53 @@ interface GenerateInvoiceResponse extends RpcEnvelope {
 
 function todayIso() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Last fully-completed calendar month, as "YYYY-MM" — schools are billed in
+ *  arrears, so this is the sensible default for a new invoice. */
+function defaultBillingMonth() {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Mirrors the backend's billingMonthRange for the client-side preview. */
+function billingMonthBounds(billingMonth: string): { from: string; to: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(billingMonth);
+  if (!m) return { from: "", to: "" };
+  const year = Number(m[1]);
+  const month = Number(m[2]); // 1-12
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const from = `${year}-${pad(month)}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const to = `${year}-${pad(month)}-${pad(lastDay)}`;
+  return { from, to };
+}
+
+function fmtMonthLabel(billingMonth: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(billingMonth);
+  if (!m) return "—";
+  return new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(
+    new Date(Number(m[1]), Number(m[2]) - 1, 1),
+  );
 }
 
 export default function FounderNewSchoolInvoicePage() {
   const { session, token } = useTokenAuth();
   const branches = session?.branches?.length ? [...session.branches] : [];
 
-  const [className, setClassName] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [tenure, setTenure] = React.useState("");
   const [schoolId, setSchoolId] = React.useState("");
   const [branch, setBranch] = React.useState(branches[0] ?? "");
+  const [billingMonth, setBillingMonth] = React.useState(defaultBillingMonth());
   const [invoiceDate, setInvoiceDate] = React.useState(todayIso());
   const [created, setCreated] = React.useState<GenerateInvoiceResponse | null>(null);
+
+  const schools = useSchools();
+  const selectedSchool = (schools.data?.schools ?? []).find((s) => s.schoolId === schoolId) ?? null;
 
   const generateMut = useMutationRpc<Record<string, unknown>, GenerateInvoiceResponse>(
     "api_generateSchoolInvoice",
@@ -62,20 +95,19 @@ export default function FounderNewSchoolInvoicePage() {
   );
 
   const amountValue = Number(amount);
-  const valid = schoolId.length > 0 && className.trim().length > 0 && Number.isFinite(amountValue) && amountValue > 0;
+  const valid = schoolId.length > 0 && Number.isFinite(amountValue) && amountValue > 0;
 
   const handleGenerate = async () => {
     if (!schoolId) return toast.error("Pick the school this invoice is for.");
-    if (!className.trim()) return toast.error("Enter the school class.");
     if (!(Number.isFinite(amountValue) && amountValue > 0)) return toast.error("Enter a valid amount.");
     try {
       const res = await generateMut.mutateAsync({
         schoolId,
-        className: className.trim(),
         amount: amountValue,
         tenure: tenure.trim(),
         branch,
         invoiceDate,
+        billingMonth,
       });
       setCreated(res);
       toast.success(`Invoice ${res.invoiceNo} generated.`);
@@ -91,7 +123,7 @@ export default function FounderNewSchoolInvoicePage() {
 
   const handleShare = async () => {
     if (!created) return;
-    const text = `Invoice ${created.invoiceNo} · ${created.className} · ${inr.format(created.amount)}`;
+    const text = `Invoice ${created.invoiceNo} · ${created.schoolName} · ${inr.format(created.amount)}`;
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: `School invoice ${created.invoiceNo}`, text });
@@ -139,7 +171,7 @@ export default function FounderNewSchoolInvoicePage() {
               Invoice {created.invoiceNo} generated
             </p>
             <p className="mt-0.5 text-xs text-emerald-200/70">
-              {created.className} · {inr.format(created.amount)} · {created.branch}
+              {created.schoolName} · {inr.format(created.amount)} · {created.branch}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
@@ -180,19 +212,12 @@ export default function FounderNewSchoolInvoicePage() {
 
           <SchoolPicker value={schoolId} onChange={setSchoolId} canAdd />
 
-          <div>
-            <label htmlFor="inv-class" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
-              Class name
-            </label>
-            <input
-              id="inv-class"
-              value={className}
-              onChange={(e) => setClassName(e.target.value)}
-              disabled={!!created}
-              placeholder="e.g. Tabla"
-              className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
-            />
-          </div>
+          {selectedSchool && (
+            <div className="rounded-xl border border-dash-fg/10 bg-dash-bg/50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-fg/40">School address</p>
+              <p className="mt-1 text-xs text-dash-fg/70">{selectedSchool.address || "No address on file."}</p>
+            </div>
+          )}
 
           <div>
             <label htmlFor="inv-amount" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
@@ -227,23 +252,17 @@ export default function FounderNewSchoolInvoicePage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="inv-branch" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
-                Branch
+              <label htmlFor="inv-billing-month" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
+                Billing period
               </label>
-              <select
-                id="inv-branch"
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
-                disabled={!!created || branches.length <= 1}
+              <input
+                id="inv-billing-month"
+                type="month"
+                value={billingMonth}
+                onChange={(e) => setBillingMonth(e.target.value)}
+                disabled={!!created}
                 className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
-              >
-                {branches.length === 0 && <option value="">Default</option>}
-                {branches.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label htmlFor="inv-date" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
@@ -260,6 +279,30 @@ export default function FounderNewSchoolInvoicePage() {
             </div>
           </div>
 
+          <div>
+            <label htmlFor="inv-branch" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
+              Branch
+            </label>
+            <select
+              id="inv-branch"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              disabled={!!created || branches.length <= 1}
+              className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
+            >
+              {branches.length === 0 && <option value="">Default</option>}
+              {branches.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <p className="text-xs text-dash-fg/50">
+            Bills for all of <span className="font-medium text-dash-fg/70">{fmtMonthLabel(billingMonth)}</span>, per the calendar.
+          </p>
+
           <Button
             onClick={handleGenerate}
             disabled={!valid || !!created}
@@ -274,9 +317,9 @@ export default function FounderNewSchoolInvoicePage() {
               variant="ghost"
               onClick={() => {
                 setCreated(null);
-                setClassName("");
                 setAmount("");
                 setTenure("");
+                setBillingMonth(defaultBillingMonth());
                 setInvoiceDate(todayIso());
               }}
               className="w-full text-dash-fg/60 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
@@ -291,7 +334,9 @@ export default function FounderNewSchoolInvoicePage() {
           <InvoicePreview
             invoiceNo={previewInvoice?.invoiceNo ?? "—"}
             invoiceDate={invoiceDate}
-            className={className}
+            billingPeriodFrom={previewInvoice?.billingPeriodFrom ?? billingMonthBounds(billingMonth).from}
+            billingPeriodTo={previewInvoice?.billingPeriodTo ?? billingMonthBounds(billingMonth).to}
+            className={previewInvoice?.className ?? ""}
             amount={previewInvoice ? previewInvoice.amount : Number(amount) || 0}
             tenure={tenure}
             branch={previewInvoice?.branch ?? branch}

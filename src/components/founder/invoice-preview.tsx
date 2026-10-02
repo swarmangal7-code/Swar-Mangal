@@ -20,6 +20,8 @@ const MAROON = "#7A1F2B";
 export function InvoicePreview({
   invoiceNo,
   invoiceDate,
+  billingPeriodFrom,
+  billingPeriodTo,
   className,
   amount,
   tenure,
@@ -33,6 +35,8 @@ export function InvoicePreview({
 }: {
   invoiceNo: string;
   invoiceDate: string;
+  billingPeriodFrom?: string;
+  billingPeriodTo?: string;
   className: string;
   amount: number;
   tenure: string;
@@ -44,11 +48,14 @@ export function InvoicePreview({
   owner1?: InvoiceOwner;
   owner2?: InvoiceOwner;
 }) {
+  const fmtDdMmYyyy = (iso?: string) =>
+    iso ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(iso)) : "";
   const fmtDate = invoiceDate
     ? new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric" }).format(
         new Date(invoiceDate),
       )
     : "—";
+  const billingPeriod = billingPeriodFrom && billingPeriodTo ? `${fmtDdMmYyyy(billingPeriodFrom)} to ${fmtDdMmYyyy(billingPeriodTo)}` : "";
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#E6DDD3] bg-[#FAF6EF] text-[#2B2B2B] shadow-soft-lg">
@@ -79,6 +86,7 @@ export function InvoicePreview({
             {invoiceNo}
           </p>
           <p className="text-xs text-[#6B6B6B]">{fmtDate}</p>
+          {billingPeriod && <p className="text-xs text-[#6B6B6B]">Billing period: {billingPeriod}</p>}
           {tenure && <p className="text-xs text-[#6B6B6B]">Tenure: {tenure}</p>}
         </div>
       </div>

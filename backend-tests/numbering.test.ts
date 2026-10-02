@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { financialYearLabel, formatDocNo, formatSchoolInvoiceNo, receiptSeries, schoolInvoiceSeries } from "../src/lib/rpc/numbering.ts";
+import { financialYearLabel, formatDocNo, formatSchoolInvoiceNo, receiptSeries, schoolInvoiceSeries, billingMonthRange } from "../src/lib/rpc/numbering.ts";
 
 test("financial year runs April to March (IST)", () => {
   assert.equal(financialYearLabel(new Date("2026-04-01T00:00:00+05:30")), "26-27");
@@ -38,6 +38,19 @@ test("a school invoice number appends the school code after the sequence", () =>
   assert.equal(formatSchoolInvoiceNo("SMI-26-27", 5, "MHWS"), "SMI-26-27-005_SCH_MHWS");
   assert.equal(formatSchoolInvoiceNo("SMI-26-27", 6, "MXVILLE"), "SMI-26-27-006_SCH_MXVILLE");
   assert.equal(formatSchoolInvoiceNo("SMI-26-27", 7, "mhws"), "SMI-26-27-007_SCH_MHWS");
+});
+
+test("a billing month expands to its calendar first/last day", () => {
+  assert.deepEqual(billingMonthRange("2026-08"), { from: "2026-08-01", to: "2026-08-31" });
+  assert.deepEqual(billingMonthRange("2026-02"), { from: "2026-02-01", to: "2026-02-28" });
+  assert.deepEqual(billingMonthRange("2028-02"), { from: "2028-02-01", to: "2028-02-29" }, "leap year");
+  assert.deepEqual(billingMonthRange("2026-12"), { from: "2026-12-01", to: "2026-12-31" });
+});
+
+test("a malformed billing month is rejected, not silently misread", () => {
+  assert.throws(() => billingMonthRange("2026-8"));
+  assert.throws(() => billingMonthRange("August 2026"));
+  assert.throws(() => billingMonthRange(""));
 });
 
 test("a school code is normalised, never dropped", () => {

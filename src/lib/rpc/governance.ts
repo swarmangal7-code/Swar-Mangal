@@ -397,10 +397,10 @@ async function correctionReject(arg: Record<string, unknown>, session: RpcSessio
 // ---------------------------------------------------------------- school invoice drafts
 async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: BranchScope, session: RpcSession): Promise<Result> {
   const amount = n(arg["amount"]);
-  const className = s(arg["className"]).trim();
   const intent = s(arg["clientIntentKey"] ?? arg["requestId"]).trim() || null;
   if (amount <= 0) return refuse("BAD_AMOUNT", "Enter the invoice amount.");
-  if (!className) return refuse("CLASS_REQUIRED", "Enter the school class this invoice is for.");
+  const billingMonth = s(arg["billingMonth"]).trim();
+  if (!/^\d{4}-\d{2}$/.test(billingMonth)) return refuse("BILLING_MONTH_REQUIRED", "Pick the month this invoice bills for.");
   if (arg["previewConfirmed"] !== true) return refuse("PREVIEW_REQUIRED", "Check the preview and confirm it before sending.");
   const schoolRef = s(arg["schoolId"] ?? arg["schoolCode"] ?? arg["school"]).trim();
   const school = await schoolByIdOrCode(schoolRef);
@@ -423,9 +423,9 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   }
   const id = newId("SIDRAFT");
   await query(
-    `insert into school_invoice_drafts (id, branch, class_name, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key, school_id)
-     values ($1,$2,$3,$4,$5,$6::date,$7,true,$8,$9,$10)`,
-    [id, branch, className, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent, school.id],
+    `insert into school_invoice_drafts (id, branch, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key, school_id, billing_month)
+     values ($1,$2,$3,$4,$5::date,$6,true,$7,$8,$9,$10)`,
+    [id, branch, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent, school.id, billingMonth],
   );
   await bumpRevisions(["invoices", "approvals", "tasks"]);
   notifyFounderApproval("School invoice", "a draft invoice to issue", id);
@@ -457,9 +457,9 @@ async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session:
     const seqNo = await nextDocSeq(tx, "schoolInvoice", series);
     const invoiceNo = formatSchoolInvoiceNo(series, seqNo, school.code);
     await tx.query(
-      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id)
-       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8)`,
-      [invoiceId, invoiceNo, invoiceDate, s(draft.branch), s(draft.class_name), n(draft.amount), s(draft.tenure), school.id],
+      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id, billing_month)
+       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9)`,
+      [invoiceId, invoiceNo, invoiceDate, s(draft.branch), s(draft.class_name), n(draft.amount), s(draft.tenure), school.id, s(draft.billing_month)],
     );
     await tx.query(
       `update school_invoice_drafts set status = 'FINALISED', decided_by = $2, decided_at = now(), final_invoice_id = $3, final_invoice_no = $4 where id = $1`,

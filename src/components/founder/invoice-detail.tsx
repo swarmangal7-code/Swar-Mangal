@@ -165,6 +165,8 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
         <InvoicePreview
           invoiceNo={invoice.invoiceNo}
           invoiceDate={invoice.invoiceDate}
+          billingPeriodFrom={invoice.billingPeriodFrom}
+          billingPeriodTo={invoice.billingPeriodTo}
           className={invoice.className}
           amount={Number(invoice.amount) || 0}
           tenure={invoice.tenure}

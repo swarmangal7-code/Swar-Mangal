@@ -34,3 +34,19 @@ export function formatSchoolInvoiceNo(series: string, no: number, schoolCode: st
 
 export const receiptSeries = (date?: Date) => `SMR-${financialYearLabel(date)}`;
 export const schoolInvoiceSeries = (date?: Date) => `SMI-${financialYearLabel(date)}`;
+
+/**
+ * Calendar start/end date for a "YYYY-MM" billing month, e.g. "2026-08" →
+ * { from: "2026-08-01", to: "2026-08-31" }. Pure calendar math — no
+ * reference to when the invoice is actually raised.
+ */
+export function billingMonthRange(billingMonth: string): { from: string; to: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(billingMonth.trim());
+  if (!m) throw new Error(`Invalid billing month "${billingMonth}" — expected YYYY-MM.`);
+  const year = Number(m[1]);
+  const month = Number(m[2]); // 1-12
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const from = iso(new Date(Date.UTC(year, month - 1, 1)));
+  const to = iso(new Date(Date.UTC(year, month, 0))); // day 0 of next month = last day of this month
+  return { from, to };
+}

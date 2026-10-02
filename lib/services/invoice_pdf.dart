@@ -32,7 +32,9 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
   final sigSharvil = pw.MemoryImage((await rootBundle.load('assets/images/signature-sharvil.png')).buffer.asUint8List());
   final sigPiyush = pw.MemoryImage((await rootBundle.load('assets/images/signature-piyush.png')).buffer.asUint8List());
 
-  final period = _previousMonthRange(inv.invoiceDate);
+  final period = inv.billingPeriodFrom.isNotEmpty && inv.billingPeriodTo.isNotEmpty
+      ? (inv.billingPeriodFrom, inv.billingPeriodTo)
+      : _previousMonthRange(inv.invoiceDate);
   final beneficiaries = inv.beneficiaries.isNotEmpty
       ? inv.beneficiaries
       : [InvoiceBeneficiaryAmount(name: inv.schoolName.isNotEmpty ? inv.schoolName : 'Swar Mangal', amount: inv.amount)];

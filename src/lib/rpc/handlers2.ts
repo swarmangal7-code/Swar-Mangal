@@ -1,7 +1,7 @@
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
 import { s, n, d, newId, newPersonId, nextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
-import { schoolInvoiceSeries, formatSchoolInvoiceNo } from "@/lib/rpc/numbering";
+import { schoolInvoiceSeries, formatSchoolInvoiceNo, billingMonthRange } from "@/lib/rpc/numbering";
 import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, type FeeState } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
 import { gatewayConfigFromEnv } from "@/lib/whatsapp/gateway";
@@ -1482,8 +1482,13 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
         : "Pick the school this invoice is for.",
     };
   }
+  const billingMonth = s(arg["billingMonth"]).trim();
+  if (!/^\d{4}-\d{2}$/.test(billingMonth)) {
+    return { ok: false, code: "BILLING_MONTH_REQUIRED", error: "Pick the month this invoice bills for." };
+  }
   const id = newId("SINV");
   const invoiceDate = s(arg["invoiceDate"]) || todayIso();
+  const { from: billingPeriodFrom, to: billingPeriodTo } = billingMonthRange(billingMonth);
   const lockedInvoice = await closedMonthRefusal(invoiceDate);
   if (lockedInvoice) return lockedInvoice;
   const series = schoolInvoiceSeries(new Date(invoiceDate));
@@ -1495,9 +1500,9 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     const docNo = await nextDocSeq(tx, "schoolInvoice", series);
     const invoiceNo = formatSchoolInvoiceNo(series, docNo, school.code);
     await tx.query(
-      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id)
-       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8)`,
-      [id, invoiceNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"]), school.id],
+      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id, billing_month)
+       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9)`,
+      [id, invoiceNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"]), school.id, billingMonth],
     );
     return invoiceNo;
   });
@@ -1507,6 +1512,8 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     invoiceId: id,
     invoiceNo: no,
     invoiceDate,
+    billingPeriodFrom,
+    billingPeriodTo,
     branch,
     schoolId: school.id,
     schoolCode: school.code,
@@ -1564,11 +1571,17 @@ async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope
   if (!inScope(scope, r.branch)) return branchForbidden(recordBranch(r.branch));
   const amount = n(r.amount);
   const beneficiaries = computeBeneficiaryAmounts(amount, s(r.school_id) ? await schoolBeneficiaries(s(r.school_id)) : []);
+  const billingMonth = s(r.billing_month).trim();
+  const { from: billingPeriodFrom, to: billingPeriodTo } = billingMonth
+    ? billingMonthRange(billingMonth)
+    : { from: "", to: "" };
   return ok({
     invoice: {
       invoiceId: s(r.id),
       invoiceNo: s(r.invoice_no),
       invoiceDate: s(r.invoice_date),
+      billingPeriodFrom,
+      billingPeriodTo,
       branch: s(r.branch),
       schoolId: s(r.school_id),
       schoolCode: s(r.school_code),

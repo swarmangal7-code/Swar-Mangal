@@ -51,11 +51,9 @@ void main() {
       expect(InvoiceValidator.amount('18000').ok, true);
       expect(InvoiceValidator.amount('18,000').amount, 18000);
     });
-    test('tenure + class required', () {
+    test('tenure required', () {
       expect(InvoiceValidator.tenure(''), isNotNull);
       expect(InvoiceValidator.tenure('6 Months'), isNull);
-      expect(InvoiceValidator.className('  '), isNotNull);
-      expect(InvoiceValidator.className('Keyboard'), isNull);
     });
   });
 

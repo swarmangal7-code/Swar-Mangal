@@ -184,19 +184,19 @@ class ApiService {
   /// the immutable snapshot; Flutter renders the PDF. One intent key per form
   /// prevents duplicate invoices.
   Future<SchoolInvoice> generateSchoolInvoice({
-    required String className,
     required num amount,
     required String tenure,
     String invoiceDate = '',
+    required String billingMonth,
     String branch = 'ALL',
     required String schoolId,
     required String intentKey,
   }) async {
     final b = await _api.call('api_generateSchoolInvoice', {
-      'className': className,
       'amount': amount,
       'tenure': tenure,
       if (invoiceDate.isNotEmpty) 'invoiceDate': invoiceDate,
+      'billingMonth': billingMonth,
       'branch': branch,
       'schoolId': schoolId,
       'clientIntentKey': intentKey,

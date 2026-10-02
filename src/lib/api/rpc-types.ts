@@ -581,6 +581,8 @@ export interface SchoolInvoice {
   invoiceId: string;
   invoiceNo: string;
   invoiceDate: string;
+  billingPeriodFrom?: string;
+  billingPeriodTo?: string;
   branch: string;
   /** The school being billed. The code is already inside invoiceNo. */
   schoolId?: string;

@@ -2107,6 +2107,8 @@ class DemoApiClient extends ApiClient {
   Map<String, dynamic> _schoolInvoice(Map<String, dynamic> a) {
     final no = 'INV-DEMO-${98000 + (a['amount'] as num).toInt()}';
     final id = 'SINV-DEMO-${DateTime.now().microsecondsSinceEpoch}';
+    final billingMonth = _s(a['billingMonth'] ?? '');
+    final bounds = _billingMonthBounds(billingMonth);
     // Keep it in the shared store so api_listSchoolInvoices shows it.
     _invoices.insert(0, {
       'invoiceNo': no,
@@ -2122,6 +2124,8 @@ class DemoApiClient extends ApiClient {
       'invoiceId': id,
       'invoiceNo': no,
       'invoiceDate': a['invoiceDate'] ?? '2026-09-12',
+      'billingPeriodFrom': bounds.$1,
+      'billingPeriodTo': bounds.$2,
       'branch': a['branch'] ?? 'KANDIVALI',
       'className': a['className'] ?? '',
       'amount': a['amount'] ?? 0,
@@ -2130,6 +2134,19 @@ class DemoApiClient extends ApiClient {
       'owner2': {'name': 'Piyush Kashyap', 'id': 'OWNER-2', 'signatureUrl': '', 'title': 'Owner 2'},
       'pdfUrl': '',
     };
+  }
+
+  /// First/last day of a "YYYY-MM" billing month — mirrors the real
+  /// backend's billingMonthRange (src/lib/rpc/numbering.ts).
+  static (String, String) _billingMonthBounds(String billingMonth) {
+    final m = RegExp(r'^(\d{4})-(\d{2})$').firstMatch(billingMonth);
+    if (m == null) return ('', '');
+    final year = int.parse(m.group(1)!);
+    final month = int.parse(m.group(2)!);
+    final from = '$year-${month.toString().padLeft(2, '0')}-01';
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final to = '$year-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+    return (from, to);
   }
 
   Map<String, dynamic> _schoolInvoicesList(Map<String, dynamic> a) {

@@ -1770,6 +1770,8 @@ class SchoolInvoice {
     required this.tenure,
     required this.owner1,
     required this.owner2,
+    this.billingPeriodFrom = '',
+    this.billingPeriodTo = '',
     this.schoolCode = '',
     this.schoolName = '',
     this.schoolAddress = '',
@@ -1792,6 +1794,8 @@ class SchoolInvoice {
       invoiceId: _s(b['invoiceId']),
       invoiceNo: _s(b['invoiceNo']),
       invoiceDate: _s(b['invoiceDate']),
+      billingPeriodFrom: _s(b['billingPeriodFrom']),
+      billingPeriodTo: _s(b['billingPeriodTo']),
       branch: _s(b['branch'] ?? b['classCode']),
       className: _s(b['className']),
       amount: _n(b['amount']),
@@ -1816,6 +1820,8 @@ class SchoolInvoice {
   final String invoiceId;
   final String invoiceNo;
   final String invoiceDate;
+  final String billingPeriodFrom;
+  final String billingPeriodTo;
   final String branch;
   final String className;
   final num amount;
@@ -1938,7 +1944,7 @@ class InvoiceSummary {
   final String schoolCode;
 }
 
-/// Invoice input validation — amount numeric > 0, tenure + class required.
+/// Invoice input validation — amount numeric > 0, tenure required.
 class InvoiceValidator {
   InvoiceValidator._();
 
@@ -1950,8 +1956,6 @@ class InvoiceValidator {
   }
 
   static String? tenure(String raw) => raw.trim().isEmpty ? 'Pick a tenure.' : null;
-
-  static String? className(String raw) => raw.trim().isEmpty ? 'Class name is required.' : null;
 }
 
 /// Day-of-week for the timetable (0 = Monday … 6 = Sunday, ISO).

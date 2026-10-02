@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { authenticateToken, isFounder, isStaff } from "@/lib/rpc/auth";
 import { makeScope, inScope } from "@/lib/rpc/scope";
 import { schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
+import { billingMonthRange } from "@/lib/rpc/numbering";
 import { InvoiceDocument, type InvoicePdfData } from "@/lib/pdf/InvoiceDocument";
 
 export const runtime = "nodejs";
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
   const scope = makeScope(session.branches ?? (isFounder(session) ? ["GOREGAON", "KANDIVALI"] : []));
 
   const row = await query<Record<string, unknown>>(
-    `select i.id, i.invoice_no, i.invoice_date::text, i.branch, i.class_name, i.amount, i.tenure, i.school_id,
+    `select i.id, i.invoice_no, i.invoice_date::text, i.branch, i.class_name, i.amount, i.tenure, i.school_id, i.billing_month,
             sc.code as school_code, sc.name as school_name, sc.address as school_address,
             sc.attn, sc.billing_basis, sc.service_description
      from school_invoices_rpc i left join schools sc on sc.id = i.school_id
@@ -49,7 +50,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
 
   const amount = Number(row.amount) || 0;
   const invoiceDate = String(row.invoice_date ?? "");
-  const period = previousMonthRange(invoiceDate);
+  const billingMonth = String(row.billing_month ?? "").trim();
+  // Invoices raised before billing_month existed don't have it — fall back to
+  // reading the previous calendar month off invoice_date, which is how every
+  // one of those was actually billed.
+  const period = billingMonth ? billingMonthRange(billingMonth) : previousMonthRange(invoiceDate);
   const schoolId = String(row.school_id ?? "");
   const rawBeneficiaries = schoolId ? await schoolBeneficiaries(schoolId) : [];
   const beneficiaries = rawBeneficiaries.length

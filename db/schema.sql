@@ -586,6 +586,12 @@ create table if not exists school_invoices_rpc (
 -- two records of the same number is prevented by the numbering transaction,
 -- not by reading it back out of this column.
 alter table school_invoices_rpc add column if not exists school_id text;
+-- The calendar month this invoice bills for, as "YYYY-MM" — chosen
+-- independently of invoice_date (see billingMonthRange in numbering.ts for
+-- how it expands to a from/to date range). Invoices issued before this
+-- column existed have it blank; the PDF route falls back to reading the
+-- previous calendar month off invoice_date for those.
+alter table school_invoices_rpc add column if not exists billing_month text;
 -- ============ BRANCH OWNERSHIP + DOCUMENT NUMBERING ============
 
 -- Branch/student ownership on money rows so staff scope can be enforced
@@ -962,6 +968,9 @@ create table if not exists school_invoice_drafts (
 -- finalises, and it must be the same number the founder would have got from
 -- raising it directly.
 alter table school_invoice_drafts add column if not exists school_id text;
+-- Same "YYYY-MM" billing month as school_invoices_rpc.billing_month, carried
+-- through to the final invoice when the founder finalises this draft.
+alter table school_invoice_drafts add column if not exists billing_month text;
 create unique index if not exists school_invoice_drafts_intent_unique on school_invoice_drafts (client_intent_key)
   where client_intent_key is not null;
 

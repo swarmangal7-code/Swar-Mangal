@@ -14,21 +14,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { PaymentProfileDialog } from "@/components/dashboard/payment-profile-dialog";
 import { SchoolPicker } from "@/components/dashboard/school-picker";
-import { useMutationRpc, useRpc } from "@/lib/api/rpc-hooks";
+import { useMutationRpc, useRpc, useSchools } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope, SchoolInvoiceListResponse } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { formatDateOnly, formatINR } from "@/app/founder/_shared";
 
 interface DraftArg extends Record<string, unknown> {
-  className: string;
   amount: number;
   tenure: string;
   invoiceDate: string;
+  billingMonth: string;
   branch: string;
   notes: string;
   previewConfirmed: boolean;
   clientIntentKey: string;
+}
+
+/** Last fully-completed calendar month, as "YYYY-MM" — schools are billed in
+ *  arrears, so this is the sensible default for a new invoice draft. */
+function defaultBillingMonth() {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 interface DraftResponse extends RpcEnvelope {
@@ -55,15 +64,18 @@ export default function StaffSchoolInvoicePage() {
   const invoices = useRpc<SchoolInvoiceListResponse>("api_listSchoolInvoices", { branch });
   const rows = invoices.data?.invoices ?? [];
 
-  const [className, setClassName] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [tenure, setTenure] = React.useState("");
   const [schoolId, setSchoolId] = React.useState("");
   const [invoiceDate, setInvoiceDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [billingMonth, setBillingMonth] = React.useState(defaultBillingMonth());
   const [notes, setNotes] = React.useState("");
   const [confirmed, setConfirmed] = React.useState(false);
   const [success, setSuccess] = React.useState<DraftResponse | null>(null);
   const intentRef = React.useRef(`SIDRAFT-${Date.now()}`);
+
+  const schools = useSchools();
+  const selectedSchool = (schools.data?.schools ?? []).find((s) => s.schoolId === schoolId) ?? null;
 
   const draftBranch = branch === "ALL" ? branches[0] ?? "" : branch;
 
@@ -77,18 +89,17 @@ export default function StaffSchoolInvoicePage() {
   });
 
   const amountNum = Number(amount);
-  const valid =
-    schoolId.length > 0 && className.trim().length > 0 && Number.isFinite(amountNum) && amountNum > 0 && confirmed;
+  const valid = schoolId.length > 0 && Number.isFinite(amountNum) && amountNum > 0 && confirmed;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
     submit.mutate({
       schoolId,
-      className: className.trim(),
       amount: amountNum,
       tenure: tenure.trim(),
       invoiceDate,
+      billingMonth,
       branch: draftBranch,
       notes: notes.trim(),
       previewConfirmed: true,
@@ -141,38 +152,34 @@ export default function StaffSchoolInvoicePage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <SchoolPicker value={schoolId} onChange={setSchoolId} />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-dash-fg/70">Class *</Label>
-                  <Input
-                    value={className}
-                    onChange={(e) => setClassName(e.target.value)}
-                    placeholder="e.g. Tabla"
-                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
-                  />
+              {selectedSchool && (
+                <div className="rounded-xl border border-dash-fg/10 bg-dash-fg/[0.02] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-fg/40">School address</p>
+                  <p className="mt-1 text-xs text-dash-fg/70">{selectedSchool.address || "No address on file."}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-dash-fg/70">Amount (₹) *</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="e.g. 9000"
-                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
-                  />
-                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-dash-fg/70">Amount (₹) *</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="e.g. 9000"
+                  className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+                />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-dash-fg/70">Tenure</Label>
+                  <Label className="text-dash-fg/70">Billing period</Label>
                   <Input
-                    value={tenure}
-                    onChange={(e) => setTenure(e.target.value)}
-                    placeholder="1 Month / 6 Months"
-                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+                    type="month"
+                    value={billingMonth}
+                    onChange={(e) => setBillingMonth(e.target.value)}
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
                   />
                 </div>
                 <div className="space-y-2">
@@ -182,6 +189,18 @@ export default function StaffSchoolInvoicePage() {
                     value={invoiceDate}
                     onChange={(e) => setInvoiceDate(e.target.value)}
                     className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-dash-fg/70">Tenure</Label>
+                  <Input
+                    value={tenure}
+                    onChange={(e) => setTenure(e.target.value)}
+                    placeholder="1 Month / 6 Months"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                   />
                 </div>
                 <div className="space-y-2">
@@ -214,7 +233,7 @@ export default function StaffSchoolInvoicePage() {
                   onChange={(e) => setConfirmed(e.target.checked)}
                   className="h-4 w-4 rounded border-dash-fg/20 bg-dash-sidebar accent-dash-accent"
                 />
-                I have checked the class, amount and tenure before sending.
+                I have checked the school, amount and tenure before sending.
               </label>
 
               <Button
