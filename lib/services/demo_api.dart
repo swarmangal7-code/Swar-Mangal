@@ -2127,6 +2127,7 @@ class DemoApiClient extends ApiClient {
       'billingPeriodFrom': bounds.$1,
       'billingPeriodTo': bounds.$2,
       'branch': a['branch'] ?? 'KANDIVALI',
+      'schoolAddress': a['schoolAddress'] ?? '',
       'className': a['className'] ?? '',
       'amount': a['amount'] ?? 0,
       'tenure': a['tenure'] ?? '6 Months',

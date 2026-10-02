@@ -1488,6 +1488,7 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
   }
   const id = newId("SINV");
   const invoiceDate = s(arg["invoiceDate"]) || todayIso();
+  const billedAddress = s(arg["schoolAddress"]).trim() || school.address;
   const { from: billingPeriodFrom, to: billingPeriodTo } = billingMonthRange(billingMonth);
   const lockedInvoice = await closedMonthRefusal(invoiceDate);
   if (lockedInvoice) return lockedInvoice;
@@ -1500,9 +1501,9 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     const docNo = await nextDocSeq(tx, "schoolInvoice", series);
     const invoiceNo = formatSchoolInvoiceNo(series, docNo, school.code);
     await tx.query(
-      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id, billing_month)
-       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9)`,
-      [id, invoiceNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"]), school.id, billingMonth],
+      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id, billing_month, billed_address)
+       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9,$10)`,
+      [id, invoiceNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"]), school.id, billingMonth, billedAddress],
     );
     return invoiceNo;
   });
@@ -1518,7 +1519,7 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     schoolId: school.id,
     schoolCode: school.code,
     schoolName: school.name,
-    schoolAddress: school.address,
+    schoolAddress: billedAddress,
     schoolContact: school.contact,
     attn: school.attn,
     billingBasis: school.billingBasis,
@@ -1586,7 +1587,7 @@ async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope
       schoolId: s(r.school_id),
       schoolCode: s(r.school_code),
       schoolName: s(r.school_name),
-      schoolAddress: s(r.school_address),
+      schoolAddress: s(r.billed_address).trim() || s(r.school_address),
       schoolContact: s(r.school_contact),
       attn: s(r.attn) || "The Principal",
       billingBasis: s(r.billing_basis) || "Fixed Monthly",

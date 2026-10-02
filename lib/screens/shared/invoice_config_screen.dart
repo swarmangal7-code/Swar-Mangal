@@ -22,6 +22,7 @@ class InvoiceConfigScreen extends StatefulWidget {
 
 class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   final _amount = TextEditingController(text: '18000');
+  final _schoolAddress = TextEditingController();
   final _billingMonthCtrl = TextEditingController();
   final _intent = 'SINV-${DateTime.now().microsecondsSinceEpoch}';
   String _tenure = '6 Months';
@@ -59,6 +60,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       setState(() {
         _schools = rows.where((s) => s.active).toList();
         _school = _schools.isEmpty ? null : _schools.first;
+        _schoolAddress.text = _school?.address ?? '';
         _loadingSchools = false;
       });
     } on ApiException catch (e) {
@@ -79,6 +81,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   @override
   void dispose() {
     _amount.dispose();
+    _schoolAddress.dispose();
     _billingMonthCtrl.dispose();
     super.dispose();
   }
@@ -135,6 +138,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         tenure: _tenure,
         invoiceDate: _invoiceDate,
         billingMonth: _billingMonth,
+        schoolAddress: _schoolAddress.text.trim(),
         branch: auth.branch ?? 'ALL',
         schoolId: _school!.schoolId,
         intentKey: _intent,
@@ -184,7 +188,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       tenure: _tenure,
       schoolCode: _school?.code ?? '',
       schoolName: _school?.name ?? '',
-      schoolAddress: _school?.address ?? '',
+      schoolAddress: _schoolAddress.text.trim(),
       schoolContact: _school?.contact ?? '',
       owner1: InvoiceOwner(name: 'Sharvil Vaidya', id: 'OWNER-1', signatureUrl: ''),
       owner2: InvoiceOwner(name: 'Piyush Kashyap', id: 'OWNER-2', signatureUrl: ''),
@@ -217,6 +221,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         'tenure': _tenure,
         'invoiceDate': _invoiceDate,
         'billingMonth': _billingMonth,
+        'schoolAddress': _schoolAddress.text.trim(),
         'branch': auth.branch ?? 'ALL',
         'schoolId': _school!.schoolId,
         'previewConfirmed': true,
@@ -280,13 +285,24 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                     ],
                     onChanged: (v) => setState(() {
                       _school = v;
+                      _schoolAddress.text = v?.address ?? '';
                       _previewed = false;
                     }),
                     validator: (v) => v == null ? 'Pick the school this invoice is for' : null,
                   ),
-                if (_school != null && _school!.address.isNotEmpty) ...[
+                if (_school != null) ...[
                   const SizedBox(height: AppSpace.s2),
-                  Text(_school!.address, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  TextFormField(
+                    controller: _schoolAddress,
+                    onChanged: (_) => setState(() => _previewed = false),
+                    maxLines: 2,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'School address',
+                      hintText: 'No address on file — enter one for this invoice',
+                      helperText: "Only for this invoice — won't change the school's saved address.",
+                    ),
+                  ),
                 ],
                 const SizedBox(height: AppSpace.s3),
                 TextFormField(
@@ -451,7 +467,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                 if (added != null && added.isNotEmpty) {
                   await _loadSchools();
                   if (mounted) {
-                    setState(() => _school = _schools.where((s) => s.code == added.toUpperCase()).firstOrNull);
+                    setState(() {
+                      _school = _schools.where((s) => s.code == added.toUpperCase()).firstOrNull;
+                      _schoolAddress.text = _school?.address ?? '';
+                    });
                   }
                 }
               },

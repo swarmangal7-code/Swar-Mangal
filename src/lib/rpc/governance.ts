@@ -415,6 +415,7 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   const branch = defaultBranch(scope, arg["branch"]);
   if (!inScope(scope, branch)) return branchForbidden(branch);
   const invoiceDate = /^\d{4}-\d{2}-\d{2}$/.test(s(arg["invoiceDate"])) ? s(arg["invoiceDate"]) : todayIso();
+  const billedAddress = s(arg["schoolAddress"]).trim() || school.address;
   const locked = await closedMonthRefusal(invoiceDate);
   if (locked) return locked;
   if (intent) {
@@ -423,9 +424,9 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   }
   const id = newId("SIDRAFT");
   await query(
-    `insert into school_invoice_drafts (id, branch, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key, school_id, billing_month)
-     values ($1,$2,$3,$4,$5::date,$6,true,$7,$8,$9,$10)`,
-    [id, branch, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent, school.id, billingMonth],
+    `insert into school_invoice_drafts (id, branch, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key, school_id, billing_month, billed_address)
+     values ($1,$2,$3,$4,$5::date,$6,true,$7,$8,$9,$10,$11)`,
+    [id, branch, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent, school.id, billingMonth, billedAddress],
   );
   await bumpRevisions(["invoices", "approvals", "tasks"]);
   notifyFounderApproval("School invoice", "a draft invoice to issue", id);
@@ -457,9 +458,9 @@ async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session:
     const seqNo = await nextDocSeq(tx, "schoolInvoice", series);
     const invoiceNo = formatSchoolInvoiceNo(series, seqNo, school.code);
     await tx.query(
-      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id, billing_month)
-       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9)`,
-      [invoiceId, invoiceNo, invoiceDate, s(draft.branch), s(draft.class_name), n(draft.amount), s(draft.tenure), school.id, s(draft.billing_month)],
+      `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id, billing_month, billed_address)
+       values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9,$10)`,
+      [invoiceId, invoiceNo, invoiceDate, s(draft.branch), s(draft.class_name), n(draft.amount), s(draft.tenure), school.id, s(draft.billing_month), s(draft.billed_address)],
     );
     await tx.query(
       `update school_invoice_drafts set status = 'FINALISED', decided_by = $2, decided_at = now(), final_invoice_id = $3, final_invoice_no = $4 where id = $1`,

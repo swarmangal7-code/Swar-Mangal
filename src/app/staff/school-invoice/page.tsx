@@ -25,6 +25,7 @@ interface DraftArg extends Record<string, unknown> {
   tenure: string;
   invoiceDate: string;
   billingMonth: string;
+  schoolAddress: string;
   branch: string;
   notes: string;
   previewConfirmed: boolean;
@@ -76,6 +77,13 @@ export default function StaffSchoolInvoicePage() {
 
   const schools = useSchools();
   const selectedSchool = (schools.data?.schools ?? []).find((s) => s.schoolId === schoolId) ?? null;
+  const [schoolAddress, setSchoolAddress] = React.useState("");
+
+  // Pre-fill (and reset) the editable address whenever a different school is
+  // picked — it's a per-invoice override, not a persisted edit to the school.
+  React.useEffect(() => {
+    setSchoolAddress(selectedSchool?.address ?? "");
+  }, [selectedSchool?.schoolId, selectedSchool?.address]);
 
   const draftBranch = branch === "ALL" ? branches[0] ?? "" : branch;
 
@@ -100,6 +108,7 @@ export default function StaffSchoolInvoicePage() {
       tenure: tenure.trim(),
       invoiceDate,
       billingMonth,
+      schoolAddress: schoolAddress.trim(),
       branch: draftBranch,
       notes: notes.trim(),
       previewConfirmed: true,
@@ -153,9 +162,18 @@ export default function StaffSchoolInvoicePage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <SchoolPicker value={schoolId} onChange={setSchoolId} />
               {selectedSchool && (
-                <div className="rounded-xl border border-dash-fg/10 bg-dash-fg/[0.02] p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-fg/40">School address</p>
-                  <p className="mt-1 text-xs text-dash-fg/70">{selectedSchool.address || "No address on file."}</p>
+                <div className="space-y-2">
+                  <Label className="text-dash-fg/70">School address</Label>
+                  <Textarea
+                    value={schoolAddress}
+                    onChange={(e) => setSchoolAddress(e.target.value)}
+                    rows={2}
+                    placeholder="No address on file — enter one for this invoice"
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+                  />
+                  <p className="text-[11px] text-dash-fg/40">
+                    Only for this invoice — won&rsquo;t change the school&rsquo;s saved address.
+                  </p>
                 </div>
               )}
 

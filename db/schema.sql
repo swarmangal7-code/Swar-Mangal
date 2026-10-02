@@ -592,6 +592,11 @@ alter table school_invoices_rpc add column if not exists school_id text;
 -- column existed have it blank; the PDF route falls back to reading the
 -- previous calendar month off invoice_date for those.
 alter table school_invoices_rpc add column if not exists billing_month text;
+-- A snapshot of the billed-to address at issue time, editable per invoice
+-- (founder or staff can correct it for one invoice without touching the
+-- shared schools.address record). Blank falls back to the school's own
+-- address, same as every invoice issued before this column existed.
+alter table school_invoices_rpc add column if not exists billed_address text;
 -- ============ BRANCH OWNERSHIP + DOCUMENT NUMBERING ============
 
 -- Branch/student ownership on money rows so staff scope can be enforced
@@ -971,6 +976,9 @@ alter table school_invoice_drafts add column if not exists school_id text;
 -- Same "YYYY-MM" billing month as school_invoices_rpc.billing_month, carried
 -- through to the final invoice when the founder finalises this draft.
 alter table school_invoice_drafts add column if not exists billing_month text;
+-- Same per-invoice address override as school_invoices_rpc.billed_address,
+-- carried through to the final invoice on finalise.
+alter table school_invoice_drafts add column if not exists billed_address text;
 create unique index if not exists school_invoice_drafts_intent_unique on school_invoice_drafts (client_intent_key)
   where client_intent_key is not null;
 

@@ -84,10 +84,17 @@ export default function FounderNewSchoolInvoicePage() {
   const [branch, setBranch] = React.useState(branches[0] ?? "");
   const [billingMonth, setBillingMonth] = React.useState(defaultBillingMonth());
   const [invoiceDate, setInvoiceDate] = React.useState(todayIso());
+  const [schoolAddress, setSchoolAddress] = React.useState("");
   const [created, setCreated] = React.useState<GenerateInvoiceResponse | null>(null);
 
   const schools = useSchools();
   const selectedSchool = (schools.data?.schools ?? []).find((s) => s.schoolId === schoolId) ?? null;
+
+  // Pre-fill (and reset) the editable address whenever a different school is
+  // picked — it's a per-invoice override, not a persisted edit to the school.
+  React.useEffect(() => {
+    setSchoolAddress(selectedSchool?.address ?? "");
+  }, [selectedSchool?.schoolId, selectedSchool?.address]);
 
   const generateMut = useMutationRpc<Record<string, unknown>, GenerateInvoiceResponse>(
     "api_generateSchoolInvoice",
@@ -108,6 +115,7 @@ export default function FounderNewSchoolInvoicePage() {
         branch,
         invoiceDate,
         billingMonth,
+        schoolAddress: schoolAddress.trim(),
       });
       setCreated(res);
       toast.success(`Invoice ${res.invoiceNo} generated.`);
@@ -213,9 +221,22 @@ export default function FounderNewSchoolInvoicePage() {
           <SchoolPicker value={schoolId} onChange={setSchoolId} canAdd />
 
           {selectedSchool && (
-            <div className="rounded-xl border border-dash-fg/10 bg-dash-bg/50 p-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-dash-fg/40">School address</p>
-              <p className="mt-1 text-xs text-dash-fg/70">{selectedSchool.address || "No address on file."}</p>
+            <div>
+              <label htmlFor="inv-school-address" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
+                School address
+              </label>
+              <textarea
+                id="inv-school-address"
+                value={schoolAddress}
+                onChange={(e) => setSchoolAddress(e.target.value)}
+                disabled={!!created}
+                rows={2}
+                placeholder="No address on file — enter one for this invoice"
+                className="w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 py-2.5 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
+              />
+              <p className="mt-1 text-[11px] text-dash-fg/40">
+                Only for this invoice — won&rsquo;t change the school&rsquo;s saved address.
+              </p>
             </div>
           )}
 
@@ -321,6 +342,7 @@ export default function FounderNewSchoolInvoicePage() {
                 setTenure("");
                 setBillingMonth(defaultBillingMonth());
                 setInvoiceDate(todayIso());
+                setSchoolAddress(selectedSchool?.address ?? "");
               }}
               className="w-full text-dash-fg/60 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >
@@ -342,7 +364,7 @@ export default function FounderNewSchoolInvoicePage() {
             branch={previewInvoice?.branch ?? branch}
             schoolCode={previewInvoice?.schoolCode ?? ""}
             schoolName={previewInvoice?.schoolName ?? ""}
-            schoolAddress={previewInvoice?.schoolAddress ?? ""}
+            schoolAddress={previewInvoice?.schoolAddress ?? schoolAddress}
             schoolContact={previewInvoice?.schoolContact ?? ""}
             owner1={previewInvoice?.owner1}
             owner2={previewInvoice?.owner2}
