@@ -80,7 +80,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="invoice-${data.invoiceNo}.pdf"`,
+      "Content-Disposition": `inline; filename="${data.invoiceNo}.pdf"`,
       "Cache-Control": "private, max-age=60",
       "Access-Control-Allow-Origin": "*",
     },
