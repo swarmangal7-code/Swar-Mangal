@@ -78,6 +78,11 @@ const st = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
   },
+  infoDivider: {
+    width: 1,
+    backgroundColor: C.border,
+    marginHorizontal: 12,
+  },
   label: { fontSize: 7.5, color: C.gray, letterSpacing: 0.5, marginBottom: 2 },
   value: { fontSize: 10, fontWeight: 700, color: C.ink },
   small: { fontSize: 8.5, color: C.gray, marginTop: 1 },
@@ -219,6 +224,7 @@ export function InvoiceDocument({ data, beneficiaries }: { data: InvoicePdfData;
             {!!data.schoolAddress && <Text style={st.small}>{data.schoolAddress}</Text>}
             <Text style={st.small}>Attn: {data.attn || "The Principal"}</Text>
           </View>
+          <View style={st.infoDivider} />
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row" }}>
               <View style={{ flex: 1 }}>

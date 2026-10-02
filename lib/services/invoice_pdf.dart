@@ -78,6 +78,7 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
                 _small('Attn: ${inv.attn.isNotEmpty ? inv.attn : 'The Principal'}'),
               ]),
             ),
+            pw.Container(width: 1, height: 58, margin: const pw.EdgeInsets.symmetric(horizontal: 12), color: _border),
             pw.Expanded(
               flex: 1,
               child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
