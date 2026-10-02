@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "395896588",
+    "project_id": "swar-mangal",
+    "storage_bucket": "swar-mangal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:395896588:android:eed4539be4cf35914c8b29",
+        "android_client_info": {
+          "package_name": "in.swarmangal.academyos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFPIHNFYha6rIxL-78h9vWrTXcQf7Ubr4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
