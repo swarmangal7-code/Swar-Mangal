@@ -365,6 +365,8 @@ class DemoApiClient extends ApiClient {
         };
       case 'api_generateSchoolInvoice':
         return _schoolInvoice(a);
+      case 'api_peekNextSchoolInvoiceNo':
+        return {'ok': true, 'seq': _invoices.length + 1, 'invoiceNo': 'INV-DEMO-PEEK'};
       case 'api_listSchoolInvoices':
         return _schoolInvoicesList(a);
       case 'api_getSchoolInvoice':

@@ -23,11 +23,13 @@ class InvoiceConfigScreen extends StatefulWidget {
 class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   final _amount = TextEditingController(text: '18000');
   final _schoolAddress = TextEditingController();
+  final _invoiceSeq = TextEditingController();
   final _billingMonthCtrl = TextEditingController();
   final _intent = 'SINV-${DateTime.now().microsecondsSinceEpoch}';
   String _tenure = '6 Months';
   String _invoiceDate = '';
   String _billingMonth = '';
+  bool _seqTouched = false;
   bool _busy = false;
   String? _error;
   // Staff must see the rendered preview before it can be sent (brief P11.3).
@@ -63,6 +65,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         _schoolAddress.text = _school?.address ?? '';
         _loadingSchools = false;
       });
+      await _peekInvoiceSeq();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -82,6 +85,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   void dispose() {
     _amount.dispose();
     _schoolAddress.dispose();
+    _invoiceSeq.dispose();
     _billingMonthCtrl.dispose();
     super.dispose();
   }
@@ -97,6 +101,38 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     final lastDay = DateTime(year, month + 1, 0).day;
     final to = '$year-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
     return (from, to);
+  }
+
+  /// Mirrors the backend's financialYearLabel/formatSchoolInvoiceNo so the
+  /// preview can show the full number without a round trip on every edit.
+  static String _clientInvoiceNo(String invoiceDateIso, String seq, String schoolCode) {
+    DateTime d;
+    final f = invoiceDateIso.split('-');
+    d = f.length == 3
+        ? DateTime(int.parse(f[0]), int.parse(f[1]), int.parse(f[2]))
+        : DateTime.now();
+    final startYear = d.month >= 4 ? d.year : d.year - 1;
+    String two(int n) => (n % 100).toString().padLeft(2, '0');
+    final fy = '${two(startYear)}-${two(startYear + 1)}';
+    final n = int.tryParse(seq);
+    final padded = (n != null && n > 0) ? n.toString().padLeft(3, '0') : '???';
+    final code = schoolCode.trim().toUpperCase();
+    return 'SMI-$fy-$padded${code.isNotEmpty ? '_SCH_$code' : ''}';
+  }
+
+  /// Suggested next invoice number for the picked school — a proposal only;
+  /// the founder's generate/finalise is what actually allocates it.
+  Future<void> _peekInvoiceSeq() async {
+    if (_seqTouched || _school == null) return;
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    try {
+      final seq = await auth.service!.peekNextSchoolInvoiceNo(schoolId: _school!.schoolId, invoiceDate: _invoiceDate);
+      if (!mounted || _seqTouched || seq == null) return;
+      setState(() => _invoiceSeq.text = seq.toString());
+    } catch (_) {
+      // Non-fatal — the field just starts blank and the founder/staff types one in.
+    }
   }
 
   ({bool ok, num? amount})? _validate() {
@@ -139,6 +175,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         invoiceDate: _invoiceDate,
         billingMonth: _billingMonth,
         schoolAddress: _schoolAddress.text.trim(),
+        invoiceSeq: _invoiceSeq.text.trim(),
         branch: auth.branch ?? 'ALL',
         schoolId: _school!.schoolId,
         intentKey: _intent,
@@ -178,7 +215,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     final billingBounds = _billingMonthBounds(_billingMonth);
     final preview = SchoolInvoice(
       invoiceId: '',
-      invoiceNo: 'PREVIEW — not issued',
+      invoiceNo: _clientInvoiceNo(_invoiceDate, _invoiceSeq.text.trim(), _school?.code ?? ''),
       invoiceDate: _invoiceDate,
       billingPeriodFrom: billingBounds.$1,
       billingPeriodTo: billingBounds.$2,
@@ -222,6 +259,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         'invoiceDate': _invoiceDate,
         'billingMonth': _billingMonth,
         'schoolAddress': _schoolAddress.text.trim(),
+        if (_invoiceSeq.text.trim().isNotEmpty) 'invoiceSeq': _invoiceSeq.text.trim(),
         'branch': auth.branch ?? 'ALL',
         'schoolId': _school!.schoolId,
         'previewConfirmed': true,
@@ -283,11 +321,15 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                           child: Text(s.label, overflow: TextOverflow.ellipsis),
                         ),
                     ],
-                    onChanged: (v) => setState(() {
-                      _school = v;
-                      _schoolAddress.text = v?.address ?? '';
-                      _previewed = false;
-                    }),
+                    onChanged: (v) {
+                      setState(() {
+                        _school = v;
+                        _schoolAddress.text = v?.address ?? '';
+                        _seqTouched = false;
+                        _previewed = false;
+                      });
+                      _peekInvoiceSeq();
+                    },
                     validator: (v) => v == null ? 'Pick the school this invoice is for' : null,
                   ),
                 if (_school != null) ...[
@@ -301,6 +343,24 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                       labelText: 'School address',
                       hintText: 'No address on file — enter one for this invoice',
                       helperText: "Only for this invoice — won't change the school's saved address.",
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.s3),
+                  TextFormField(
+                    controller: _invoiceSeq,
+                    onChanged: (_) => setState(() {
+                      _seqTouched = true;
+                      _previewed = false;
+                    }),
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Invoice number',
+                      prefixIcon: const Icon(Icons.tag_outlined),
+                      helperText: widget.staff
+                          ? 'Will print as ${_clientInvoiceNo(_invoiceDate, _invoiceSeq.text, _school!.code)} — Sharvil allocates the real number when he approves this.'
+                          : 'Will print as ${_clientInvoiceNo(_invoiceDate, _invoiceSeq.text, _school!.code)} — edit it to match a number already used elsewhere.',
+                      helperMaxLines: 2,
                     ),
                   ),
                 ],
@@ -470,7 +530,9 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                     setState(() {
                       _school = _schools.where((s) => s.code == added.toUpperCase()).firstOrNull;
                       _schoolAddress.text = _school?.address ?? '';
+                      _seqTouched = false;
                     });
+                    await _peekInvoiceSeq();
                   }
                 }
               },

@@ -114,6 +114,7 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   // ------------------------------------------------------- school invoices
   // Brief P11: only the founder allocates an SMI- number. Staff send a draft.
   api_generateSchoolInvoice: FOUNDER,
+  api_peekNextSchoolInvoiceNo: STAFF,
   api_staff_submitSchoolInvoiceDraft: STAFF,
   api_founder_finaliseSchoolInvoiceDraft: FOUNDER,
   api_founder_schoolInvoiceDraftReject: FOUNDER,

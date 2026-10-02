@@ -189,6 +189,7 @@ class ApiService {
     String invoiceDate = '',
     required String billingMonth,
     String schoolAddress = '',
+    String invoiceSeq = '',
     String branch = 'ALL',
     required String schoolId,
     required String intentKey,
@@ -199,11 +200,23 @@ class ApiService {
       if (invoiceDate.isNotEmpty) 'invoiceDate': invoiceDate,
       'billingMonth': billingMonth,
       'schoolAddress': schoolAddress,
+      if (invoiceSeq.isNotEmpty) 'invoiceSeq': invoiceSeq,
       'branch': branch,
       'schoolId': schoolId,
       'clientIntentKey': intentKey,
     });
     return SchoolInvoice.fromApi(b as Map<String, dynamic>);
+  }
+
+  /// Suggested next invoice number for a school — a proposal only; the
+  /// number actually assigned is decided at generate/finalise time.
+  Future<int?> peekNextSchoolInvoiceNo({required String schoolId, String invoiceDate = ''}) async {
+    final b = await _api.call('api_peekNextSchoolInvoiceNo', {
+      'schoolId': schoolId,
+      if (invoiceDate.isNotEmpty) 'invoiceDate': invoiceDate,
+    }) as Map<String, dynamic>;
+    final seq = b['seq'];
+    return seq is num ? seq.toInt() : null;
   }
 
   /// Schools a class can be billed to. The code is what appears on the

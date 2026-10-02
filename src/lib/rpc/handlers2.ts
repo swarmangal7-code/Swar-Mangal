@@ -1,6 +1,6 @@
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, newPersonId, nextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
+import { s, n, d, newId, newPersonId, nextDocSeq, peekNextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo, billingMonthRange } from "@/lib/rpc/numbering";
 import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, type FeeState } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
@@ -95,6 +95,8 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return assignSharedStudent(arg);
     case "api_generateSchoolInvoice":
       return generateSchoolInvoice(arg, scope);
+    case "api_peekNextSchoolInvoiceNo":
+      return peekNextSchoolInvoiceNo(arg);
     case "api_listSchoolInvoices":
       return listSchoolInvoices(arg, scope);
     case "api_getSchoolInvoice":
@@ -1466,6 +1468,20 @@ async function updateSchool(arg: Record<string, unknown>): Promise<Record<string
   return ok({ schoolId: existing.id, code: existing.code, name: s(arg["name"]).trim() || existing.name, note: "School updated." });
 }
 
+/** Read-only suggestion for the "Invoice number" field — the number actually
+ *  assigned is decided when the invoice is generated (auto, or this value if
+ *  the founder edits it there), so this can go stale between peek and submit
+ *  without causing any harm. */
+async function peekNextSchoolInvoiceNo(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const schoolRef = s(arg["schoolId"] ?? arg["schoolCode"] ?? arg["school"]).trim();
+  const school = await schoolByIdOrCode(schoolRef);
+  if (!school) return { ok: false, code: schoolRef ? "SCHOOL_NOT_FOUND" : "SCHOOL_REQUIRED", error: "Pick the school this invoice is for." };
+  const invoiceDate = s(arg["invoiceDate"]) || todayIso();
+  const series = schoolInvoiceSeries(new Date(invoiceDate));
+  const seq = await peekNextDocSeq("schoolInvoice", series);
+  return ok({ seq, invoiceNo: formatSchoolInvoiceNo(series, seq, school.code) });
+}
+
 async function generateSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const amount = n(arg["amount"]);
   if (amount <= 0) return { ok: false, code: "BAD_AMOUNT", error: "amount required" };
@@ -1493,18 +1509,45 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
   const lockedInvoice = await closedMonthRefusal(invoiceDate);
   if (lockedInvoice) return lockedInvoice;
   const series = schoolInvoiceSeries(new Date(invoiceDate));
+
+  // A founder can override the auto-assigned sequence number (e.g. to line
+  // up with a number already used on a paper invoice) — only the numeric
+  // part; the series and school-code suffix are always computed, never
+  // typed, so a manual entry can't produce a malformed invoice number.
+  const manualSeqRaw = s(arg["invoiceSeq"]).trim();
+  let manualSeq: number | null = null;
+  if (manualSeqRaw) {
+    manualSeq = Number(manualSeqRaw);
+    if (!Number.isInteger(manualSeq) || manualSeq <= 0) {
+      return { ok: false, code: "BAD_INVOICE_NO", error: "Invoice number must be a positive whole number." };
+    }
+    const candidate = formatSchoolInvoiceNo(series, manualSeq, school.code);
+    const dup = await queryOne<{ id: string }>(`select id from school_invoices_rpc where invoice_no = $1`, [candidate]);
+    if (dup) return { ok: false, code: "INVOICE_NO_TAKEN", error: `Invoice ${candidate} already exists.` };
+  }
+
   const no = await withTransaction(async (tx) => {
     // ONE sequence for the whole financial year, shared by every school: the
     // counter row is locked until commit, so two invoices raised in the same
     // instant can never collide, and the school code is appended afterwards —
     // it identifies the school, it never advances or forks the run.
-    const docNo = await nextDocSeq(tx, "schoolInvoice", series);
+    const docNo = manualSeq ?? (await nextDocSeq(tx, "schoolInvoice", series));
     const invoiceNo = formatSchoolInvoiceNo(series, docNo, school.code);
     await tx.query(
       `insert into school_invoices_rpc (id, invoice_no, invoice_date, branch, class_name, amount, tenure, status, school_id, billing_month, billed_address)
        values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9,$10)`,
       [id, invoiceNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"]), school.id, billingMonth, billedAddress],
     );
+    if (manualSeq != null) {
+      // Never let the shared counter fall behind a manually-assigned number,
+      // so the next auto-generated invoice can't collide with it. A manual
+      // number below the current counter (backfilling a gap) leaves it alone.
+      await tx.query(
+        `insert into doc_counters (series, last_no) values ($1, $2)
+         on conflict (series) do update set last_no = greatest(doc_counters.last_no, excluded.last_no)`,
+        [series, manualSeq],
+      );
+    }
     return invoiceNo;
   });
   await bumpRevisions(["invoices", "dashboard"]);

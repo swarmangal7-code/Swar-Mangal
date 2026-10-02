@@ -118,6 +118,25 @@ export async function nextDocNo(tx: Tx, kind: keyof typeof DOC_SOURCES, series: 
   return formatDocNo(series, await nextDocSeq(tx, kind, series));
 }
 
+/**
+ * Read-only preview of what nextDocSeq would hand out right now — for
+ * showing a suggested invoice number in a form before it's actually
+ * generated. Takes no lock and reserves nothing, so it can go stale if
+ * another invoice is raised in between; the real number is still decided by
+ * nextDocSeq (or a manual override) inside the write transaction.
+ */
+export async function peekNextDocSeq(kind: keyof typeof DOC_SOURCES, series: string): Promise<number> {
+  const { table, column } = DOC_SOURCES[kind];
+  const seq = DOC_NO_SEQ.replace("{column}", column);
+  const counter = await queryOne<{ last_no: number }>(`select last_no from doc_counters where series = $1`, [series]);
+  if (counter) return Number(counter.last_no) + 1;
+  const fallback = await queryOne<{ max_no: number }>(
+    `select coalesce(max(${seq}::int), 0) as max_no from ${table} where ${column} like $1 || '-%'`,
+    [series],
+  );
+  return Number(fallback?.max_no ?? 0) + 1;
+}
+
 // --------------------------------------------------------------------------
 // revision counters (api_syncChanges)
 // --------------------------------------------------------------------------

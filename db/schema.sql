@@ -979,6 +979,11 @@ alter table school_invoice_drafts add column if not exists billing_month text;
 -- Same per-invoice address override as school_invoices_rpc.billed_address,
 -- carried through to the final invoice on finalise.
 alter table school_invoice_drafts add column if not exists billed_address text;
+-- Staff can propose an invoice number along with the draft (e.g. to match one
+-- already used on a paper invoice); the founder's approval (finalise) is what
+-- actually allocates it, same validation and counter bump as a founder
+-- raising the invoice directly with a manual number.
+alter table school_invoice_drafts add column if not exists proposed_invoice_seq int;
 create unique index if not exists school_invoice_drafts_intent_unique on school_invoice_drafts (client_intent_key)
   where client_intent_key is not null;
 

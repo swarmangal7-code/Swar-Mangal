@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { API_ORIGIN } from "@/lib/api/rpc-client";
-import { useMutationRpc, useSchools, rpcKeys } from "@/lib/api/rpc-hooks";
+import { useMutationRpc, useRpc, useSchools, rpcKeys } from "@/lib/api/rpc-hooks";
 import type { InvoiceOwner, RpcEnvelope } from "@/lib/api/rpc-types";
 import { Button } from "@/components/ui/button";
 import { SchoolPicker } from "@/components/dashboard/school-picker";
@@ -18,6 +18,11 @@ const inr = new Intl.NumberFormat("en-IN", {
   currency: "INR",
   maximumFractionDigits: 0,
 });
+
+interface PeekInvoiceNoResponse extends RpcEnvelope {
+  seq: number;
+  invoiceNo: string;
+}
 
 interface GenerateInvoiceResponse extends RpcEnvelope {
   invoiceId: string;
@@ -66,6 +71,22 @@ function billingMonthBounds(billingMonth: string): { from: string; to: string } 
   return { from, to };
 }
 
+/** Mirrors the backend's financialYearLabel/formatSchoolInvoiceNo so the
+ *  editable invoice-number field can show a live preview of the full
+ *  number without a round trip on every keystroke. */
+function clientInvoiceNo(invoiceDateIso: string, seq: string, schoolCode: string): string {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(invoiceDateIso) ? new Date(`${invoiceDateIso}T12:00:00+05:30`) : new Date();
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  const y = ist.getUTCFullYear();
+  const startYear = ist.getUTCMonth() >= 3 ? y : y - 1;
+  const two = (n: number) => String(n % 100).padStart(2, "0");
+  const fy = `${two(startYear)}-${two(startYear + 1)}`;
+  const n = Number(seq);
+  const padded = Number.isFinite(n) && n > 0 ? String(n).padStart(3, "0") : "???";
+  const code = schoolCode.trim().toUpperCase();
+  return `SMI-${fy}-${padded}${code ? `_SCH_${code}` : ""}`;
+}
+
 function fmtMonthLabel(billingMonth: string): string {
   const m = /^(\d{4})-(\d{2})$/.exec(billingMonth);
   if (!m) return "—";
@@ -85,6 +106,8 @@ export default function FounderNewSchoolInvoicePage() {
   const [billingMonth, setBillingMonth] = React.useState(defaultBillingMonth());
   const [invoiceDate, setInvoiceDate] = React.useState(todayIso());
   const [schoolAddress, setSchoolAddress] = React.useState("");
+  const [invoiceSeq, setInvoiceSeq] = React.useState("");
+  const [seqTouched, setSeqTouched] = React.useState(false);
   const [created, setCreated] = React.useState<GenerateInvoiceResponse | null>(null);
 
   const schools = useSchools();
@@ -95,6 +118,21 @@ export default function FounderNewSchoolInvoicePage() {
   React.useEffect(() => {
     setSchoolAddress(selectedSchool?.address ?? "");
   }, [selectedSchool?.schoolId, selectedSchool?.address]);
+
+  // Suggested next invoice number for the picked school — editable, so the
+  // founder can line it up with a number already used on a paper invoice.
+  const peekSeq = useRpc<PeekInvoiceNoResponse>(
+    "api_peekNextSchoolInvoiceNo",
+    { schoolId, invoiceDate },
+    { enabled: schoolId.length > 0 && !created },
+  );
+  React.useEffect(() => {
+    setSeqTouched(false);
+  }, [selectedSchool?.schoolId]);
+  React.useEffect(() => {
+    if (seqTouched || created) return;
+    if (peekSeq.data?.seq) setInvoiceSeq(String(peekSeq.data.seq));
+  }, [peekSeq.data?.seq, seqTouched, created]);
 
   const generateMut = useMutationRpc<Record<string, unknown>, GenerateInvoiceResponse>(
     "api_generateSchoolInvoice",
@@ -116,6 +154,7 @@ export default function FounderNewSchoolInvoicePage() {
         invoiceDate,
         billingMonth,
         schoolAddress: schoolAddress.trim(),
+        invoiceSeq: invoiceSeq.trim(),
       });
       setCreated(res);
       toast.success(`Invoice ${res.invoiceNo} generated.`);
@@ -240,6 +279,36 @@ export default function FounderNewSchoolInvoicePage() {
             </div>
           )}
 
+          {selectedSchool && (
+            <div>
+              <label htmlFor="inv-seq" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
+                Invoice number
+              </label>
+              <input
+                id="inv-seq"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                onWheel={(e) => e.currentTarget.blur()}
+                value={invoiceSeq}
+                onChange={(e) => {
+                  setSeqTouched(true);
+                  setInvoiceSeq(e.target.value);
+                }}
+                disabled={!!created}
+                placeholder={peekSeq.data ? String(peekSeq.data.seq) : "e.g. 7"}
+                className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
+              />
+              <p className="mt-1 text-[11px] text-dash-fg/40">
+                Will print as{" "}
+                <span className="font-medium text-dash-fg/60">
+                  {clientInvoiceNo(invoiceDate, invoiceSeq, selectedSchool.code)}
+                </span>
+                . Pre-filled with the next number in sequence — edit it to match a number already used elsewhere.
+              </p>
+            </div>
+          )}
+
           <div>
             <label htmlFor="inv-amount" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
               Amount (₹)
@@ -344,6 +413,7 @@ export default function FounderNewSchoolInvoicePage() {
                 setBillingMonth(defaultBillingMonth());
                 setInvoiceDate(todayIso());
                 setSchoolAddress(selectedSchool?.address ?? "");
+                setSeqTouched(false);
               }}
               className="w-full text-dash-fg/60 hover:bg-dash-fg/[0.05] hover:text-dash-fg"
             >

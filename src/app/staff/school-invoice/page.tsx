@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { PaymentProfileDialog } from "@/components/dashboard/payment-profile-dialog";
 import { SchoolPicker } from "@/components/dashboard/school-picker";
+import { InvoicePreview } from "@/components/founder/invoice-preview";
 import { useMutationRpc, useRpc, useSchools } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope, SchoolInvoiceListResponse } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
@@ -26,10 +27,45 @@ interface DraftArg extends Record<string, unknown> {
   invoiceDate: string;
   billingMonth: string;
   schoolAddress: string;
+  invoiceSeq: string;
   branch: string;
   notes: string;
   previewConfirmed: boolean;
   clientIntentKey: string;
+}
+
+interface PeekInvoiceNoResponse extends RpcEnvelope {
+  seq: number;
+  invoiceNo: string;
+}
+
+/** Mirrors the backend's billingMonthRange for the client-side preview. */
+function billingMonthBounds(billingMonth: string): { from: string; to: string } {
+  const m = /^(\d{4})-(\d{2})$/.exec(billingMonth);
+  if (!m) return { from: "", to: "" };
+  const year = Number(m[1]);
+  const month = Number(m[2]); // 1-12
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const from = `${year}-${pad(month)}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const to = `${year}-${pad(month)}-${pad(lastDay)}`;
+  return { from, to };
+}
+
+/** Mirrors the backend's financialYearLabel/formatSchoolInvoiceNo so the
+ *  editable invoice-number field can show a live preview of the full
+ *  number without a round trip on every keystroke. */
+function clientInvoiceNo(invoiceDateIso: string, seq: string, schoolCode: string): string {
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(invoiceDateIso) ? new Date(`${invoiceDateIso}T12:00:00+05:30`) : new Date();
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  const y = ist.getUTCFullYear();
+  const startYear = ist.getUTCMonth() >= 3 ? y : y - 1;
+  const two = (n: number) => String(n % 100).padStart(2, "0");
+  const fy = `${two(startYear)}-${two(startYear + 1)}`;
+  const n = Number(seq);
+  const padded = Number.isFinite(n) && n > 0 ? String(n).padStart(3, "0") : "???";
+  const code = schoolCode.trim().toUpperCase();
+  return `SMI-${fy}-${padded}${code ? `_SCH_${code}` : ""}`;
 }
 
 /** Last fully-completed calendar month, as "YYYY-MM" — schools are billed in
@@ -85,6 +121,23 @@ export default function StaffSchoolInvoicePage() {
     setSchoolAddress(selectedSchool?.address ?? "");
   }, [selectedSchool?.schoolId, selectedSchool?.address]);
 
+  // Suggested invoice number — a proposal only. The founder's approval is
+  // what actually allocates it when the draft is finalised.
+  const [invoiceSeq, setInvoiceSeq] = React.useState("");
+  const [seqTouched, setSeqTouched] = React.useState(false);
+  const peekSeq = useRpc<PeekInvoiceNoResponse>(
+    "api_peekNextSchoolInvoiceNo",
+    { schoolId, invoiceDate },
+    { enabled: schoolId.length > 0 && !success },
+  );
+  React.useEffect(() => {
+    setSeqTouched(false);
+  }, [selectedSchool?.schoolId]);
+  React.useEffect(() => {
+    if (seqTouched || success) return;
+    if (peekSeq.data?.seq) setInvoiceSeq(String(peekSeq.data.seq));
+  }, [peekSeq.data?.seq, seqTouched, success]);
+
   const draftBranch = branch === "ALL" ? branches[0] ?? "" : branch;
 
   const submit = useMutationRpc<DraftArg, DraftResponse>("api_staff_submitSchoolInvoiceDraft", {
@@ -109,6 +162,7 @@ export default function StaffSchoolInvoicePage() {
       invoiceDate,
       billingMonth,
       schoolAddress: schoolAddress.trim(),
+      invoiceSeq: invoiceSeq.trim(),
       branch: draftBranch,
       notes: notes.trim(),
       previewConfirmed: true,
@@ -173,6 +227,28 @@ export default function StaffSchoolInvoicePage() {
                   />
                   <p className="text-[11px] text-dash-fg/40">
                     Only for this invoice — won&rsquo;t change the school&rsquo;s saved address.
+                  </p>
+                </div>
+              )}
+
+              {selectedSchool && (
+                <div className="space-y-2">
+                  <Label className="text-dash-fg/70">Invoice number</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={invoiceSeq}
+                    onChange={(e) => {
+                      setSeqTouched(true);
+                      setInvoiceSeq(e.target.value);
+                    }}
+                    placeholder={peekSeq.data ? String(peekSeq.data.seq) : "e.g. 7"}
+                    className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+                  />
+                  <p className="text-[11px] text-dash-fg/40">
+                    Suggested as <span className="font-medium text-dash-fg/60">{clientInvoiceNo(invoiceDate, invoiceSeq, selectedSchool.code)}</span> —
+                    Sharvil allocates the real number when he approves this.
                   </p>
                 </div>
               )}
@@ -267,6 +343,26 @@ export default function StaffSchoolInvoicePage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {selectedSchool && (
+        <motion.div variants={fadeUp}>
+          <h2 className="mb-3 text-sm font-semibold text-dash-fg/80">Invoice preview</h2>
+          <InvoicePreview
+            invoiceNo={clientInvoiceNo(invoiceDate, invoiceSeq, selectedSchool.code)}
+            invoiceDate={invoiceDate}
+            billingPeriodFrom={billingMonthBounds(billingMonth).from}
+            billingPeriodTo={billingMonthBounds(billingMonth).to}
+            className=""
+            amount={amountNum || 0}
+            tenure={tenure}
+            branch={draftBranch}
+            schoolCode={selectedSchool.code}
+            schoolName={selectedSchool.name}
+            schoolAddress={schoolAddress}
+            schoolContact={selectedSchool.contact}
+          />
+        </motion.div>
+      )}
 
       <motion.div variants={fadeUp} className="space-y-2">
         <h2 className="text-sm font-semibold text-dash-fg/80">Invoices</h2>
