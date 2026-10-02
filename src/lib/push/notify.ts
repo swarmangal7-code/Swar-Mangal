@@ -6,11 +6,15 @@ import { query } from "@/lib/db";
 import { recordBranch } from "@/lib/rpc/scope";
 import { pushEnabled, sendPush } from "./fcm";
 
-type Audience = "FOUNDER" | { branch: string };
+type Audience = "FOUNDER" | "ALL_STAFF" | { branch: string };
 
 async function tokensFor(audience: Audience): Promise<string[]> {
   if (audience === "FOUNDER") {
     const rows = await query<{ fcm_token: string }>(`select fcm_token from push_tokens where role = 'FOUNDER_ADMIN'`);
+    return rows.map((r) => r.fcm_token);
+  }
+  if (audience === "ALL_STAFF") {
+    const rows = await query<{ fcm_token: string }>(`select fcm_token from push_tokens where role = 'OPS_USER'`);
     return rows.map((r) => r.fcm_token);
   }
   const branch = recordBranch(audience.branch);
@@ -40,8 +44,10 @@ async function fire(audience: Audience, title: string, body: string, dataType: s
     if (!(await pushEnabled())) return;
     const tokens = await tokensFor(audience);
     const result = await sendPush(tokens, title, body, { type: dataType, ref: dataRef });
-    const audienceLabel = audience === "FOUNDER" ? "FOUNDER" : `STAFF:${recordBranch(audience.branch)}`;
-    await log(audienceLabel, audience === "FOUNDER" ? "" : recordBranch(audience.branch), title, body, dataType, dataRef, result);
+    const audienceLabel =
+      audience === "FOUNDER" ? "FOUNDER" : audience === "ALL_STAFF" ? "STAFF:ALL" : `STAFF:${recordBranch(audience.branch)}`;
+    const audienceBranch = typeof audience === "object" ? recordBranch(audience.branch) : "";
+    await log(audienceLabel, audienceBranch, title, body, dataType, dataRef, result);
   } catch (e) {
     console.error(`[push] notify failed: ${e instanceof Error ? e.message : "unknown"}`);
   }
@@ -64,6 +70,13 @@ export function notifyBranch(branch: string, title: string, body: string, ref = 
 
 export function notifyFounderGeneric(title: string, body: string, ref = "") {
   void fire("FOUNDER", title, body, "DIGEST", ref);
+}
+
+/** Every staff device, regardless of branch — for academy-wide changes with
+ *  no single branch to scope to (a new school, a new teacher, closing the
+ *  books for the month). */
+export function notifyAllStaff(title: string, body: string, ref = "") {
+  void fire("ALL_STAFF", title, body, "DIGEST", ref);
 }
 
 /** Register/replace a device's push token. Upsert on the token itself. */

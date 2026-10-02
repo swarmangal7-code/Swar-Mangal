@@ -20,7 +20,7 @@ import {
 } from "@/lib/rpc/rules";
 import { isServiceMonth } from "@/lib/rpc/payouts";
 import { branchForbidden, defaultBranch, inScope, moneyInScope, recordBranch, type BranchScope } from "@/lib/rpc/scope";
-import { notifyFounderApproval, notifyStaffDecision } from "@/lib/push/notify";
+import { notifyFounderApproval, notifyStaffDecision, notifyAllStaff } from "@/lib/push/notify";
 
 type Result = Record<string, unknown>;
 const ok = (extra: Result = {}): Result => ({ ok: true, ...extra });
@@ -283,6 +283,7 @@ async function closeMonth(arg: Record<string, unknown>, session: RpcSession): Pr
   }
   await query(`insert into period_locks (id, closed_by, note) values ($1,$2,$3) on conflict (id) do nothing`, [month, who(session), s(arg["note"]).trim() || null]);
   await bumpRevisions(["dashboard", "sessions", "attendance", "payments", "expenses"]);
+  notifyAllStaff("Month closed", `${monthLabel(month)} is now closed — no more edits to attendance, payments or expenses for it`, month);
   return ok({ month, changed: true, closedBy: who(session), note: `${monthLabel(month)} is closed.` });
 }
 

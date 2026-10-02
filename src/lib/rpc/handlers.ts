@@ -24,7 +24,7 @@ import {
 } from "@/lib/rpc/scope";
 import { isBackdated, isExcludedReceiptStatus, studentIncompleteFields } from "@/lib/rpc/rules";
 import { closedMonthRefusal } from "@/lib/rpc/governance";
-import { notifyFounderApproval, notifyStaffDecision } from "@/lib/push/notify";
+import { notifyFounderApproval, notifyStaffDecision, notifyFounderGeneric, notifyBranch } from "@/lib/push/notify";
 
 const ok = (extra: Record<string, unknown> = {}) => ({ ok: true, ...extra });
 
@@ -228,6 +228,7 @@ async function mergeDuplicateStudent(arg: Record<string, unknown>, scope: Branch
     [survivorId, survivor.name, duplicateId],
   );
   await bumpRevisions(["students", "dashboard"]);
+  notifyBranch(recordBranch(survivor.branch), "Students merged", `${duplicate.name} merged into ${survivor.name}`, survivorId);
   return ok({
     merged: true,
     studentId: duplicateId,
@@ -380,6 +381,7 @@ async function addStudent(arg: Record<string, unknown>, scope: BranchScope): Pro
   const matches = await phoneMatches(f.phone);
   const id = await createStudent(f);
   await bumpRevisions(["students", "dashboard", "tasks"]);
+  notifyBranch(f.branch, "New student", `${f.name} added`, id);
   return ok({
     studentId: id,
     studentName: f.name,
@@ -420,6 +422,7 @@ async function addDemoStudent(arg: Record<string, unknown>, scope: BranchScope):
     [id, name, guardianName, guardianPhone, phone, s(arg["email"]).trim() || null, instrument, branch, teacherId, demoDate, demoTime],
   );
   await bumpRevisions(["students", "dashboard"]);
+  notifyFounderGeneric("New demo student", `${name} (${instrument}) at ${recordBranch(branch)}`, id);
   return ok({ studentId: id, studentName: name, note: "Demo student added." });
 }
 
@@ -478,6 +481,7 @@ async function convertDemoStudent(arg: Record<string, unknown>, scope: BranchSco
     [studentId, planText, plan?.name ?? planText, plan?.amount ?? null, plan?.months ?? null, feeDueDay, todayIso(), enrollmentDate, batch],
   );
   await bumpRevisions(["students", "dashboard", "tasks"]);
+  notifyBranch(cur.branch, "Demo student converted", `${studentId} is now an admitted student`, studentId);
   return ok({ studentId, note: "Converted to an admitted student." });
 }
 
@@ -538,6 +542,7 @@ async function founderEditStudent(arg: Record<string, unknown>, scope: BranchSco
     if (lifecycle) await applyStudentLifecycleChange(editingId, lifecycle, statusReason, tx);
   });
   await bumpRevisions(["students", "dashboard", "tasks", "inquiries"]);
+  notifyBranch(recordBranch(existing.branch), "Student updated", `${existing.name} edited by Sharvil`, editingId);
   return ok({ changed: true, studentId: editingId, note: "Student updated." });
 }
 
@@ -696,6 +701,7 @@ async function setStudentStatus(arg: Record<string, unknown>): Promise<Record<st
   if (status === "LEFT") await createWinBackLeadIfNeeded(id, reason);
   const after = await acadStudentById(id);
   await bumpRevisions(["students", "dashboard", "inquiries"]);
+  notifyBranch(recordBranch(before.branch), "Student status changed", `${before.name} → ${status}: ${reason}`, id);
   return ok({
     changed: true,
     studentId: id,
@@ -947,6 +953,7 @@ async function addFeePayment(arg: Record<string, unknown>, scope: BranchScope): 
     return { receiptNo: no, nextDueDate: due };
   });
   await bumpRevisions(["receipts", "payments", "students", "dashboard", "tasks"]);
+  notifyBranch(recordBranch(student.branch), "Fee payment recorded", `₹${amount} from ${student.name} — ${receiptNo}`, receiptNo);
   return ok({ receiptNo, nextDueDate: nextDueDate ?? "", note: "receipt created" });
 }
 
@@ -1153,6 +1160,7 @@ async function finalisePaymentDraft(arg: Record<string, unknown>, role: RpcRole,
       }
     }
     await bumpRevisions(["receipts", "payments", "approvals", "students", "dashboard", "tasks"], tx);
+    notifyBranch(recordBranch(draft.branch), "Receipt issued", `${receiptNo} · ${s(draft.student_name)} · ₹${n(draft.amount)}`, receiptNo);
     return ok({
       changed: true,
       draftId,
