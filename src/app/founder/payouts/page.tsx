@@ -2,7 +2,17 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { BadgeIndianRupee, ChevronDown, CircleCheck, HandCoins, UserRound, Users } from "lucide-react";
+import {
+  BadgeIndianRupee,
+  Calculator,
+  ChevronDown,
+  CircleCheck,
+  HandCoins,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,11 +30,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMutationRpc, usePayoutPreview } from "@/lib/api/rpc-hooks";
-import type { PayoutRow, RpcEnvelope, SharedStudentDecision, SharedStudentTeacher } from "@/lib/api/rpc-types";
+import { RpcError } from "@/lib/api/rpc-client";
+import type {
+  PayoutAdjustmentResponse,
+  PayoutRow,
+  PayoutStatement,
+  RpcEnvelope,
+  SharedStudentDecision,
+  SharedStudentTeacher,
+} from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { cn, currentMonth, inr, todayISO } from "@/lib/utils/cn";
 
 const MODES = ["Bank Transfer", "UPI", "Cash", "Cheque"];
+
+/** True once a payout statement is decided — only then can a teacher be paid
+ *  for a gated (post-cutover) month. See recordTeacherPayout's gate in
+ *  handlers2.ts, mirrored here exactly. */
+function isApprovedStatement(stmt: PayoutStatement | null): boolean {
+  return stmt?.status === "FOUNDER_APPROVED" || stmt?.status === "PAID";
+}
+
+/** Human label for the informational-only outcomeFlags the preview attaches
+ *  per teacher (counts of TEACHER_ABSENT / SCHOOL_HOLIDAY / STUDENT_ABSENT
+ *  sessions this month, plus the currently configured payout_status_rules %
+ *  for that outcome — never blended into `payable`). */
+function outcomeLabel(outcome: string): string {
+  return outcome
+    .split("_")
+    .map((w) => w[0] + w.slice(1).toLowerCase())
+    .join(" ");
+}
 
 interface RecordPayoutArg extends Record<string, unknown> {
   teacherId: string;
@@ -165,10 +201,61 @@ export default function FounderPayoutsPage() {
 
 function PayoutCard({ row, month, open, onToggle }: { row: PayoutRow; month: string; open: boolean; onToggle: () => void }) {
   const [payOpen, setPayOpen] = React.useState(false);
+  const [adjustOpen, setAdjustOpen] = React.useState(false);
   const payable = Number(row.payable) || 0;
   const paid = Number(row.alreadyPaid) || 0;
   const balance = Number(row.balance);
   const balanceNum = Number.isFinite(balance) ? balance : 0;
+
+  // G/H: session-only statement cache, keyed by month — there is no RPC to
+  // list a teacher's statement by month, only generate/approve, which both
+  // return (or, on ALREADY_DECIDED, still name) the current statement. This
+  // mirrors the Flutter screen's own `_statements` map exactly (see
+  // payout_preview_screen.dart).
+  const [stmt, setStmt] = React.useState<PayoutStatement | null>(null);
+  React.useEffect(() => {
+    // Reset on month change so a stale statement from a different month
+    // never leaks into this one's gate check.
+    setStmt(null);
+  }, [month]);
+
+  // The backend only requires an approved statement for service months at or
+  // after EXPECTED_EVENTS_FLOOR (`recordTeacherPayout`'s gate) — the preview
+  // already tells us this per row via `preCutover`, so a historical month is
+  // never shown a misleading always-on block.
+  const gated = !row.preCutover;
+  const approved = isApprovedStatement(stmt);
+  const canRecord = balanceNum > 0 && (!gated || approved);
+
+  const generate = useMutationRpc<{ teacherId: string; month: string }, PayoutStatement>(
+    "api_founder_generatePayoutStatement",
+    {
+      invalidate: [],
+      onSuccess: (res) => {
+        setStmt(res);
+        toast.success(res.note ?? `Statement ${res.status}.`);
+      },
+      onError: (err) => {
+        // ALREADY_DECIDED still names the existing statement's id/status —
+        // treat that as a successful lookup rather than a failure.
+        if (err instanceof RpcError && err.code === "ALREADY_DECIDED" && err.payload?.statementId) {
+          setStmt(err.payload as unknown as PayoutStatement);
+          toast.info(err.message.replace(/\s*\[.*\]$/, ""));
+          return;
+        }
+        toast.error(err.message.replace(/\[.*\]$/, "") || "Could not generate the statement.");
+      },
+    },
+  );
+
+  const approve = useMutationRpc<{ statementId: string }, PayoutStatement>("api_founder_approvePayoutStatement", {
+    invalidate: [],
+    onSuccess: (res) => {
+      setStmt(res);
+      toast.success(res.note ?? "Statement approved.");
+    },
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not approve the statement."),
+  });
 
   return (
     <Card className={cn("border-dash-fg/10 bg-dash-card transition-colors", open && "border-dash-accent/40")}>
@@ -228,20 +315,213 @@ function PayoutCard({ row, month, open, onToggle }: { row: PayoutRow; month: str
             )}
             {row.note && <p className="text-xs text-dash-fg/45">{row.note}</p>}
             {row.status && <Badge variant={row.status.toUpperCase().includes("PAID") ? "mint" : "peach"}>{row.status}</Badge>}
-            <Button
-              className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover lg:w-fit"
-              size="sm"
-              disabled={balanceNum <= 0}
-              onClick={() => setPayOpen(true)}
-            >
-              <HandCoins className="h-4 w-4" /> Record payment {inr(row.balance)}
-            </Button>
+
+            {!!row.outcomeFlags && Object.keys(row.outcomeFlags).length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.12em] text-dash-fg/35">
+                  Class outcomes this month — informational only, not blended into payable
+                </p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {Object.entries(row.outcomeFlags).map(([outcome, flag]) => (
+                    <Badge key={outcome} variant="lavender">
+                      {outcomeLabel(outcome)} ×{flag.count}
+                      {flag.configuredPercent != null ? ` · ${flag.configuredPercent}% configured` : ""}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {gated && (
+              <div className="space-y-2 rounded-xl border border-dash-fg/10 bg-dash-fg/[0.02] p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Calculator className="h-3.5 w-3.5 text-dash-fg/40" aria-hidden />
+                  {stmt ? (
+                    <>
+                      <Badge variant={approved ? "mint" : "peach"}>{stmt.status}</Badge>
+                      {stmt.calculatedAmount != null && (
+                        <span className="text-xs text-dash-fg/55">calculated {inr(stmt.calculatedAmount)}</span>
+                      )}
+                      {stmt.approvedAmount != null && (
+                        <span className="text-xs text-dash-fg/55">· approved {inr(stmt.approvedAmount)}</span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-xs text-dash-fg/45">No payout statement generated yet for {month}.</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+                    disabled={generate.isPending || approved}
+                    loading={generate.isPending}
+                    onClick={() => generate.mutate({ teacherId: row.teacherId, month })}
+                  >
+                    <Calculator className="h-3.5 w-3.5" aria-hidden /> {stmt ? "Refresh" : "Generate statement"}
+                  </Button>
+                  {stmt?.status === "CALCULATED" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+                      disabled={approve.isPending}
+                      loading={approve.isPending}
+                      onClick={() => {
+                        if (!confirm(`Approve ${row.teacherName}'s ${month} statement${stmt.calculatedAmount != null ? ` for ${inr(stmt.calculatedAmount)}` : ""}? Only after this can the payment be recorded.`)) return;
+                        approve.mutate({ statementId: stmt.statementId });
+                      }}
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Approve
+                    </Button>
+                  )}
+                  {stmt && !approved && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+                      onClick={() => setAdjustOpen(true)}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /> Add adjustment
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Button
+                className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover lg:w-fit"
+                size="sm"
+                disabled={!canRecord}
+                onClick={() => setPayOpen(true)}
+              >
+                <HandCoins className="h-4 w-4" /> Record payment {inr(row.balance)}
+              </Button>
+              {gated && !approved && balanceNum > 0 && (
+                <p className="mt-1.5 text-xs text-amber-300/80">Approve a statement before recording payment.</p>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
 
       <RecordPaymentDialog open={payOpen} onOpenChange={setPayOpen} teacher={row} month={month} defaultAmount={balanceNum} />
+      {stmt && (
+        <AdjustmentDialog
+          open={adjustOpen}
+          onOpenChange={setAdjustOpen}
+          teacher={row}
+          month={month}
+          statementId={stmt.statementId}
+        />
+      )}
     </Card>
+  );
+}
+
+function AdjustmentDialog({
+  open,
+  onOpenChange,
+  teacher,
+  month,
+  statementId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  teacher: PayoutRow;
+  month: string;
+  statementId: string;
+}) {
+  const [amount, setAmount] = React.useState("");
+  const [reason, setReason] = React.useState("");
+  const [relatedEntity, setRelatedEntity] = React.useState("");
+
+  React.useEffect(() => {
+    if (open) {
+      setAmount("");
+      setReason("");
+      setRelatedEntity("");
+    }
+  }, [open]);
+
+  const adjust = useMutationRpc<
+    { statementId: string; amount: number; reason: string; relatedEntity?: string },
+    PayoutAdjustmentResponse
+  >("api_founder_addPayoutAdjustment", {
+    invalidate: [],
+    onSuccess: (res) => {
+      toast.success(res.note ?? "Adjustment recorded.");
+      onOpenChange(false);
+    },
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not record the adjustment."),
+  });
+
+  const amountNum = Number(amount);
+  const valid = Number.isFinite(amountNum) && amountNum !== 0 && reason.trim().length > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
+        <DialogHeader>
+          <DialogTitle className="text-dash-fg">Payout adjustment — {teacher.teacherName}</DialogTitle>
+          <DialogDescription className="text-dash-fg/55">
+            {month} · a signed correction folded in the next time this statement is approved. Only possible before approval.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-dash-fg/70">Amount (₹, + to add, − to deduct)</Label>
+            <Input
+              type="number"
+              step="any"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-dash-fg/70">Reason *</Label>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg"
+              placeholder="Why is this adjustment being made?"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-dash-fg/70">Related entity (optional)</Label>
+            <Input
+              value={relatedEntity}
+              onChange={(e) => setRelatedEntity(e.target.value)}
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+              placeholder="e.g. a receipt or student id"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
+            Cancel
+          </Button>
+          <Button
+            className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+            disabled={!valid}
+            loading={adjust.isPending}
+            onClick={() =>
+              adjust.mutate({
+                statementId,
+                amount: amountNum,
+                reason: reason.trim(),
+                relatedEntity: relatedEntity.trim() || undefined,
+              })
+            }
+          >
+            Save adjustment
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
