@@ -24,11 +24,26 @@ class _LateFeeWaiverScreenState extends State<LateFeeWaiverScreen> {
   bool _busy = false;
   bool? _ok;
   String? _result;
+  num? _suggestedAmount;
 
   @override
   void initState() {
     super.initState();
     _intentKey = 'WAIVER-${DateTime.now().microsecondsSinceEpoch}';
+    _loadSuggestedAmount();
+  }
+
+  Future<void> _loadSuggestedAmount() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    try {
+      final amount = await auth.service!.previewAccruedLateFee(widget.student.studentId);
+      if (!mounted) return;
+      setState(() => _suggestedAmount = amount);
+    } catch (_) {
+      // Non-fatal — the server still defaults to the real computed amount
+      // when the field is left blank, this is only a UI preview.
+    }
   }
 
   @override
@@ -98,15 +113,15 @@ class _LateFeeWaiverScreenState extends State<LateFeeWaiverScreen> {
           TextField(
             controller: _amount,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Late fee amount (optional)',
               // The server defaults this to the real day-by-day accrued late
-              // fee (accruedLateFee in fees.ts) when left blank — it is never
-              // an arbitrary number. Only type a figure here for a deliberate
-              // partial waiver. The app has no way to preview that computed
-              // amount before submitting (no RPC exposes it), so it is not
-              // pre-filled here.
-              helperText: 'Leave blank to waive the actual computed late fee. Type a number only for a deliberate partial waiver.',
+              // fee (accruedLateFee in fees.ts) when left blank. The hint text
+              // below previews that same computed figure via
+              // api_previewAccruedLateFee — type a number only to override it
+              // for a deliberate partial waiver.
+              hintText: _suggestedAmount != null ? 'Computed: ₹${_suggestedAmount!.toStringAsFixed(0)}' : null,
+              helperText: 'Leave blank to waive the actual computed late fee shown above. Type a number only for a deliberate partial waiver.',
               helperMaxLines: 2,
             ),
           ),

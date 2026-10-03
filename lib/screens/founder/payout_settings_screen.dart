@@ -13,11 +13,9 @@ import '../../widgets/atoms.dart';
 /// earlier one, so a month already shown to the founder (or already closed)
 /// never silently reshapes.
 ///
-/// The backend only exposes `setX` RPCs for these three tables, not a `list`
-/// RPC, so there is no way to read back the full row history (including the
-/// seeded defaults) from here. Each section below therefore shows only what
-/// THIS app session has itself submitted, clearly labelled as such, rather
-/// than guessing at a full history the server never sends.
+/// `api_founder_listPayoutSettings` (added 2026-10-03) returns the full
+/// history for all three tables, so every row ever added — including the
+/// seeded defaults — is shown here, not just what this session has submitted.
 class PayoutSettingsScreen extends StatefulWidget {
   const PayoutSettingsScreen({super.key});
   @override
@@ -25,9 +23,58 @@ class PayoutSettingsScreen extends StatefulWidget {
 }
 
 class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
-  final List<_SessionRow> _statusRules = [];
-  final List<_SessionRow> _slabs = [];
-  final List<_SessionRow> _lateFee = [];
+  List<_SessionRow> _statusRules = [];
+  List<_SessionRow> _slabs = [];
+  List<_SessionRow> _lateFee = [];
+  bool _loading = true;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final m = await auth.service!.founderListPayoutSettings();
+      if (!mounted) return;
+      setState(() {
+        _statusRules = [
+          for (final r in (m['payoutStatusRules'] as List? ?? const []))
+            _SessionRow('${r['outcome']} → ${(r['payoutPercent'] as num).toInt()}%',
+                'from ${r['effectiveFrom']}${r['effectiveTo'] != null ? ' to ${r['effectiveTo']}' : ''}'),
+        ];
+        _slabs = [
+          for (final r in (m['teacherPercentSlabs'] as List? ?? const []))
+            _SessionRow('month ${r['monthsSinceStart']} → ${(r['percent'] as num).toInt()}%', 'from ${r['effectiveFrom']}'),
+        ];
+        _lateFee = [
+          for (final r in (m['lateFeeSettings'] as List? ?? const []))
+            _SessionRow('${r['graceDays']} grace days · ₹${r['dailyRate']}/day', 'from ${r['effectiveFrom']}'),
+        ];
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.message;
+      });
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.message;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,12 +90,24 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
             child: Text(
               'Every save below adds a new effective-dated row — nothing existing '
               'is ever edited or deleted, so a month already shown to you never '
-              'silently reshapes. These three tables have no "list" endpoint yet, '
-              'so each list shows only what you’ve added this session.',
+              'silently reshapes.',
               style: TextStyle(fontSize: 12),
             ),
           ),
         ),
+        if (_loadError != null) ...[
+          const SizedBox(height: AppSpace.s3),
+          Card(
+            color: AppColors.adaptive(context, AppColors.blockBg),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpace.s3),
+              child: Row(children: [
+                Expanded(child: Text('Could not load history: $_loadError', style: const TextStyle(fontSize: 12))),
+                TextButton(onPressed: _load, child: const Text('Retry')),
+              ]),
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpace.s4),
         _Section(
           title: 'Payout % by class outcome',
@@ -57,6 +116,7 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
               'manual payout adjustment instead.',
           addLabel: 'Add outcome rule',
           rows: _statusRules,
+          loading: _loading,
           onAdd: () => _addStatusRule(context),
         ),
         const SizedBox(height: AppSpace.s4),
@@ -67,6 +127,7 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
               'keeps reading their own payout_rules percentage untouched.',
           addLabel: 'Add slab step',
           rows: _slabs,
+          loading: _loading,
           onAdd: () => _addSlab(context),
         ),
         const SizedBox(height: AppSpace.s4),
@@ -76,6 +137,7 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
               'changed — a new setting only affects days from its own effective date on.',
           addLabel: 'Add late-fee setting',
           rows: _lateFee,
+          loading: _loading,
           onAdd: () => _addLateFee(context),
         ),
       ],
@@ -116,13 +178,6 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
         effectiveFrom: result.effectiveFrom,
         notes: result.notes,
       ),
-      onOk: (m) => _statusRules.insert(
-        0,
-        _SessionRow(
-          '$outcome → ${result.number.toInt()}%',
-          'from ${_s(m['effectiveFrom']) ?? result.effectiveFrom}',
-        ),
-      ),
     );
   }
 
@@ -157,10 +212,6 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
         monthsSinceStart: months,
         percent: result.number,
         effectiveFrom: result.effectiveFrom,
-      ),
-      onOk: (m) => _slabs.insert(
-        0,
-        _SessionRow('month $months → ${result.number.toInt()}%', 'from ${_s(m['effectiveFrom']) ?? result.effectiveFrom}'),
       ),
     );
   }
@@ -225,17 +276,12 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
     await _submit(
       context: context,
       run: (svc) => svc.founderSetLateFeeSettings(graceDays: graceDays, dailyRate: dailyRate, effectiveFrom: effectiveFrom ?? ''),
-      onOk: (m) => _lateFee.insert(
-        0,
-        _SessionRow('$graceDays grace days · ₹$dailyRate/day', 'from ${_s(m['effectiveFrom']) ?? effectiveFrom ?? 'today'}'),
-      ),
     );
   }
 
   Future<void> _submit({
     required BuildContext context,
     required Future<dynamic> Function(dynamic svc) run,
-    required void Function(Map<String, dynamic> m) onOk,
   }) async {
     final auth = context.read<AuthProvider>();
     if (auth.service == null) return;
@@ -245,19 +291,20 @@ class _PayoutSettingsScreenState extends State<PayoutSettingsScreen> {
       final m = r as Map<String, dynamic>;
       if (!mounted) return;
       final demo = auth.isDemo || m['demo'] == true;
-      setState(() => onOk(m));
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
             content: Text('${(m['note'] ?? 'Saved.').toString()}${demo ? ' (DEMO — not persisted)' : ''}')));
+      // Re-fetch the real history rather than guessing the row's final shape
+      // locally — demo mode's fixture list already includes a matching row,
+      // and live mode gets the actual just-inserted row back from the server.
+      await _load();
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } on ApiUnreachable catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
-
-  String? _s(dynamic v) => v?.toString();
 }
 
 class _SessionRow {
@@ -273,12 +320,14 @@ class _Section extends StatelessWidget {
     required this.addLabel,
     required this.rows,
     required this.onAdd,
+    required this.loading,
   });
   final String title;
   final String subtitle;
   final String addLabel;
   final List<_SessionRow> rows;
   final VoidCallback onAdd;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -295,11 +344,16 @@ class _Section extends StatelessWidget {
             child: OutlinedButton.icon(onPressed: onAdd, icon: const Icon(Icons.add, size: 18), label: Text(addLabel)),
           ),
           const SizedBox(height: AppSpace.s3),
-          Text('ADDED THIS SESSION',
+          Text('HISTORY',
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.adaptive(context, AppColors.muted))),
           const SizedBox(height: AppSpace.s2),
-          if (rows.isEmpty)
-            Text('Nothing added yet this session.',
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpace.s2),
+              child: SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else if (rows.isEmpty)
+            Text('Nothing added yet.',
                 style: TextStyle(fontSize: 12.5, color: AppColors.adaptive(context, AppColors.muted)))
           else
             for (final r in rows)

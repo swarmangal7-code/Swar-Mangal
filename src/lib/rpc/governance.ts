@@ -50,6 +50,7 @@ export const GOVERNANCE_FUNCTIONS = new Set([
   "api_staff_requestClassCorrection",
   "api_founder_approveClassCorrection",
   "api_founder_rejectClassCorrection",
+  "api_previewAccruedLateFee",
   "api_staff_submitLateFeeWaiverRequest",
   "api_founder_lateFeeWaiverApprove",
   "api_founder_lateFeeWaiverReject",
@@ -115,6 +116,8 @@ export async function dispatchGovernance(fn: string, arg: Record<string, unknown
       return approveClassCorrection(arg, session);
     case "api_founder_rejectClassCorrection":
       return rejectClassCorrection(arg, session);
+    case "api_previewAccruedLateFee":
+      return previewAccruedLateFee(arg);
     case "api_staff_submitLateFeeWaiverRequest":
       return submitLateFeeWaiverRequest(arg, scope, session);
     case "api_founder_lateFeeWaiverApprove":
@@ -911,6 +914,22 @@ async function rejectClassCorrection(arg: Record<string, unknown>, session: RpcS
 }
 
 // ---------------------------------------------------------------- late-fee waiver requests
+/** Read-only preview of the real computed accrued late fee for a student, so
+ * the waiver form can show staff the actual figure before they submit —
+ * mirrors the same computation submitLateFeeWaiverRequest defaults to below. */
+async function previewAccruedLateFee(arg: Record<string, unknown>): Promise<Result> {
+  const studentId = s(arg["studentId"]).trim();
+  if (!studentId) return refuse("STUDENT_ID_REQUIRED", "Pick the student.");
+  const student = await queryOne<{ next_due_date: string | null }>(`select next_due_date::text from students_acad where id = $1`, [studentId]);
+  if (!student) return refuse("STUDENT_NOT_FOUND", `No student ${studentId}`);
+  const settingRows = await query<{ grace_days: number; daily_rate: string; effective_from: string }>(
+    `select grace_days, daily_rate::text, effective_from::text from late_fee_settings order by effective_from`,
+  );
+  const settings: LateFeeSetting[] = settingRows.map((r) => ({ graceDays: r.grace_days, dailyRate: n(r.daily_rate), effectiveFrom: r.effective_from }));
+  const accrued = accruedLateFee(student.next_due_date, todayIso(), settings);
+  return ok({ studentId, amount: accrued.amount, daysLate: accrued.daysLate, overdueSince: accrued.overdueSince });
+}
+
 async function submitLateFeeWaiverRequest(arg: Record<string, unknown>, scope: BranchScope, session: RpcSession): Promise<Result> {
   const studentId = s(arg["studentId"]).trim();
   const reason = s(arg["reason"]).trim();

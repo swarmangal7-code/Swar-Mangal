@@ -680,6 +680,22 @@ class ApiService {
         if (effectiveFrom.isNotEmpty) 'effectiveFrom': effectiveFrom,
       });
 
+  /// Founder-only: every row ever added to the three append-only settings
+  /// tables above, so the settings screen can show real history instead of
+  /// only what this session has submitted.
+  Future<Map<String, dynamic>> founderListPayoutSettings() async {
+    final b = await _api.call('api_founder_listPayoutSettings', {});
+    return b as Map<String, dynamic>;
+  }
+
+  /// Read-only: the real computed accrued late fee for a student right now,
+  /// so the waiver form can show staff the actual figure before they submit
+  /// (mirrors what submitLateFeeWaiverRequest defaults to when left blank).
+  Future<num> previewAccruedLateFee(String studentId) async {
+    final b = await _api.call('api_previewAccruedLateFee', {'studentId': studentId}) as Map<String, dynamic>;
+    return (b['amount'] as num?) ?? 0;
+  }
+
   /// Founder-only: compute/refresh a teacher's payout statement for a
   /// service month from the live preview (DRAFT/CALCULATED only — re-running
   /// this just refreshes the calculated figure). If a statement already

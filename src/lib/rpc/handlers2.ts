@@ -104,6 +104,8 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return setTeacherPercentSlab(arg, session);
     case "api_founder_setLateFeeSettings":
       return setLateFeeSettings(arg, session);
+    case "api_founder_listPayoutSettings":
+      return listPayoutSettings();
     case "api_founder_sendOverdueLateFeeReminders":
       return sendOverdueLateFeeReminders(arg, scope, session);
     case "api_recordTeacherPayout":
@@ -1072,6 +1074,28 @@ async function setLateFeeSettings(arg: Record<string, unknown>, session?: RpcSes
   );
   await bumpRevisions(["payouts", "students"]);
   return ok({ settingId: id, graceDays, dailyRate, effectiveFrom, note: "New effective-dated late-fee setting added. Fees already accrued under the earlier rate are not retroactively changed." });
+}
+
+/** Read-only history for the three append-only settings tables above, so the
+ * founder's settings screen can show every row ever added, not just the one
+ * it just submitted. */
+async function listPayoutSettings(): Promise<Record<string, unknown>> {
+  const [statusRules, slabs, lateFee] = await Promise.all([
+    query<{ id: string; outcome: string; payout_percent: string; effective_from: string; effective_to: string | null; notes: string | null; created_by: string }>(
+      `select id, outcome, payout_percent::text, effective_from::text, effective_to::text, notes, created_by from payout_status_rules order by outcome, effective_from`,
+    ),
+    query<{ id: string; months_since_start: number; percent: string; effective_from: string; created_by: string }>(
+      `select id, months_since_start, percent::text, effective_from::text, created_by from teacher_percent_slabs order by months_since_start, effective_from`,
+    ),
+    query<{ id: string; grace_days: number; daily_rate: string; effective_from: string; created_by: string }>(
+      `select id, grace_days, daily_rate::text, effective_from::text, created_by from late_fee_settings order by effective_from`,
+    ),
+  ]);
+  return ok({
+    payoutStatusRules: statusRules.map((r) => ({ id: r.id, outcome: r.outcome, payoutPercent: n(r.payout_percent), effectiveFrom: r.effective_from, effectiveTo: r.effective_to, notes: r.notes, createdBy: r.created_by })),
+    teacherPercentSlabs: slabs.map((r) => ({ id: r.id, monthsSinceStart: r.months_since_start, percent: n(r.percent), effectiveFrom: r.effective_from, createdBy: r.created_by })),
+    lateFeeSettings: lateFee.map((r) => ({ id: r.id, graceDays: r.grace_days, dailyRate: n(r.daily_rate), effectiveFrom: r.effective_from, createdBy: r.created_by })),
+  });
 }
 
 async function lateFeeSettingsRows(): Promise<LateFeeSetting[]> {

@@ -474,6 +474,25 @@ class DemoApiClient extends ApiClient {
           'note': 'New effective-dated late-fee setting added. Fees already accrued under '
               'the earlier rate are not retroactively changed.',
         };
+      case 'api_founder_listPayoutSettings':
+        return {
+          'ok': true,
+          'payoutStatusRules': [
+            {'id': 'PSR-DEMO-1', 'outcome': 'ACADEMY_CANCELLED', 'payoutPercent': 50, 'effectiveFrom': '2026-10-01', 'effectiveTo': null, 'notes': 'demo default', 'createdBy': 'demo@founder'},
+            {'id': 'PSR-DEMO-2', 'outcome': 'SCHOOL_HOLIDAY', 'payoutPercent': 50, 'effectiveFrom': '2026-10-01', 'effectiveTo': null, 'notes': 'demo default', 'createdBy': 'demo@founder'},
+            {'id': 'PSR-DEMO-3', 'outcome': 'STUDENT_ABSENT', 'payoutPercent': 100, 'effectiveFrom': '2026-10-01', 'effectiveTo': null, 'notes': 'demo default', 'createdBy': 'demo@founder'},
+          ],
+          'teacherPercentSlabs': [
+            {'id': 'TPS-DEMO-1', 'monthsSinceStart': 0, 'percent': 30, 'effectiveFrom': '2026-10-01', 'createdBy': 'demo@founder'},
+            {'id': 'TPS-DEMO-2', 'monthsSinceStart': 6, 'percent': 40, 'effectiveFrom': '2026-10-01', 'createdBy': 'demo@founder'},
+            {'id': 'TPS-DEMO-3', 'monthsSinceStart': 12, 'percent': 50, 'effectiveFrom': '2026-10-01', 'createdBy': 'demo@founder'},
+          ],
+          'lateFeeSettings': [
+            {'id': 'LFS-DEMO-1', 'graceDays': 7, 'dailyRate': 50, 'effectiveFrom': '2026-10-01', 'createdBy': 'demo@founder'},
+          ],
+        };
+      case 'api_previewAccruedLateFee':
+        return {'ok': true, 'studentId': a['studentId'] ?? '', 'amount': 150, 'daysLate': 3, 'overdueSince': '2026-09-30'};
       case 'api_founder_generatePayoutStatement':
         return _generatePayoutStatement(a);
       case 'api_founder_approvePayoutStatement':

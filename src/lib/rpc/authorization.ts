@@ -107,6 +107,7 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_founder_setPayoutStatusRule: FOUNDER,
   api_founder_setTeacherPercentSlab: FOUNDER,
   api_founder_setLateFeeSettings: FOUNDER,
+  api_founder_listPayoutSettings: FOUNDER,
   // The endpoint an external cron (or a founder/staff stopgap button) calls
   // once a day to fire overdue late-fee reminders — same founder-only
   // pattern as api_founder_sendDailyDigest below.
@@ -166,6 +167,7 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_founder_rejectClassCorrection: FOUNDER,
 
   // Brief §2.2: staff propose a late-fee waiver; only the founder decides.
+  api_previewAccruedLateFee: STAFF,
   api_staff_submitLateFeeWaiverRequest: STAFF,
   api_founder_lateFeeWaiverApprove: FOUNDER,
   api_founder_lateFeeWaiverReject: FOUNDER,
