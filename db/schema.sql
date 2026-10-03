@@ -1600,3 +1600,189 @@ insert into school_payment_beneficiaries (id, school_id, seq, beneficiary_name, 
   ('SPB-MHWS-2', 'SCH-MHWS', 2, 'Piyush Kashyap', 50, 'HDFC Bank · Malad West', '50100098296140', 'HDFC0000411', ''),
   ('SPB-MXVILLE-1', 'SCH-MXVILLE', 1, 'Swar Mangal', 100, 'HDFC Bank · Mahavir Nagar', '50200076920786', 'HDFC0000288', 'swarmangal.62697965@hdfcbank')
 on conflict (id) do nothing;
+
+-- ============================================================
+-- Founder request 2026-10-03: payroll/attendance correctness pass.
+-- Every change below is additive (new columns/tables only); nothing existing
+-- is edited, renamed or removed, and no historical row is rewritten.
+-- ============================================================
+
+-- A. scheduled_sessions.outcome gains three more genuine states, additive to
+-- the 5 the app already writes/reads (HELD, TEACHER_CANCELLED,
+-- ACADEMY_CANCELLED, SUBSTITUTE_DELIVERED, RESCHEDULED — enforced in
+-- handlers2.ts's OUTCOMES allow-list, never a DB check constraint, so this
+-- migration needs no backfill). outcome_reason is required by the handler for
+-- the 3 new values; substitute_approved_by records who approved a substitute
+-- assignment, for traceability (brief: substitute assignment must be
+-- auditable).
+alter table scheduled_sessions add column if not exists outcome_reason text;
+alter table scheduled_sessions add column if not exists substitute_approved_by text;
+
+-- B. Founder-editable, effective-dated % of the normal rate a teacher is paid
+-- for a given class outcome. Looked up by (outcome, effective date) — see
+-- payoutPercentForOutcome in rules.ts and setPayoutStatusRule in
+-- handlers2.ts. Changing a percent NEVER updates or deletes an existing row;
+-- it inserts a new one with its own effective_from, so a past month's figures
+-- (already shown to the founder, possibly already closed) never move.
+--
+-- This table is read for VISIBILITY only (see computePayoutPreviewLive's
+-- outcomeFlags) and is NOT blended into the payable figure automatically:
+-- this codebase prices a teacher's payout as a % of the student fees actually
+-- collected and attributed to them (see computePayoutPreviewLive), not a
+-- per-class rate, so there is no reliable "per-class rupee amount" to
+-- multiply a status-rule percent against without guessing one. The founder
+-- sees the count of TEACHER_ABSENT/SCHOOL_HOLIDAY/STUDENT_ABSENT classes and
+-- the configured percent, then applies whatever rupee figure is fair as an
+-- explicit, reasoned payout_adjustments row (item H) before approving a
+-- statement — this keeps every such number traceable to an approver rather
+-- than a silent formula, and keeps the existing HELD-based calculation path
+-- (already correct, already relied on for real numbers) completely untouched.
+create table if not exists payout_status_rules (
+  id text primary key,
+  outcome text not null,
+  payout_percent numeric(5,2) not null,
+  effective_from date not null,
+  effective_to date,
+  created_by text,
+  created_at timestamptz not null default now(),
+  notes text
+);
+create index if not exists idx_payout_status_rules_outcome on payout_status_rules (outcome, effective_from desc);
+
+-- Safe defaults, additive seed — every one of these is a DEFAULT GUESS the
+-- founder can change at any time via setPayoutStatusRule (which only ever
+-- inserts a new effective-dated row, never edits these):
+--   HELD / SUBSTITUTE_DELIVERED        = 100% (class delivered: full rate)
+--   TEACHER_CANCELLED / TEACHER_ABSENT = 0%   (nobody covered: not paid)
+--   RESCHEDULED                        = 0%   (paid when the rescheduled class is itself delivered, not twice)
+--   ACADEMY_CANCELLED                  = 50%  (DEFAULT GUESS: retainer for an academy-side cancellation)
+--   SCHOOL_HOLIDAY                     = 50%  (DEFAULT GUESS: retainer for a school-declared holiday)
+--   STUDENT_ABSENT                     = 100% (DEFAULT GUESS: the teacher still showed up; student's absence is not the teacher's loss)
+insert into payout_status_rules (id, outcome, payout_percent, effective_from, created_by, notes) values
+  ('PSR-HELD-DEFAULT', 'HELD', 100, '2020-01-01', 'system-default', 'Class actually delivered: full rate.'),
+  ('PSR-SUBDELIV-DEFAULT', 'SUBSTITUTE_DELIVERED', 100, '2020-01-01', 'system-default', 'Substitute delivered the class: full rate, paid to the substitute (payee_teacher_id).'),
+  ('PSR-TEACHCANC-DEFAULT', 'TEACHER_CANCELLED', 0, '2020-01-01', 'system-default', 'Teacher cancelled with nobody covering: not paid.'),
+  ('PSR-ACADCANC-DEFAULT', 'ACADEMY_CANCELLED', 50, '2020-01-01', 'system-default', 'DEFAULT GUESS, founder-editable via setPayoutStatusRule.'),
+  ('PSR-SCHOOLHOL-DEFAULT', 'SCHOOL_HOLIDAY', 50, '2020-01-01', 'system-default', 'DEFAULT GUESS, founder-editable via setPayoutStatusRule.'),
+  ('PSR-TEACHABS-DEFAULT', 'TEACHER_ABSENT', 0, '2020-01-01', 'system-default', 'Teacher absent, nobody substituted: not paid.'),
+  ('PSR-STUDABS-DEFAULT', 'STUDENT_ABSENT', 100, '2020-01-01', 'system-default', 'DEFAULT GUESS, founder-editable via setPayoutStatusRule.'),
+  ('PSR-RESCHED-DEFAULT', 'RESCHEDULED', 0, '2020-01-01', 'system-default', 'Pays when the rescheduled class is itself delivered, not twice.')
+on conflict (id) do nothing;
+
+-- C. New-teacher percentage slab model (brief: a 30%→50% ramp). A teacher
+-- only uses this when teachers_acad.uses_percent_slab is explicitly set true
+-- by the founder — legacy teachers keep reading payout_rules exactly as
+-- today, untouched, forever (brief: never auto-migrate existing agreed
+-- compensation onto this model). joined_date is needed to compute how many
+-- months into their tenure a slab teacher is; null means "not set", and such
+-- a teacher falls back to payout_rules even if flagged (never a guessed slab).
+alter table teachers_acad add column if not exists joined_date date;
+alter table teachers_acad add column if not exists uses_percent_slab boolean not null default false;
+
+create table if not exists teacher_percent_slabs (
+  id text primary key,
+  months_since_start int not null,
+  percent numeric(5,2) not null,
+  effective_from date not null,
+  created_by text,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_teacher_percent_slabs_step on teacher_percent_slabs (months_since_start, effective_from desc);
+
+-- DEFAULT GUESS ramp, founder-editable via setTeacherPercentSlab (which only
+-- ever inserts a new effective-dated row): 30% from month 0, stepping to 40%
+-- at month 6, 50% at month 12.
+insert into teacher_percent_slabs (id, months_since_start, percent, effective_from, created_by) values
+  ('TPS-0-DEFAULT', 0, 30, '2020-01-01', 'system-default'),
+  ('TPS-6-DEFAULT', 6, 40, '2020-01-01', 'system-default'),
+  ('TPS-12-DEFAULT', 12, 50, '2020-01-01', 'system-default')
+on conflict (id) do nothing;
+
+-- E. Late fees: a genuinely overdue balance accrues daily_rate x days past
+-- grace_days, computed on read (never stored as a running balance — see
+-- accruedLateFee in fees.ts). Effective-dated the same way: a rate/grace
+-- change only affects days accrued from its own effective_from on.
+create table if not exists late_fee_settings (
+  id text primary key,
+  grace_days int not null default 7,
+  daily_rate numeric(10,2) not null default 50,
+  effective_from date not null,
+  created_by text,
+  created_at timestamptz not null default now()
+);
+
+-- DEFAULT GUESS, founder-editable via setLateFeeSettings (inserts a new
+-- effective-dated row, never edits this one): 7-day grace period, ₹50/day
+-- after that.
+insert into late_fee_settings (id, grace_days, daily_rate, effective_from, created_by) values
+  ('LFS-DEFAULT', 7, 50, '2020-01-01', 'system-default')
+on conflict (id) do nothing;
+
+-- G. Month-end teacher payout statement workflow: DRAFT/CALCULATED are
+-- produced automatically (brief: automatic calculation is allowed);
+-- FOUNDER_APPROVED is a founder decision; PAID is set only once
+-- recordTeacherPayout has actually been allowed to run against this
+-- statement (see the gate added to recordTeacherPayout in handlers2.ts) —
+-- money is never final until that explicit approval happened first.
+create table if not exists payout_statements (
+  id text primary key,
+  teacher_id text not null,
+  teacher_name text,
+  service_month text not null,
+  status text not null default 'DRAFT',   -- DRAFT | CALCULATED | FOUNDER_APPROVED | PAID
+  calculated_amount numeric(10,2),
+  calculated_at timestamptz,
+  calculated_by text,
+  approved_amount numeric(10,2),
+  approved_by text,
+  approved_at timestamptz,
+  paid_payout_id text references teacher_payouts(id),
+  paid_at timestamptz,
+  notes text,
+  created_by text,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists payout_statements_teacher_month_unique on payout_statements (teacher_id, service_month);
+create index if not exists idx_payout_statements_status on payout_statements (status);
+
+-- H. Manual payout adjustments: always signed (+ addition / - deduction),
+-- always reasoned, always tied to a statement, approved_by/approved_at always
+-- session-derived (never client-supplied) — same discipline as
+-- late_fee_waiver_requests above.
+create table if not exists payout_adjustments (
+  id text primary key,
+  payout_statement_id text not null references payout_statements(id),
+  amount numeric(10,2) not null,
+  reason text not null,
+  related_entity text,
+  approved_by text not null,
+  approved_at timestamptz not null default now(),
+  created_by text,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_payout_adjustments_statement on payout_adjustments (payout_statement_id);
+
+-- I. Targeted before/after history for the one place a rate change is
+-- currently an in-place UPDATE with no history of its own: a legacy
+-- teacher's payout_rules.percentage (updateTeacherCompensation). The other
+-- new settings tables above (payout_status_rules, teacher_percent_slabs,
+-- late_fee_settings) are already their own history — every change is a new
+-- row with its own effective_from, nothing is ever edited or deleted — so
+-- they need no separate history table; this one does, because payout_rules
+-- itself is mutated in place and audit_log deliberately excludes amounts
+-- (see its own comment above). Not a staff-propose/founder-approve table
+-- (compensation changes are already founder-only), so no sheet_mirror here,
+-- consistent with entity_payment_profiles above (also a founder-direct
+-- settings table with no sheet_mirror trigger).
+create table if not exists rate_change_history (
+  id text primary key,
+  entity_type text not null,     -- e.g. 'TEACHER_COMPENSATION'
+  entity_id text not null,       -- e.g. the teacher id
+  field text not null,           -- e.g. 'percentage'
+  before_value text,
+  after_value text,
+  reason text,
+  changed_by text,
+  changed_at timestamptz not null default now()
+);
+create index if not exists idx_rate_change_history_entity on rate_change_history (entity_type, entity_id, changed_at desc);

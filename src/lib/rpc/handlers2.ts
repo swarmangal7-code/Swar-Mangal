@@ -2,9 +2,10 @@ import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
 import { s, n, d, newId, newPersonId, nextDocSeq, peekNextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo, billingMonthRange } from "@/lib/rpc/numbering";
-import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, type FeeState } from "@/lib/rpc/fees";
+import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, accruedLateFee, type FeeState, type LateFeeSetting } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
 import { gatewayConfigFromEnv } from "@/lib/whatsapp/gateway";
+import { sendWhatsApp } from "@/lib/rpc/messaging";
 import { money, payoutStatus, payoutBalance, isServiceMonth } from "@/lib/rpc/payouts";
 import {
   ALL_BRANCHES,
@@ -39,6 +40,10 @@ import {
   noAnswerStep,
   priceTeacherLine,
   unsettleableClasses,
+  payoutPercentForOutcome,
+  slabPercentFor,
+  type PayoutStatusRule,
+  type TeacherPercentSlab,
 } from "@/lib/rpc/rules";
 import { closedMonthRefusal, expectedClassesBetween, governanceApprovalItems } from "@/lib/rpc/governance";
 import { notifyFounderApproval, notifyStaffDecision } from "@/lib/push/notify";
@@ -82,11 +87,25 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
     case "api_updateTeacherStatus":
       return updateTeacherStatus(arg, session);
     case "api_updateTeacherCompensation":
-      return updateTeacherCompensation(arg);
+      return updateTeacherCompensation(arg, session);
     case "api_teacherPayoutPreview":
       return payoutPreview(arg);
     case "api_founder_closePayoutPeriod":
       return closePayoutPeriod(arg, session);
+    case "api_founder_generatePayoutStatement":
+      return generatePayoutStatement(arg, session);
+    case "api_founder_approvePayoutStatement":
+      return approvePayoutStatement(arg, session);
+    case "api_founder_addPayoutAdjustment":
+      return addPayoutAdjustment(arg, session);
+    case "api_founder_setPayoutStatusRule":
+      return setPayoutStatusRule(arg, session);
+    case "api_founder_setTeacherPercentSlab":
+      return setTeacherPercentSlab(arg, session);
+    case "api_founder_setLateFeeSettings":
+      return setLateFeeSettings(arg, session);
+    case "api_founder_sendOverdueLateFeeReminders":
+      return sendOverdueLateFeeReminders(arg, scope, session);
     case "api_recordTeacherPayout":
       return recordTeacherPayout(arg, scope);
     case "api_teacherPayoutHistory":
@@ -667,11 +686,12 @@ async function updateTeacherStatus(arg: Record<string, unknown>, session?: RpcSe
   return ok({ teacherId: id, oldStatus: s(before.status), newStatus: status, message: reason || "updated", changedBy: session?.email ?? "" });
 }
 
-async function updateTeacherCompensation(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function updateTeacherCompensation(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
   const id = s(arg["teacherId"]);
   const pct = n(arg["percentage"]);
   if (!id || pct < 0 || pct > 100) return { ok: false, code: "BAD_PCT", error: "percentage 0..100 required" };
-  const existing = await queryOne<{ id: string }>(`select id from payout_rules where teacher_id = $1 order by id limit 1`, [id]);
+  const existing = await queryOne<{ id: string; percentage: string }>(`select id, percentage::text from payout_rules where teacher_id = $1 order by id limit 1`, [id]);
+  const oldPercentage = existing ? existing.percentage : "";
   if (existing) {
     await query("update payout_rules set percentage = $1 where id = $2", [pct, existing.id]);
   } else {
@@ -680,8 +700,17 @@ async function updateTeacherCompensation(arg: Record<string, unknown>): Promise<
       [newId("PRULE"), id, s(arg["teacherName"]), pct],
     );
   }
+  // I: payout_rules is mutated in place (no effective-dating of its own), so
+  // this is the one place that needs a dedicated before/after history row —
+  // see rate_change_history's schema comment for why this is a separate
+  // table rather than reusing an effective-dated settings table.
+  await query(
+    `insert into rate_change_history (id, entity_type, entity_id, field, before_value, after_value, reason, changed_by)
+     values ($1,'TEACHER_COMPENSATION',$2,'percentage',$3,$4,$5,$6)`,
+    [newId("RCH"), id, oldPercentage, String(pct), s(arg["reason"]) || null, session?.email || session?.deviceLabel || ""],
+  );
   await bumpRevisions(["teachers", "payouts"]);
-  return ok({ changed: true, teacherId: id, oldPercentage: "", newPercentage: String(pct), effectiveFrom: s(arg["effectiveFrom"]) || "2026-07-01", reason: s(arg["reason"]), auditWritten: true, note: "compensation updated" });
+  return ok({ changed: true, teacherId: id, oldPercentage, newPercentage: String(pct), effectiveFrom: s(arg["effectiveFrom"]) || "2026-07-01", reason: s(arg["reason"]), auditWritten: true, note: "compensation updated" });
 }
 
 /**
@@ -701,7 +730,7 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
   const monthStart = `${month}-01`;
   const teachers = await acadTeachers();
 
-  const [monthLinks, links, receipts, rules, paidRows, attributions, studentNames] = await Promise.all([
+  const [monthLinks, links, receipts, rules, paidRows, attributions, studentNames, outcomeSessions, statusRuleRows] = await Promise.all([
     // Who actually taught this student during the month, and how often.
     query<{ teacher_id: string; student_id: string; classes: string }>(
       `select teacher_id, student_id, count(*)::text as classes from attendance_acad
@@ -732,9 +761,57 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
       [month],
     ),
     query<{ id: string; name: string }>(`select id, name from students_acad`),
+    // B: visibility-only counts of the 3 new exception outcomes this month,
+    // per teacher (payee when there is one, else the assigned teacher) — see
+    // the schema comment on payout_status_rules for why this is informational
+    // rather than blended into `payable`.
+    query<{ teacher_id: string; outcome: string; cnt: string }>(
+      `select coalesce(nullif(payee_teacher_id,''), teacher_id) as teacher_id, outcome, count(*)::text as cnt
+       from scheduled_sessions
+       where session_date >= $1::date and session_date < ($1::date + interval '1 month')
+         and outcome in ('TEACHER_ABSENT','SCHOOL_HOLIDAY','STUDENT_ABSENT')
+         and coalesce(nullif(payee_teacher_id,''), teacher_id) <> ''
+       group by coalesce(nullif(payee_teacher_id,''), teacher_id), outcome`,
+      [monthStart],
+    ),
+    query<{ outcome: string; payout_percent: string; effective_from: string; effective_to: string | null }>(
+      `select outcome, payout_percent::text, effective_from::text, effective_to::text from payout_status_rules`,
+    ),
   ]);
   const paidOf = new Map(paidRows.map((r) => [r.teacher_id, { paid: n(r.paid), payments: Number(r.payments) || 0 }]));
   const nameOf = new Map(studentNames.map((r) => [r.id, r.name]));
+  const statusRules: PayoutStatusRule[] = statusRuleRows.map((r) => ({
+    outcome: r.outcome,
+    payoutPercent: n(r.payout_percent),
+    effectiveFrom: r.effective_from,
+    effectiveTo: r.effective_to,
+  }));
+  const outcomeFlagsOf = new Map<string, Record<string, unknown>>();
+  for (const row of outcomeSessions) {
+    const flags = outcomeFlagsOf.get(row.teacher_id) ?? {};
+    flags[row.outcome] = {
+      count: Number(row.cnt) || 0,
+      configuredPercent: payoutPercentForOutcome(statusRules, row.outcome, monthStart),
+    };
+    outcomeFlagsOf.set(row.teacher_id, flags);
+  }
+  // C: a slab-opted teacher's effective percentage, looked up by how many
+  // months into their tenure this service month falls — legacy teachers
+  // (uses_percent_slab=false, the default) never reach this and keep reading
+  // payout_rules exactly as before.
+  const slabTeacherIds = teachers.filter((t) => t.uses_percent_slab && t.joined_date).map((t) => t.id);
+  const slabRows: TeacherPercentSlab[] = slabTeacherIds.length
+    ? (
+        await query<{ months_since_start: number; percent: string; effective_from: string }>(
+          `select months_since_start, percent::text, effective_from::text from teacher_percent_slabs`,
+        )
+      ).map((r) => ({ monthsSinceStart: r.months_since_start, percent: n(r.percent), effectiveFrom: r.effective_from }))
+    : [];
+  const monthsSinceStart = (joinedDate: string): number => {
+    const [jy, jm] = joinedDate.split("-").map(Number);
+    const [my, mm] = month.split("-").map(Number);
+    return Math.max(0, (my - jy) * 12 + (mm - jm));
+  };
 
   // Teachers of a student, preferring the ones who taught them in the month.
   const monthTeachers = new Map<string, Map<string, number>>();
@@ -834,7 +911,20 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
   // line carries a named refusal instead of a number.
   const base = earningBaseFromEnv(process.env.PAYOUT_EARNING_BASE);
   const results = teachers.map((t) => {
-    const rule = ruleOf.get(t.id) ?? null;
+    const legacyRule = ruleOf.get(t.id) ?? null;
+    // C: a slab-opted teacher (founder-flagged, never auto-migrated) reads
+    // their percentage from the slab ramp instead of payout_rules. A null
+    // slab lookup (e.g. before month 0 of the configured ramp) falls back to
+    // their existing payout_rules row rather than guessing a number.
+    let rule = legacyRule;
+    let fromSlab = false;
+    if (t.uses_percent_slab && t.joined_date) {
+      const pct = slabPercentFor(slabRows, monthsSinceStart(t.joined_date), monthStart);
+      if (pct != null) {
+        rule = { teacher_id: t.id, payout_type: "PERCENTAGE", percentage: String(pct) };
+        fromSlab = true;
+      }
+    }
     const own = creditOf.get(t.id) ?? { amount: 0, count: 0 };
     const settled = paidOf.get(t.id) ?? { paid: 0, payments: 0 };
     const pricing = priceTeacherLine({
@@ -854,6 +944,7 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
       totalCollection: base ? money(own.amount) : null,
       sharePercent: rule ? n(rule.percentage) : null,
       payoutType: s(rule?.payout_type),
+      ratePercentSource: fromSlab ? "PERCENT_SLAB" : "PAYOUT_RULES",
       sharedStudentsAssigned: sharedOf.get(t.id) ?? 0,
       totalTeacherShare: pricing.payable,
       payable: pricing.payable,
@@ -867,6 +958,9 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
       missingRule: rule == null,
       preCutover: month < EXPECTED_EVENTS_FLOOR,
       note: pricing.reasons[0]?.message ?? "",
+      // B: informational only — see the payout_status_rules schema comment
+      // for why this is never blended into `payable` automatically.
+      outcomeFlags: outcomeFlagsOf.get(t.id) ?? {},
     };
   });
 
@@ -926,6 +1020,188 @@ async function closePayoutPeriod(arg: Record<string, unknown>, session?: RpcSess
   return ok({ month, closed: true, note: `${monthLabel(month)} closed. Its payout figures are now frozen.` });
 }
 
+// ---------------------------------------------------------- founder settings (B, C, E)
+/**
+ * B: payout_status_rules is append-only — this ALWAYS inserts a new
+ * effective-dated row, never updates/deletes an existing one, so a month
+ * already shown to the founder (or already closed) never silently reshapes.
+ */
+async function setPayoutStatusRule(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const outcome = s(arg["outcome"]).toUpperCase().trim();
+  const payoutPercent = n(arg["payoutPercent"] ?? arg["percent"]);
+  const effectiveFrom = d(s(arg["effectiveFrom"])) || todayIso();
+  const allowed = new Set(["HELD", "TEACHER_CANCELLED", "ACADEMY_CANCELLED", "SUBSTITUTE_DELIVERED", "RESCHEDULED", "TEACHER_ABSENT", "SCHOOL_HOLIDAY", "STUDENT_ABSENT"]);
+  if (!allowed.has(outcome)) return { ok: false, code: "BAD_OUTCOME", error: `Choose one of: ${[...allowed].join(", ")}` };
+  if (!(payoutPercent >= 0 && payoutPercent <= 100)) return { ok: false, code: "BAD_PCT", error: "payoutPercent must be 0..100" };
+  const id = newId("PSR");
+  await query(
+    `insert into payout_status_rules (id, outcome, payout_percent, effective_from, created_by, notes) values ($1,$2,$3,$4::date,$5,$6)`,
+    [id, outcome, payoutPercent, effectiveFrom, session?.email || session?.deviceLabel || "", s(arg["notes"]) || null],
+  );
+  await bumpRevisions(["payouts"]);
+  return ok({ ruleId: id, outcome, payoutPercent, effectiveFrom, note: "New effective-dated rule added. Earlier rows are untouched." });
+}
+
+/** C: same append-only discipline for the slab ramp. */
+async function setTeacherPercentSlab(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const monthsSinceStart = Math.round(n(arg["monthsSinceStart"]));
+  const percent = n(arg["percent"]);
+  const effectiveFrom = d(s(arg["effectiveFrom"])) || todayIso();
+  if (!(monthsSinceStart >= 0)) return { ok: false, code: "BAD_MONTHS", error: "monthsSinceStart must be >= 0" };
+  if (!(percent >= 0 && percent <= 100)) return { ok: false, code: "BAD_PCT", error: "percent must be 0..100" };
+  const id = newId("TPS");
+  await query(
+    `insert into teacher_percent_slabs (id, months_since_start, percent, effective_from, created_by) values ($1,$2,$3,$4::date,$5)`,
+    [id, monthsSinceStart, percent, effectiveFrom, session?.email || session?.deviceLabel || ""],
+  );
+  await bumpRevisions(["payouts", "teachers"]);
+  return ok({ slabId: id, monthsSinceStart, percent, effectiveFrom, note: "New effective-dated slab step added. Earlier rows are untouched." });
+}
+
+/** E: same append-only discipline for grace period / daily rate. */
+async function setLateFeeSettings(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const graceDays = Math.round(n(arg["graceDays"]));
+  const dailyRate = n(arg["dailyRate"]);
+  const effectiveFrom = d(s(arg["effectiveFrom"])) || todayIso();
+  if (!(graceDays >= 0)) return { ok: false, code: "BAD_GRACE", error: "graceDays must be >= 0" };
+  if (!(dailyRate >= 0)) return { ok: false, code: "BAD_RATE", error: "dailyRate must be >= 0" };
+  const id = newId("LFS");
+  await query(
+    `insert into late_fee_settings (id, grace_days, daily_rate, effective_from, created_by) values ($1,$2,$3,$4::date,$5)`,
+    [id, graceDays, dailyRate, effectiveFrom, session?.email || session?.deviceLabel || ""],
+  );
+  await bumpRevisions(["payouts", "students"]);
+  return ok({ settingId: id, graceDays, dailyRate, effectiveFrom, note: "New effective-dated late-fee setting added. Fees already accrued under the earlier rate are not retroactively changed." });
+}
+
+async function lateFeeSettingsRows(): Promise<LateFeeSetting[]> {
+  const rows = await query<{ grace_days: number; daily_rate: string; effective_from: string }>(
+    `select grace_days, daily_rate::text, effective_from::text from late_fee_settings order by effective_from`,
+  );
+  return rows.map((r) => ({ graceDays: r.grace_days, dailyRate: n(r.daily_rate), effectiveFrom: r.effective_from }));
+}
+
+// ---------------------------------------------------------- payout statements (G, H)
+/**
+ * G: DRAFT -> CALCULATED -> FOUNDER_APPROVED -> PAID. This computes the
+ * CALCULATED figure automatically from the live preview (brief: automatic
+ * calculation is allowed) and upserts the one statement row per
+ * (teacher, month) — re-running it before approval just refreshes the
+ * calculated figure; once FOUNDER_APPROVED or PAID it is left alone (a
+ * decided row is not silently recalculated out from under the founder).
+ */
+async function generatePayoutStatement(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const teacherId = s(arg["teacherId"]);
+  const month = s(arg["month"] ?? arg["serviceMonth"]);
+  if (!teacherId) return { ok: false, code: "NO_TEACHER", error: "teacherId required" };
+  if (!isServiceMonth(month)) return { ok: false, code: "BAD_MONTH", error: "month must be YYYY-MM" };
+  const teacher = await acadTeacherById(teacherId);
+  if (!teacher) return { ok: false, code: "NOT_FOUND", error: `No teacher ${teacherId}` };
+  const existing = await queryOne<{ id: string; status: string }>(
+    `select id, status from payout_statements where teacher_id = $1 and service_month = $2`,
+    [teacherId, month],
+  );
+  if (existing && existing.status !== "DRAFT" && existing.status !== "CALCULATED") {
+    return {
+      ok: false,
+      code: "ALREADY_DECIDED",
+      error: `${teacher.name}'s ${monthLabel(month)} statement is already ${existing.status}. Generating again would silently change a decided figure.`,
+      statementId: existing.id,
+      status: existing.status,
+    };
+  }
+  const preview = await computePayoutPreviewLive(month);
+  const line = (preview.results as Record<string, unknown>[]).find((r) => r.teacherId === teacherId);
+  if (!line || line.payable == null) {
+    return { ok: false, code: "NOT_PRICED", error: `${teacher.name} has no priced payout for ${monthLabel(month)} yet (${(line?.reasons as { message: string }[] | undefined)?.[0]?.message ?? "no rule/base"}).` };
+  }
+  const amount = money(Number(line.payable));
+  const id = existing?.id ?? newId("PSTMT");
+  const who = session?.email || session?.deviceLabel || "";
+  if (existing) {
+    await query(
+      `update payout_statements set status = 'CALCULATED', calculated_amount = $2, calculated_at = now(), calculated_by = $3 where id = $1`,
+      [id, amount, who],
+    );
+  } else {
+    await query(
+      `insert into payout_statements (id, teacher_id, teacher_name, service_month, status, calculated_amount, calculated_at, calculated_by, created_by)
+       values ($1,$2,$3,$4,'CALCULATED',$5,now(),$6,$6)`,
+      [id, teacherId, teacher.name, month, amount, who],
+    );
+  }
+  await bumpRevisions(["payouts"]);
+  return ok({ statementId: id, teacherId, month, status: "CALCULATED", calculatedAmount: amount, note: "Calculated from the live preview. Not payable until Sharvil approves it." });
+}
+
+/** FOUNDER_APPROVED is the only gate recordTeacherPayout honours — see the
+ *  check added there. Only reachable from CALCULATED (never DRAFT directly),
+ *  and a statement already approved/paid is not re-approved silently. */
+async function approvePayoutStatement(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const id = s(arg["statementId"]);
+  if (!id) return { ok: false, code: "STATEMENT_ID_REQUIRED", error: "Pick the statement." };
+  const who = session?.email || session?.deviceLabel || "";
+  const row = await queryOne<{ id: string; status: string; calculated_amount: string; teacher_id: string; service_month: string }>(
+    `select id, status, calculated_amount::text, teacher_id, service_month from payout_statements where id = $1`,
+    [id],
+  );
+  if (!row) return { ok: false, code: "NOT_FOUND", error: `No payout statement ${id}` };
+  if (row.status === "FOUNDER_APPROVED" || row.status === "PAID") {
+    return ok({ statementId: id, changed: false, idempotent: true, status: row.status });
+  }
+  if (row.status !== "CALCULATED") {
+    return { ok: false, code: "NOT_CALCULATED", error: `Statement is ${row.status}; generate it first.` };
+  }
+  const adjustments = await queryOne<{ total: string }>(
+    `select coalesce(sum(amount),0)::text as total from payout_adjustments where payout_statement_id = $1`,
+    [id],
+  );
+  const approvedAmount = money(n(row.calculated_amount) + n(adjustments?.total));
+  await query(
+    `update payout_statements set status = 'FOUNDER_APPROVED', approved_amount = $2, approved_by = $3, approved_at = now() where id = $1`,
+    [id, approvedAmount, who],
+  );
+  await bumpRevisions(["payouts"]);
+  notifyAllStaff("Payout statement approved", `${row.teacher_id} · ${monthLabel(row.service_month)} · ₹${approvedAmount}`, id);
+  return ok({ statementId: id, changed: true, status: "FOUNDER_APPROVED", approvedAmount, note: "Approved. recordTeacherPayout can now be used for this teacher/month." });
+}
+
+/**
+ * H: a signed, reasoned, approver-and-timestamp-carrying adjustment against a
+ * statement that has not yet been approved (adding one after approval would
+ * change a figure the founder already signed off on without a fresh
+ * approval — the founder re-approves instead, by generating/approving again).
+ * approved_by/approved_at are ALWAYS session-derived, never the client's own
+ * claim — only a FOUNDER session can call this at all (see RPC_POLICY), so
+ * the approver IS the caller.
+ */
+async function addPayoutAdjustment(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const statementId = s(arg["statementId"]);
+  const amount = n(arg["amount"]);
+  const reason = s(arg["reason"]).trim();
+  const relatedEntity = s(arg["relatedEntity"]).trim();
+  if (!statementId) return { ok: false, code: "STATEMENT_ID_REQUIRED", error: "Pick the statement." };
+  if (!amount) return { ok: false, code: "BAD_AMOUNT", error: "Give a non-zero signed amount (+ to add, - to deduct)." };
+  if (!reason) return { ok: false, code: "REASON_REQUIRED", error: "Say why this adjustment is being made." };
+  const stmt = await queryOne<{ id: string; status: string; calculated_amount: string }>(
+    `select id, status, calculated_amount::text from payout_statements where id = $1`,
+    [statementId],
+  );
+  if (!stmt) return { ok: false, code: "NOT_FOUND", error: `No payout statement ${statementId}` };
+  if (stmt.status !== "CALCULATED" && stmt.status !== "DRAFT") {
+    return { ok: false, code: "ALREADY_DECIDED", error: `Statement is ${stmt.status}; it cannot be adjusted after approval. Generate a fresh statement if the figure needs revisiting.` };
+  }
+  const who = session?.email || session?.deviceLabel || "";
+  const id = newId("PADJ");
+  await query(
+    `insert into payout_adjustments (id, payout_statement_id, amount, reason, related_entity, approved_by, created_by)
+     values ($1,$2,$3,$4,$5,$6,$6)`,
+    [id, statementId, money(amount), reason, relatedEntity || null, who],
+  );
+  await bumpRevisions(["payouts"]);
+  return ok({ adjustmentId: id, statementId, amount: money(amount), reason, relatedEntity, approvedBy: who, note: "Adjustment recorded. It is included the next time this statement is approved." });
+}
+
 /**
  * Record money actually paid to a teacher for a service month. Writes the
  * payout and a matching cashbook outflow in one transaction, so the ledger
@@ -947,6 +1223,26 @@ async function recordTeacherPayout(arg: Record<string, unknown>, scope: BranchSc
   const paidOn = d(s(arg["paidOn"] ?? arg["date"])) || todayIso();
   const lockedPaid = await closedMonthRefusal(paidOn);
   if (lockedPaid) return lockedPaid;
+
+  // G: money is never final until a FOUNDER_APPROVED statement exists for
+  // this teacher+month — this is a real backend gate, not a UI-level one.
+  // Scoped to months from the expected-events floor onward, same cutover
+  // line the rest of this function already uses for its other evidence
+  // gates, so pre-cutover / historical correction payouts are unaffected.
+  let statement: { id: string; status: string } | null = null;
+  if (month >= EXPECTED_EVENTS_FLOOR) {
+    statement = await queryOne<{ id: string; status: string }>(
+      `select id, status from payout_statements where teacher_id = $1 and service_month = $2`,
+      [teacherId, month],
+    );
+    if (!statement || (statement.status !== "FOUNDER_APPROVED" && statement.status !== "PAID")) {
+      return {
+        ok: false,
+        code: "STATEMENT_NOT_APPROVED",
+        error: `${teacher.name}'s ${monthLabel(month)} payout statement is ${statement?.status ?? "not generated yet"}. Generate it (generatePayoutStatement) and have Sharvil approve it (approvePayoutStatement) before paying.`,
+      };
+    }
+  }
 
   // Brief P7.4 settlement gate. From the expected-events floor a month must be
   // closed, and every class this teacher took in it must carry VERIFIED
@@ -1002,6 +1298,12 @@ async function recordTeacherPayout(arg: Record<string, unknown>, scope: BranchSc
        values ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,$11)`,
       [id, teacherId, teacher.name, month, amount, paidOn, mode, reference || null, branch, s(arg["recordedBy"]) || "founder", ledgerId],
     );
+    // G: the first payment against an approved statement marks it PAID; later
+    // partial payments for the same teacher/month (already supported above)
+    // simply leave it PAID.
+    if (statement && statement.status === "FOUNDER_APPROVED") {
+      await tx.query(`update payout_statements set status = 'PAID', paid_payout_id = $2, paid_at = now() where id = $1`, [statement.id, id]);
+    }
   });
   await bumpRevisions(["payouts", "expenses", "teachers", "dashboard"]);
   notifyBranch(branch, "Teacher payout recorded", `₹${amount} to ${teacher.name} for ${monthLabel(month)}`, id);
@@ -2066,7 +2368,13 @@ async function todaysTasks(arg: Record<string, unknown>, scope: BranchScope): Pr
   return ok({ cards, mode: "COPY_ONLY", today, openInquiries: inquiries.length, readAt: new Date().toISOString(), ...overview });
 }
 
-const OUTCOMES = ["HELD", "TEACHER_CANCELLED", "ACADEMY_CANCELLED", "SUBSTITUTE_DELIVERED", "RESCHEDULED"];
+// Founder request 2026-10-03: three more genuine states, purely additive —
+// the original 5 keep working exactly as before for existing rows and the
+// existing frontend. Classes answered TEACHER_ABSENT, SCHOOL_HOLIDAY or
+// STUDENT_ABSENT must say why (outcome_reason), since each is an exception
+// staff should be naming, not clicking through.
+const OUTCOMES = ["HELD", "TEACHER_CANCELLED", "ACADEMY_CANCELLED", "SUBSTITUTE_DELIVERED", "RESCHEDULED", "TEACHER_ABSENT", "SCHOOL_HOLIDAY", "STUDENT_ABSENT"];
+const OUTCOMES_REQUIRING_REASON = new Set(["TEACHER_ABSENT", "SCHOOL_HOLIDAY", "STUDENT_ABSENT"]);
 const LATE_HOURS = 48;
 
 /** Timetable rows use Monday = 0. */
@@ -2145,9 +2453,13 @@ async function resolveTodaysClass(arg: Record<string, unknown>, scope: BranchSco
   const outcome = s(arg["outcome"]).toUpperCase();
   const deliveredBy = s(arg["deliveredBy"]).trim();
   const lateReason = s(arg["lateReason"]).trim();
+  const outcomeReason = s(arg["outcomeReason"] ?? arg["reason"]).trim();
   if (!OUTCOMES.includes(outcome)) return { ok: false, code: "BAD_OUTCOME", error: `Choose one of: ${OUTCOMES.join(", ")}` };
   if (outcome === "SUBSTITUTE_DELIVERED" && !deliveredBy) {
     return { ok: false, code: "SUBSTITUTE_REQUIRED", error: "Name the teacher who actually took the class." };
+  }
+  if (OUTCOMES_REQUIRING_REASON.has(outcome) && !outcomeReason) {
+    return { ok: false, code: "OUTCOME_REASON_REQUIRED", error: `Say why this class is being recorded as ${outcome}.` };
   }
 
   let base: Record<string, unknown> | null = null;
@@ -2194,24 +2506,29 @@ async function resolveTodaysClass(arg: Record<string, unknown>, scope: BranchSco
   }
   const evidence = late ? "RECONSTRUCTED" : "VERIFIED";
   const payee = outcome === "SUBSTITUTE_DELIVERED" ? deliveredBy : outcome === "HELD" ? s(base.teacher_id) : "";
+  // Brief: substitute assignment must be traceable — record who approved it
+  // (the staff/founder session recording this outcome), distinct from
+  // delivered_by (who actually taught).
+  const substituteApprovedBy = outcome === "SUBSTITUTE_DELIVERED" ? (session?.email || session?.deviceLabel || "") : null;
 
   await query(
     `insert into scheduled_sessions
        (id, session_date, start_time, teacher_id, teacher_name, branch, course, outcome, delivered_by, payee_teacher_id,
-        recorded_by, evidence_class, evidence_reason, late_reason, resolved, answerable, timetable_id)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,false,$15)
+        recorded_by, evidence_class, evidence_reason, late_reason, resolved, answerable, timetable_id, outcome_reason, substitute_approved_by)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,true,false,$15,$16,$17)
      on conflict (id) do update set outcome = excluded.outcome, delivered_by = excluded.delivered_by,
        payee_teacher_id = excluded.payee_teacher_id, recorded_by = excluded.recorded_by,
-       evidence_class = excluded.evidence_class, late_reason = excluded.late_reason, resolved = true, answerable = false`,
+       evidence_class = excluded.evidence_class, late_reason = excluded.late_reason, resolved = true, answerable = false,
+       outcome_reason = excluded.outcome_reason, substitute_approved_by = excluded.substitute_approved_by`,
     [
       eventId, date, s(base.start_time), s(base.teacher_id), s(base.teacher_name), recordBranch(base.branch),
       s(base.class_name ?? base.course), outcome, deliveredBy || null, payee || null,
       session?.deviceLabel || session?.email || "", evidence, `${outcome} recorded`, lateReason || null,
-      generated ? generated[2] : null,
+      generated ? generated[2] : null, outcomeReason || null, substituteApprovedBy,
     ],
   );
   await bumpRevisions(["sessions", "attendance", "tasks", "payouts"]);
-  return ok({ eventId, outcome, evidenceClass: evidence, payeeTeacherId: payee, note: late ? "recorded late (reconstructed)" : "class recorded" });
+  return ok({ eventId, outcome, evidenceClass: evidence, payeeTeacherId: payee, outcomeReason, substituteApprovedBy: substituteApprovedBy || "", note: late ? "recorded late (reconstructed)" : "class recorded" });
 }
 
 /** Schedule a session. The id used to be returned without storing anything,
@@ -3258,6 +3575,56 @@ async function commGenerate(arg: Record<string, unknown>, scope: BranchScope): P
     termsTokenMinted: false,
     termsAuditIncomplete: false,
   });
+}
+
+/**
+ * F: the only "automatic" reminder this system can have without an in-app
+ * cron (brief: no triggers exist here) — an external cron, or a founder/staff
+ * button as a stopgap, calls this once a day, exactly like
+ * api_founder_sendDailyDigest already does for the staff/founder digest.
+ *
+ * It only targets students whose late-fee-eligible date (due date + the
+ * grace period effective on their due date) is TODAY, so the same student is
+ * never messaged again on every later day they stay overdue — a true repeat
+ * run on the same day is additionally deduplicated by sendWhatsApp's own
+ * 24-hour same-text window and by a deterministic per-day clientIntentKey, so
+ * calling this twice in one day (e.g. a retried cron tick) never double-sends.
+ * Sending itself reuses sendWhatsApp exactly as the staff "Send WhatsApp"
+ * button does — same gateway call, same opt-out/allow-list checks, same
+ * dedup table — never a second messaging path.
+ */
+async function sendOverdueLateFeeReminders(arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession): Promise<Record<string, unknown>> {
+  const today = todayIso();
+  const settings = await lateFeeSettingsRows();
+  if (!settings.length) return ok({ sent: 0, candidates: 0, note: "No late-fee settings configured yet (setLateFeeSettings)." });
+
+  const students = await acadStudents();
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+  const details: Record<string, unknown>[] = [];
+  for (const st of students) {
+    if (!inScope(scope, st.branch)) continue;
+    const state = feeState(st.next_due_date, today, { status: st.status });
+    if (state !== "OVERDUE") continue;
+    const accrued = accruedLateFee(st.next_due_date, today, settings);
+    if (!accrued.overdueSince || accrued.overdueSince !== today || accrued.amount <= 0) {
+      skipped++;
+      continue;
+    }
+    const greeting = s(st.guardian_name).trim() ? `Namaste ${s(st.guardian_name).trim()},` : "Namaste,";
+    const body = `${greeting}\n\n${s(st.name)}'s fee was due on ${niceDate(s(st.next_due_date))} and a late fee of ${inr(accrued.amount) || `₹${accrued.amount}`} has now started accruing per the academy's late-fee policy. Please clear the balance at the earliest so classes continue without interruption.\n\nIf you have already paid, please share the UTR / receipt so we can update our records.\n\n— SwarMangal Music Academy`;
+    const result = await sendWhatsApp(
+      { studentId: st.id, kind: "FEE_REMINDER", body, clientIntentKey: `LATEFEE-${st.id}-${today}` },
+      scope,
+      (session as RpcSession) ?? ({ role: "FOUNDER_ADMIN", email: "", deviceLabel: "cron" } as RpcSession),
+      "text",
+    );
+    details.push({ studentId: st.id, studentName: st.name, lateFee: accrued.amount, daysLate: accrued.daysLate, ok: result["ok"] === true, code: s(result["code"]) });
+    if (result["ok"] === true) sent++;
+    else failed++;
+  }
+  return ok({ sent, failed, skipped, total: details.length, details: details.slice(0, 100), note: "Targets only students whose late fee started accruing today." });
 }
 
 async function syncChanges(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
