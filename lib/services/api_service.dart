@@ -627,6 +627,123 @@ class ApiService {
         [];
   }
 
+  // ------------------------------------------------- payroll/attendance (2026-10-03)
+  // payout_status_rules, teacher_percent_slabs and late_fee_settings are all
+  // append-only, effective-dated settings tables: every call here inserts a
+  // new row server-side, never edits/deletes an earlier one. The server has
+  // no "list" RPC for these three tables yet (only the inserts below), so
+  // the Flutter settings screen can only show what this app session itself
+  // has submitted — see PayoutSettingsScreen's note to that effect.
+
+  /// Founder-only: add a new effective-dated payout-status rule — what % of
+  /// the normal rate a teacher is paid for a given class outcome (e.g.
+  /// SCHOOL_HOLIDAY, STUDENT_ABSENT). Informational/visibility only; the
+  /// payout preview's `outcomeFlags` surface it, it never changes `payable`.
+  Future<dynamic> founderSetPayoutStatusRule({
+    required String outcome,
+    required num payoutPercent,
+    String effectiveFrom = '',
+    String notes = '',
+  }) =>
+      _api.call('api_founder_setPayoutStatusRule', {
+        'outcome': outcome,
+        'payoutPercent': payoutPercent,
+        if (effectiveFrom.isNotEmpty) 'effectiveFrom': effectiveFrom,
+        if (notes.isNotEmpty) 'notes': notes,
+      });
+
+  /// Founder-only: add a new effective-dated step to the teacher percent-slab
+  /// ramp (months-since-tenure-start -> percent). Only ever applies to a
+  /// teacher the founder has separately opted into the slab model; every
+  /// other teacher keeps reading their payout_rules row untouched.
+  Future<dynamic> founderSetTeacherPercentSlab({
+    required int monthsSinceStart,
+    required num percent,
+    String effectiveFrom = '',
+  }) =>
+      _api.call('api_founder_setTeacherPercentSlab', {
+        'monthsSinceStart': monthsSinceStart,
+        'percent': percent,
+        if (effectiveFrom.isNotEmpty) 'effectiveFrom': effectiveFrom,
+      });
+
+  /// Founder-only: add a new effective-dated late-fee grace-period/daily-rate
+  /// setting. Days already accrued under an earlier rate are never rewritten.
+  Future<dynamic> founderSetLateFeeSettings({
+    required int graceDays,
+    required num dailyRate,
+    String effectiveFrom = '',
+  }) =>
+      _api.call('api_founder_setLateFeeSettings', {
+        'graceDays': graceDays,
+        'dailyRate': dailyRate,
+        if (effectiveFrom.isNotEmpty) 'effectiveFrom': effectiveFrom,
+      });
+
+  /// Founder-only: compute/refresh a teacher's payout statement for a
+  /// service month from the live preview (DRAFT/CALCULATED only — re-running
+  /// this just refreshes the calculated figure). If a statement already
+  /// exists and is FOUNDER_APPROVED or PAID, the server refuses the
+  /// recalculation (ALREADY_DECIDED) but still names the statement's id and
+  /// status; that refusal is turned into a normal [PayoutStatement] here
+  /// instead of being thrown, so the screen can show the existing statement
+  /// rather than an error toast. Any other refusal (e.g. NOT_PRICED,
+  /// NOT_FOUND) still throws [ApiException].
+  Future<PayoutStatement> founderGeneratePayoutStatement({
+    required String teacherId,
+    required String month,
+  }) async {
+    try {
+      final b = await _api.call('api_founder_generatePayoutStatement', {
+        'teacherId': teacherId,
+        'month': month,
+      });
+      return PayoutStatement.fromApi(b as Map<String, dynamic>, teacherId: teacherId, month: month);
+    } on ApiException catch (e) {
+      if (e.payload != null && e.payload!['code'] == 'ALREADY_DECIDED') {
+        return PayoutStatement.fromApi(e.payload!, teacherId: teacherId, month: month);
+      }
+      rethrow;
+    }
+  }
+
+  /// Founder-only: approve a CALCULATED statement (-> FOUNDER_APPROVED),
+  /// folding in any payout_adjustments recorded against it. Only once this
+  /// has happened does `recordTeacherPayout` accept a payment for this
+  /// teacher/month (for service months from the expected-events floor
+  /// onward — see [PayoutRow.preCutover]). Idempotent: approving an
+  /// already-approved/paid statement returns its current status unchanged.
+  Future<PayoutStatement> founderApprovePayoutStatement({
+    required String statementId,
+    required String teacherId,
+    required String month,
+  }) async {
+    final b = await _api.call('api_founder_approvePayoutStatement', {'statementId': statementId});
+    return PayoutStatement.fromApi(b as Map<String, dynamic>, teacherId: teacherId, month: month);
+  }
+
+  /// Founder-only: a signed (+ add / - deduct), reasoned manual adjustment
+  /// against a statement that has not yet been approved. approvedBy/At are
+  /// always the founder's own session server-side — never client-supplied.
+  Future<dynamic> founderAddPayoutAdjustment({
+    required String statementId,
+    required num amount,
+    required String reason,
+    String relatedEntity = '',
+  }) =>
+      _api.call('api_founder_addPayoutAdjustment', {
+        'statementId': statementId,
+        'amount': amount,
+        'reason': reason,
+        if (relatedEntity.isNotEmpty) 'relatedEntity': relatedEntity,
+      });
+
+  /// Founder-only stopgap for the missing cron: fire WhatsApp late-fee
+  /// reminders to every student whose late fee started accruing today.
+  /// Returns however many were actually sent/failed/skipped this run.
+  Future<dynamic> founderSendOverdueLateFeeReminders() =>
+      _api.call('api_founder_sendOverdueLateFeeReminders', {});
+
   /// Staff — persisted drafts awaiting (or resolved by) founder approval.
   Future<List<ApprovalRequestRow>> staffMyRequests({String branch = ''}) async {
     final b = await _api.call('api_staff_listMyApprovals', {'branch': branch});

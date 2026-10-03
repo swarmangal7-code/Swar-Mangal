@@ -98,7 +98,17 @@ class _LateFeeWaiverScreenState extends State<LateFeeWaiverScreen> {
           TextField(
             controller: _amount,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Late fee amount (optional, for the record)'),
+            decoration: const InputDecoration(
+              labelText: 'Late fee amount (optional)',
+              // The server defaults this to the real day-by-day accrued late
+              // fee (accruedLateFee in fees.ts) when left blank — it is never
+              // an arbitrary number. Only type a figure here for a deliberate
+              // partial waiver. The app has no way to preview that computed
+              // amount before submitting (no RPC exposes it), so it is not
+              // pre-filled here.
+              helperText: 'Leave blank to waive the actual computed late fee. Type a number only for a deliberate partial waiver.',
+              helperMaxLines: 2,
+            ),
           ),
           const SizedBox(height: AppSpace.s3),
           TextField(

@@ -52,11 +52,19 @@ class DemoApiClient extends ApiClient {
     return _sharedInvoices!;
   }
 
+  /// Payout statements (DRAFT->CALCULATED->FOUNDER_APPROVED->PAID), SHARED
+  /// like the timetable, keyed by "teacherId|month" — so generating then
+  /// approving a statement in demo mode behaves like the real workflow
+  /// instead of resetting on every call.
+  static Map<String, Map<String, dynamic>>? _sharedStatements;
+  static Map<String, Map<String, dynamic>> get _statements => _sharedStatements ??= {};
+
   /// Clears the process-wide demo store. Tests call this in setUp so one
   /// test's writes cannot change what another test sees.
   static void resetSharedState() {
     _sharedTimetable = null;
     _sharedInvoices = null;
+    _sharedStatements = null;
     revisions.updateAll((k, v) => 1);
   }
 
@@ -117,6 +125,13 @@ class DemoApiClient extends ApiClient {
     'api_updateTeacherCompensation': {'teachers', 'payouts'},
     'api_recordTeacherPayout': {'payouts', 'expenses', 'dashboard'},
     'api_assignSharedStudent': {'payouts', 'dashboard'},
+    'api_founder_setPayoutStatusRule': {'payouts'},
+    'api_founder_setTeacherPercentSlab': {'payouts', 'teachers'},
+    'api_founder_setLateFeeSettings': {'payouts', 'students'},
+    'api_founder_generatePayoutStatement': {'payouts'},
+    'api_founder_approvePayoutStatement': {'payouts'},
+    'api_founder_addPayoutAdjustment': {'payouts'},
+    'api_founder_sendOverdueLateFeeReminders': {},
     'api_generateSchoolInvoice': {'invoices'},
     'api_timetableCreate': {'timetable'},
     'api_timetableUpdate': {'timetable'},
@@ -176,6 +191,13 @@ class DemoApiClient extends ApiClient {
     'api_updateTeacherStatus',
     'api_recordTeacherPayout',
     'api_assignSharedStudent',
+    'api_founder_setPayoutStatusRule',
+    'api_founder_setTeacherPercentSlab',
+    'api_founder_setLateFeeSettings',
+    'api_founder_generatePayoutStatement',
+    'api_founder_approvePayoutStatement',
+    'api_founder_addPayoutAdjustment',
+    'api_founder_sendOverdueLateFeeReminders',
     'api_founder_paymentDraftApprove',
     'api_founder_paymentDraftReject',
     'api_founder_finalisePaymentDraft',
@@ -424,6 +446,59 @@ class DemoApiClient extends ApiClient {
         };
       case 'api_teacherPayoutHistory':
         return {'ok': true, 'rows': const [], 'total': 0};
+      case 'api_founder_setPayoutStatusRule':
+        return {
+          'ok': true,
+          'ruleId': 'PSR-DEMO-${DateTime.now().millisecondsSinceEpoch}',
+          'outcome': a['outcome'] ?? '',
+          'payoutPercent': a['payoutPercent'] ?? a['percent'] ?? 0,
+          'effectiveFrom': a['effectiveFrom'] ?? '2026-10-03',
+          'note': 'New effective-dated rule added. Earlier rows are untouched.',
+        };
+      case 'api_founder_setTeacherPercentSlab':
+        return {
+          'ok': true,
+          'slabId': 'TPS-DEMO-${DateTime.now().millisecondsSinceEpoch}',
+          'monthsSinceStart': a['monthsSinceStart'] ?? 0,
+          'percent': a['percent'] ?? 0,
+          'effectiveFrom': a['effectiveFrom'] ?? '2026-10-03',
+          'note': 'New effective-dated slab step added. Earlier rows are untouched.',
+        };
+      case 'api_founder_setLateFeeSettings':
+        return {
+          'ok': true,
+          'settingId': 'LFS-DEMO-${DateTime.now().millisecondsSinceEpoch}',
+          'graceDays': a['graceDays'] ?? 7,
+          'dailyRate': a['dailyRate'] ?? 50,
+          'effectiveFrom': a['effectiveFrom'] ?? '2026-10-03',
+          'note': 'New effective-dated late-fee setting added. Fees already accrued under '
+              'the earlier rate are not retroactively changed.',
+        };
+      case 'api_founder_generatePayoutStatement':
+        return _generatePayoutStatement(a);
+      case 'api_founder_approvePayoutStatement':
+        return _approvePayoutStatement(a);
+      case 'api_founder_addPayoutAdjustment':
+        return {
+          'ok': true,
+          'adjustmentId': 'PADJ-DEMO-${DateTime.now().millisecondsSinceEpoch}',
+          'statementId': a['statementId'] ?? '',
+          'amount': a['amount'] ?? 0,
+          'reason': a['reason'] ?? '',
+          'relatedEntity': a['relatedEntity'] ?? '',
+          'approvedBy': 'demo@founder',
+          'note': 'Adjustment recorded. It is included the next time this statement is approved.',
+        };
+      case 'api_founder_sendOverdueLateFeeReminders':
+        return {
+          'ok': true,
+          'sent': 2,
+          'failed': 0,
+          'skipped': 1,
+          'total': 3,
+          'details': const [],
+          'note': 'Targets only students whose late fee started accruing today.',
+        };
       case 'api_assignSharedStudent':
         return {
           'ok': true,
@@ -2269,6 +2344,69 @@ class DemoApiClient extends ApiClient {
         ..._dashboardOverview(),
       };
 
+  /// G: DRAFT->CALCULATED->FOUNDER_APPROVED->PAID, mirrors
+  /// api_founder_generatePayoutStatement — re-running before approval just
+  /// refreshes the calculated figure; an already-decided statement refuses
+  /// (ALREADY_DECIDED) but still names its id/status, exactly like the real
+  /// RPC, so ApiService.founderGeneratePayoutStatement's recovery path is
+  /// exercised in demo mode too.
+  Map<String, dynamic> _generatePayoutStatement(Map<String, dynamic> a) {
+    final teacherId = (a['teacherId'] ?? '').toString();
+    final month = (a['month'] ?? a['serviceMonth'] ?? '').toString();
+    final key = '$teacherId|$month';
+    final existing = _statements[key];
+    if (existing != null && (existing['status'] == 'FOUNDER_APPROVED' || existing['status'] == 'PAID')) {
+      return {
+        'ok': false,
+        'code': 'ALREADY_DECIDED',
+        'error': 'This statement is already ${existing['status']}. Generating again would silently change a decided figure.',
+        'statementId': existing['statementId'],
+        'status': existing['status'],
+      };
+    }
+    final id = (existing?['statementId'] as String?) ?? 'PSTMT-DEMO-${DateTime.now().millisecondsSinceEpoch}';
+    const amount = 7500;
+    _statements[key] = {'statementId': id, 'status': 'CALCULATED', 'calculatedAmount': amount};
+    return {
+      'ok': true,
+      'statementId': id,
+      'teacherId': teacherId,
+      'month': month,
+      'status': 'CALCULATED',
+      'calculatedAmount': amount,
+      'note': 'Calculated from the live preview. Not payable until Sharvil approves it.',
+    };
+  }
+
+  /// H: approves a CALCULATED demo statement, mirroring
+  /// api_founder_approvePayoutStatement's idempotent-when-already-decided
+  /// behaviour.
+  Map<String, dynamic> _approvePayoutStatement(Map<String, dynamic> a) {
+    final id = (a['statementId'] ?? '').toString();
+    MapEntry<String, Map<String, dynamic>>? found;
+    for (final e in _statements.entries) {
+      if (e.value['statementId'] == id) {
+        found = e;
+        break;
+      }
+    }
+    if (found == null) return {'ok': false, 'code': 'NOT_FOUND', 'error': 'No payout statement $id'};
+    final entry = found.value;
+    if (entry['status'] == 'FOUNDER_APPROVED' || entry['status'] == 'PAID') {
+      return {'ok': true, 'statementId': id, 'changed': false, 'idempotent': true, 'status': entry['status']};
+    }
+    entry['status'] = 'FOUNDER_APPROVED';
+    entry['approvedAmount'] = entry['calculatedAmount'];
+    return {
+      'ok': true,
+      'statementId': id,
+      'changed': true,
+      'status': 'FOUNDER_APPROVED',
+      'approvedAmount': entry['approvedAmount'],
+      'note': 'Approved. recordTeacherPayout can now be used for this teacher/month.',
+    };
+  }
+
   Map<String, dynamic> _payoutPreview(Map<String, dynamic> a) => {
         'ok': true,
         'results': [
@@ -2288,6 +2426,10 @@ class DemoApiClient extends ApiClient {
             'status': 'PARTIAL',
             'preCutover': false,
             'note': '',
+            'outcomeFlags': {
+              'SCHOOL_HOLIDAY': {'count': 1, 'configuredPercent': 50},
+              'STUDENT_ABSENT': {'count': 2, 'configuredPercent': 100},
+            },
           },
           {
             'teacherId': 'T-002',

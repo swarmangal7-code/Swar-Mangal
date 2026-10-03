@@ -27,6 +27,7 @@ class _FeeBucketScreenState extends State<FeeBucketScreen> {
   List<DueReminderItem> _rows = const [];
   bool _busy = true;
   String? _error;
+  bool _sendingReminders = false;
 
   @override
   void initState() {
@@ -64,6 +65,36 @@ class _FeeBucketScreenState extends State<FeeBucketScreen> {
         _error = e.message;
         _busy = false;
       });
+    }
+  }
+
+  /// Founder-only stopgap for the missing cron (api_founder_sendOverdueLateFeeReminders
+  /// is FOUNDER-only in RPC_POLICY): fires WhatsApp reminders to every
+  /// student whose late fee started accruing today. Only shown on the
+  /// OVERDUE bucket, and only to the founder app (staff has no access to
+  /// this RPC).
+  Future<void> _sendReminders() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    setState(() => _sendingReminders = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final r = await auth.service!.founderSendOverdueLateFeeReminders();
+      final m = r as Map<String, dynamic>;
+      if (!mounted) return;
+      final sent = (m['sent'] as num?)?.toInt() ?? 0;
+      final failed = (m['failed'] as num?)?.toInt() ?? 0;
+      final demo = auth.isDemo || m['demo'] == true;
+      messenger.showSnackBar(SnackBar(
+        content: Text('Sent $sent reminder${sent == 1 ? '' : 's'}'
+            '${failed > 0 ? ' ($failed failed)' : ''}.${demo ? ' (DEMO — not sent)' : ''}'),
+      ));
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _sendingReminders = false);
     }
   }
 
@@ -117,7 +148,19 @@ class _FeeBucketScreenState extends State<FeeBucketScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.title}${_busy || _error != null ? '' : ' (${_rows.length})'}')),
+      appBar: AppBar(
+        title: Text('${widget.title}${_busy || _error != null ? '' : ' (${_rows.length})'}'),
+        actions: [
+          if (!widget.staff && widget.bucket == 'OVERDUE')
+            IconButton(
+              tooltip: 'Send overdue late-fee reminders',
+              icon: _sendingReminders
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.campaign_outlined),
+              onPressed: _sendingReminders ? null : _sendReminders,
+            ),
+        ],
+      ),
       body: body,
     );
   }

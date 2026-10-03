@@ -1350,6 +1350,7 @@ class PayoutRow {
     required this.note,
     this.reasons = const [],
     this.qualifications = const [],
+    this.outcomeFlags = const {},
   });
   factory PayoutRow.fromApi(Map<String, dynamic> b) {
     num n(dynamic v) {
@@ -1384,6 +1385,9 @@ class PayoutRow {
           .map((r) => _s(r['message']))
           .where((m) => m.isNotEmpty)
           .toList(),
+      outcomeFlags: ((b['outcomeFlags'] as Map?) ?? const {}).map(
+        (k, v) => MapEntry(_s(k), OutcomeFlag.fromApi((v as Map<String, dynamic>?) ?? const {})),
+      ),
     );
   }
   final String teacherId;
@@ -1404,6 +1408,71 @@ class PayoutRow {
   final String note;
   final List<String> reasons;
   final List<String> qualifications;
+  /// Informational-only counts of TEACHER_ABSENT/SCHOOL_HOLIDAY/STUDENT_ABSENT
+  /// classes this month, keyed by outcome, each with the founder-configured
+  /// payout_status_rules percent (if any). Never blended into `payable` —
+  /// the backend prices payouts as a % of collected fees, not per class, so
+  /// there is no reliable per-class rupee base to multiply against. A real
+  /// correction goes through a payout_adjustments row instead.
+  final Map<String, OutcomeFlag> outcomeFlags;
+}
+
+/// One entry of [PayoutRow.outcomeFlags] — a class-outcome count this month
+/// plus whatever % payout_status_rules has configured for it (null if the
+/// founder hasn't set a rule for that outcome).
+class OutcomeFlag {
+  OutcomeFlag({required this.count, required this.configuredPercent});
+  factory OutcomeFlag.fromApi(Map<String, dynamic> b) => OutcomeFlag(
+        count: (b['count'] as num?)?.toInt() ?? 0,
+        configuredPercent: b['configuredPercent'] == null ? null : _n(b['configuredPercent']),
+      );
+  final int count;
+  final num? configuredPercent;
+}
+
+/// Month-end teacher payout statement (api_founder_generatePayoutStatement /
+/// api_founder_approvePayoutStatement). Workflow: DRAFT -> CALCULATED ->
+/// FOUNDER_APPROVED -> PAID. recordTeacherPayout requires FOUNDER_APPROVED
+/// for service months from the expected-events floor onward (see
+/// [PayoutRow.preCutover] — pre-cutover months are not gated).
+class PayoutStatement {
+  PayoutStatement({
+    required this.statementId,
+    required this.teacherId,
+    required this.month,
+    required this.status,
+    this.calculatedAmount,
+    this.approvedAmount,
+    this.note = '',
+  });
+
+  /// Builds from either api_founder_generatePayoutStatement's success body,
+  /// its ALREADY_DECIDED refusal payload (still names statementId/status),
+  /// or api_founder_approvePayoutStatement's body. teacherId/month fall back
+  /// to what the caller asked for, since not every response shape repeats
+  /// them.
+  factory PayoutStatement.fromApi(Map<String, dynamic> b, {required String teacherId, required String month}) {
+    return PayoutStatement(
+      statementId: _s(b['statementId']),
+      teacherId: _s(b['teacherId']).ifEmpty(teacherId),
+      month: _s(b['month']).ifEmpty(month),
+      status: _s(b['status']),
+      calculatedAmount: b['calculatedAmount'] == null ? null : _n(b['calculatedAmount']),
+      approvedAmount: b['approvedAmount'] == null ? null : _n(b['approvedAmount']),
+      note: _s(b['note']),
+    );
+  }
+
+  final String statementId;
+  final String teacherId;
+  final String month;
+  final String status;
+  final num? calculatedAmount;
+  final num? approvedAmount;
+  final String note;
+
+  bool get isCalculated => status == 'CALCULATED';
+  bool get isApproved => status == 'FOUNDER_APPROVED' || status == 'PAID';
 }
 
 /// One recorded attendance mark for a student (api_studentProfile).
