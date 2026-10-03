@@ -34,6 +34,13 @@ interface TermsStatusRes extends RpcEnvelope {
   manualRequests?: { id: string; status: string; reason: string; submittedAt?: string }[];
 }
 
+interface AccruedLateFeeRes extends RpcEnvelope {
+  studentId?: string;
+  amount?: number;
+  daysLate?: number;
+  overdueSince?: string;
+}
+
 function termsUrl(t: { token: string; url: string }): string {
   if (t.url) return t.url;
   if (typeof window !== "undefined") return `${window.location.origin}/terms/${t.token}`;
@@ -176,6 +183,14 @@ function WaiverDialog({
   const [reason, setReason] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const intentRef = React.useRef(`WAIVER-${Date.now()}`);
+
+  // Read-only preview of the real computed accrued late fee, so the amount
+  // field's placeholder shows the actual figure before staff submit — a
+  // blank amount still waives this computed figure server-side, it's just
+  // no longer a guess.
+  const preview = useRpc<AccruedLateFeeRes>("api_previewAccruedLateFee", { studentId }, { enabled: open && !!studentId });
+  const computed = preview.data?.ok ? preview.data.amount : undefined;
+
   const mut = useMutationRpc<{ studentId: string; reason: string; waivedAmount?: number; clientIntentKey: string }, DraftRes>(
     "api_staff_submitLateFeeWaiverRequest",
     {
@@ -199,7 +214,21 @@ function WaiverDialog({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-[13px] text-dash-fg/70">Amount to waive (optional)</Label>
-            <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="border-dash-fg/10 bg-dash-surface text-dash-fg" />
+            <Input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder={computed != null ? `Computed: ₹${computed} — leave blank to waive this amount` : undefined}
+              className="border-dash-fg/10 bg-dash-surface text-dash-fg placeholder:text-dash-fg/35"
+            />
+            {preview.isFetching ? (
+              <p className="text-xs text-dash-fg/40">Computing the accrued late fee…</p>
+            ) : computed != null ? (
+              <p className="text-xs text-dash-fg/45">
+                Computed accrued late fee: ₹{computed}
+                {preview.data?.daysLate ? ` · ${preview.data.daysLate} day${preview.data.daysLate === 1 ? "" : "s"} late` : ""}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label className="text-[13px] text-dash-fg/70">Reason *</Label>

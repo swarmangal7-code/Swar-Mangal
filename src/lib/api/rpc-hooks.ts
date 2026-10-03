@@ -27,6 +27,7 @@ import type {
   InstrumentListResponse,
   PaymentDraftsResponse,
   PayoutPreviewResponse,
+  PayoutSettingsResponse,
   ReceiptSearchResponse,
   SchoolListResponse,
   StaffBootResponse,
@@ -64,6 +65,7 @@ export const rpcKeys = {
   paymentDrafts: () => ["rpc", "api_founder_listPaymentDrafts"] as const,
   auditLog: (branch?: string, month?: string) => ["rpc", "api_founder_auditLog", branch ?? "ALL", month ?? ""] as const,
   payoutPreview: (month?: string) => ["rpc", "api_teacherPayoutPreview", month ?? ""] as const,
+  payoutSettings: () => ["rpc", "api_founder_listPayoutSettings"] as const,
   todaysClasses: (date?: string, branch?: string) =>
     ["rpc", "api_staff_todaysClasses", date ?? "", branch ?? "ALL"] as const,
   attendanceRoster: (classId?: string, date?: string) =>
@@ -319,6 +321,12 @@ export function usePayoutPreview(month?: string, options?: QueryOptions<PayoutPr
     month ? { month } : {},
     options,
   );
+}
+
+/** Founder-only read of the full history of the three append-only payroll
+ *  settings tables (payout_status_rules, teacher_percent_slabs, late_fee_settings). */
+export function usePayoutSettings(options?: QueryOptions<PayoutSettingsResponse>) {
+  return useRpc<PayoutSettingsResponse>("api_founder_listPayoutSettings", undefined, options);
 }
 
 // ------------------------------------------------------------- today classes

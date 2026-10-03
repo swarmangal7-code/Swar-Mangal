@@ -706,6 +706,14 @@ export interface TodaysClassesResponse extends RpcEnvelope {
 
 // ---------------------------------------------------------------- payouts
 
+/** B: visibility-only counts of the 3 exception outcomes this month, keyed
+ *  by outcome — see the schema comment on payout_status_rules for why this
+ *  is never blended into `payable` automatically. */
+export interface OutcomeFlag {
+  count: number;
+  configuredPercent: number | null;
+}
+
 export interface PayoutRow {
   teacherId: string;
   teacherName: string;
@@ -723,6 +731,77 @@ export interface PayoutRow {
   qualifications: { message: string }[];
   missingRule?: boolean;
   preCutover: boolean;
+  note: string;
+  sharePercent?: number | null;
+  payoutType?: string;
+  ratePercentSource?: string;
+  sharedStudentsAssigned?: number;
+  paymentCount?: number;
+  /** Informational only — never blended into `payable`. */
+  outcomeFlags?: Record<string, OutcomeFlag>;
+}
+
+// ------------------------------------------------------ payout settings
+
+export interface PayoutStatusRule {
+  id: string;
+  outcome: string;
+  payoutPercent: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  notes: string | null;
+  createdBy: string;
+}
+
+export interface TeacherPercentSlab {
+  id: string;
+  monthsSinceStart: number;
+  percent: number;
+  effectiveFrom: string;
+  createdBy: string;
+}
+
+export interface LateFeeSetting {
+  id: string;
+  graceDays: number;
+  dailyRate: number;
+  effectiveFrom: string;
+  createdBy: string;
+}
+
+export interface PayoutSettingsResponse extends RpcEnvelope {
+  payoutStatusRules: PayoutStatusRule[];
+  teacherPercentSlabs: TeacherPercentSlab[];
+  lateFeeSettings: LateFeeSetting[];
+}
+
+// ----------------------------------------------------- payout statements
+
+export type PayoutStatementStatus = "DRAFT" | "CALCULATED" | "FOUNDER_APPROVED" | "PAID" | (string & {});
+
+/** Shared shape of generatePayoutStatement's success body, its ALREADY_DECIDED
+ *  refusal payload (still names statementId/status), and approvePayoutStatement's
+ *  body — there is no RPC to list statements for a month, so the web UI (like the
+ *  Flutter screen) keeps this in local session state only, keyed by teacher+month. */
+export interface PayoutStatement extends RpcEnvelope {
+  statementId: string;
+  teacherId?: string;
+  month?: string;
+  status: PayoutStatementStatus;
+  calculatedAmount?: number | null;
+  approvedAmount?: number | null;
+  changed?: boolean;
+  idempotent?: boolean;
+  note?: string;
+}
+
+export interface PayoutAdjustmentResponse extends RpcEnvelope {
+  adjustmentId: string;
+  statementId: string;
+  amount: number;
+  reason: string;
+  relatedEntity: string;
+  approvedBy: string;
   note: string;
 }
 
