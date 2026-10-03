@@ -31,6 +31,13 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
   bool _busy = false;
   bool _closing = false;
 
+  /// Payout statements fetched/generated this session, keyed by
+  /// "teacherId|month". The preview RPC doesn't report statement status
+  /// itself, so this is populated lazily as the founder works a row — there
+  /// is no "list statements" read either, only generate/approve.
+  final Map<String, PayoutStatement> _statements = {};
+  String _stKey(String teacherId, String month) => '$teacherId|$month';
+
   @override
   void initState() {
     super.initState();
@@ -312,15 +319,19 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
                         padding: const EdgeInsets.only(top: AppSpace.s2),
                         child: Text('· $q', style: TextStyle(fontSize: 11.5, color: AppColors.adaptive(context, AppColors.muted))),
                       ),
-                    if (r.balance > 0)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: _busy ? null : () => _recordPayment(r),
-                          icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
-                          label: const Text('Record payment'),
-                        ),
+                    if (r.outcomeFlags.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpace.s2),
+                        child: Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
+                          for (final entry in r.outcomeFlags.entries)
+                            _tag(
+                              entry.key,
+                              '${entry.value.count} · ${entry.value.configuredPercent != null ? '${entry.value.configuredPercent!.toInt()}%' : 'unset'}',
+                            ),
+                        ]),
                       ),
+                    const SizedBox(height: AppSpace.s3),
+                    _statementSection(r),
                   ],
                 ]),
               ),
@@ -405,6 +416,211 @@ class _PayoutPreviewScreenState extends State<PayoutPreviewScreen> {
       if (!mounted) return;
       _toast('Split saved for ${shared.studentName}.');
       await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _toast(e.message);
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _toast(e.message);
+    }
+  }
+
+  /// The statement workflow + record-payment action for one teacher/month
+  /// row. For months from the expected-events floor onward (!preCutover),
+  /// the backend refuses `recordTeacherPayout` unless a FOUNDER_APPROVED
+  /// statement exists — see the gate added to `recordTeacherPayout` in
+  /// handlers2.ts. Pre-cutover rows keep working exactly as before: no
+  /// statement is required to record a payment.
+  Widget _statementSection(PayoutRow r) {
+    final key = _stKey(r.teacherId, r.month);
+    final stmt = _statements[key];
+    final gated = !r.preCutover;
+    final approved = stmt?.isApproved ?? false;
+    final canRecord = r.balance > 0 && (!gated || approved);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (gated) ...[
+        Row(children: [
+          if (stmt != null) ...[
+            StatusBadge(stmt.status),
+            const SizedBox(width: AppSpace.s2),
+            if (stmt.calculatedAmount != null) Text('calculated ${inr(stmt.calculatedAmount!)}', style: const TextStyle(fontSize: 11.5)),
+            if (stmt.approvedAmount != null) Text(' · approved ${inr(stmt.approvedAmount!)}', style: const TextStyle(fontSize: 11.5)),
+          ] else
+            Text('No statement generated yet for ${r.month}.',
+                style: TextStyle(fontSize: 11.5, color: AppColors.adaptive(context, AppColors.muted))),
+        ]),
+        const SizedBox(height: AppSpace.s2),
+        Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
+          TextButton.icon(
+            onPressed: _busy || approved ? null : () => _generateStatement(r),
+            icon: const Icon(Icons.calculate_outlined, size: 18),
+            label: Text(stmt == null ? 'Generate statement' : 'Refresh'),
+          ),
+          if (stmt != null && stmt.isCalculated)
+            TextButton.icon(
+              onPressed: _busy ? null : () => _approveStatement(r, stmt),
+              icon: const Icon(Icons.verified_outlined, size: 18),
+              label: const Text('Approve'),
+            ),
+          if (stmt != null && !stmt.isApproved)
+            TextButton.icon(
+              onPressed: _busy ? null : () => _addAdjustment(r, stmt),
+              icon: const Icon(Icons.tune_outlined, size: 18),
+              label: const Text('Add adjustment'),
+            ),
+        ]),
+        const SizedBox(height: AppSpace.s2),
+      ],
+      if (r.balance > 0)
+        Align(
+          alignment: Alignment.centerRight,
+          child: canRecord
+              ? TextButton.icon(
+                  onPressed: _busy ? null : () => _recordPayment(r),
+                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+                  label: const Text('Record payment'),
+                )
+              : Text('Approve a statement before recording payment.',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.adaptive(context, AppColors.warnFg))),
+        ),
+    ]);
+  }
+
+  Future<void> _generateStatement(PayoutRow r) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    setState(() => _busy = true);
+    try {
+      final stmt = await auth.service!.founderGeneratePayoutStatement(teacherId: r.teacherId, month: r.month);
+      if (!mounted) return;
+      setState(() {
+        _statements[_stKey(r.teacherId, r.month)] = stmt;
+        _busy = false;
+      });
+      _toast(stmt.note.isNotEmpty ? stmt.note : 'Statement ${stmt.status}.');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _toast(e.message);
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _toast(e.message);
+    }
+  }
+
+  Future<void> _approveStatement(PayoutRow r, PayoutStatement stmt) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Approve this statement?'),
+        content: Text('Approve ${r.teacherName.isNotEmpty ? r.teacherName : r.teacherId}\'s ${r.month} statement'
+            '${stmt.calculatedAmount != null ? ' for ${inr(stmt.calculatedAmount!)}' : ''}? '
+            'Only after this can the payment be recorded.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Approve')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final approved = await auth.service!.founderApprovePayoutStatement(
+        statementId: stmt.statementId,
+        teacherId: r.teacherId,
+        month: r.month,
+      );
+      if (!mounted) return;
+      setState(() {
+        _statements[_stKey(r.teacherId, r.month)] = approved;
+        _busy = false;
+      });
+      _toast(approved.note.isNotEmpty ? approved.note : 'Statement approved.');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _toast(e.message);
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _toast(e.message);
+    }
+  }
+
+  /// A small, signed (+/-), mandatory-reason manual adjustment against a
+  /// not-yet-approved statement. approvedBy/At are always the founder's own
+  /// session, server-side — there is nothing for the client to supply there.
+  Future<void> _addAdjustment(PayoutRow r, PayoutStatement stmt) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final amountCtl = TextEditingController();
+    final reasonCtl = TextEditingController();
+    String? error;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Payout adjustment'),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${r.teacherName.isNotEmpty ? r.teacherName : r.teacherId} · ${r.month}',
+                style: TextStyle(fontSize: 12, color: AppColors.adaptive(ctx, AppColors.muted))),
+            const SizedBox(height: AppSpace.s3),
+            TextField(
+              controller: amountCtl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+              decoration: const InputDecoration(labelText: 'Amount (+ to add, - to deduct)', prefixText: '₹ '),
+            ),
+            const SizedBox(height: AppSpace.s3),
+            TextField(
+              controller: reasonCtl,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Reason (required)'),
+            ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.s2),
+                child: Text(error!, style: TextStyle(color: AppColors.adaptive(ctx, AppColors.blockFg), fontSize: 12.5)),
+              ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final amount = num.tryParse(amountCtl.text.trim());
+                if (amount == null || amount == 0) {
+                  setLocal(() => error = 'Give a non-zero signed amount.');
+                  return;
+                }
+                if (reasonCtl.text.trim().isEmpty) {
+                  setLocal(() => error = 'Say why this adjustment is being made.');
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final result = await auth.service!.founderAddPayoutAdjustment(
+        statementId: stmt.statementId,
+        amount: num.parse(amountCtl.text.trim()),
+        reason: reasonCtl.text.trim(),
+      );
+      if (!mounted) return;
+      final m = result as Map<String, dynamic>;
+      setState(() => _busy = false);
+      _toast((m['note'] ?? 'Adjustment recorded.').toString());
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
