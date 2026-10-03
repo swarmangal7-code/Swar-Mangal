@@ -189,3 +189,76 @@ export function referenceRuleViolation(reference: string, receiptBookNo: string)
   if (reference.trim() || receiptBookNo.trim()) return null;
   return "Enter the UTR / transaction reference, or the receipt-book number for cash. A fee payment cannot have neither.";
 }
+
+// ---------------------------------------------------------------- late fees
+// Founder request 2026-10-03: a genuinely overdue balance accrues a
+// configurable daily late fee once a configurable grace period has passed.
+// Both numbers live in `late_fee_settings` (effective-dated, founder-editable
+// — see setLateFeeSettings), never hardcoded here. The fee is computed on
+// read from the due date + today's date; nothing is stored as a running
+// balance, so there is nothing to migrate and nothing that can drift out of
+// sync with the settings history. A rate change only affects days accrued
+// from its own effective_from onward — days already accrued under an earlier
+// rate keep that earlier rate (non-retroactive).
+
+export interface LateFeeSetting {
+  graceDays: number;
+  dailyRate: number;
+  effectiveFrom: string;
+}
+
+export interface LateFeeAccrual {
+  /** Total late fee accrued as of `today`, under whichever rate(s) applied on each day. */
+  amount: number;
+  /** Number of days the fee has been accruing (0 if still inside grace or not overdue). */
+  daysLate: number;
+  /** The grace period actually used (the one effective on the due date). */
+  graceDays: number;
+  /** The first date the fee would actually start accruing, or null if no due date/settings. */
+  overdueSince: string | null;
+}
+
+/** Local day arithmetic — kept inside this module so fees.ts never imports
+ *  from rules.ts (rules.ts already imports FROM fees.ts; importing back
+ *  would create a cycle). */
+function addDaysLocal(isoDate: string, days: number): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** The setting effective on a given date: the latest effective_from that is
+ *  not after it. Null when no setting has started yet by that date. */
+function lateFeeSettingAsOf(settings: LateFeeSetting[], onDate: string): LateFeeSetting | null {
+  const applicable = settings.filter((s) => s.effectiveFrom <= onDate);
+  if (!applicable.length) return null;
+  return applicable.slice().sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1))[0];
+}
+
+/**
+ * Day-by-day accrual: the grace period is the one effective on the due date
+ * itself (it decides when accrual starts); each day's rate after that is
+ * whichever setting was effective on that specific day — so a founder
+ * changing the daily rate today never rewrites fee already accrued on
+ * earlier days.
+ */
+export function accruedLateFee(
+  dueDate: string | null | undefined,
+  today: string,
+  settings: LateFeeSetting[],
+): LateFeeAccrual {
+  if (!dueDate || !settings.length) return { amount: 0, daysLate: 0, graceDays: 0, overdueSince: null };
+  const atDue = lateFeeSettingAsOf(settings, dueDate) ?? settings.slice().sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1))[0];
+  const graceDays = atDue.graceDays;
+  const overdueSince = addDaysLocal(dueDate, graceDays + 1);
+  const days = daysUntil(overdueSince, today);
+  if (days == null || days > 0) return { amount: 0, daysLate: 0, graceDays, overdueSince };
+  const daysLate = -days + 1; // inclusive of both overdueSince and today
+  let amount = 0;
+  for (let i = 0; i < daysLate; i++) {
+    const day = addDaysLocal(overdueSince, i);
+    const setting = lateFeeSettingAsOf(settings, day) ?? atDue;
+    amount += setting.dailyRate;
+  }
+  return { amount: Math.round(amount * 100) / 100, daysLate, graceDays, overdueSince };
+}

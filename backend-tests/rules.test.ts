@@ -17,6 +17,11 @@ import {
   inquiryFinalStatus,
   inquiryDormancyDue,
   INQUIRY_DORMANT_AFTER_DAYS,
+  effectiveRowOn,
+  payoutPercentForOutcome,
+  slabPercentFor,
+  type PayoutStatusRule,
+  type TeacherPercentSlab,
 } from "../src/lib/rpc/rules.ts";
 
 test("receipt exclusion covers VOID, REVERS and DRAFT anywhere in the status", () => {
@@ -112,6 +117,64 @@ test("payout pricing refuses by name and never shows a guessed zero", () => {
   assert.equal(earningBaseFromEnv(undefined), null);
   assert.equal(earningBaseFromEnv("guess"), null);
   assert.equal(earningBaseFromEnv("collected_receipts"), "COLLECTED_RECEIPTS");
+});
+
+test("effectiveRowOn picks the latest row that has started and not yet ended", () => {
+  const rows = [
+    { effectiveFrom: "2020-01-01", label: "a" },
+    { effectiveFrom: "2026-01-01", label: "b" },
+    { effectiveFrom: "2026-06-01", label: "c" },
+  ];
+  assert.equal(effectiveRowOn(rows, "2025-12-31")?.label, "a");
+  assert.equal(effectiveRowOn(rows, "2026-01-01")?.label, "b");
+  assert.equal(effectiveRowOn(rows, "2026-05-31")?.label, "b");
+  assert.equal(effectiveRowOn(rows, "2026-06-01")?.label, "c");
+  assert.equal(effectiveRowOn([], "2026-06-01"), null);
+});
+
+test("effectiveRowOn respects effective_to", () => {
+  const rows = [{ effectiveFrom: "2020-01-01", effectiveTo: "2026-01-01", label: "old" }];
+  assert.equal(effectiveRowOn(rows, "2025-12-31")?.label, "old");
+  assert.equal(effectiveRowOn(rows, "2026-01-01"), null, "effective_to is exclusive");
+});
+
+test("payoutPercentForOutcome: a status rule change never rewrites a past month's %", () => {
+  const rules: PayoutStatusRule[] = [
+    { outcome: "SCHOOL_HOLIDAY", payoutPercent: 50, effectiveFrom: "2020-01-01" },
+    { outcome: "SCHOOL_HOLIDAY", payoutPercent: 75, effectiveFrom: "2026-11-01" },
+    { outcome: "ACADEMY_CANCELLED", payoutPercent: 50, effectiveFrom: "2020-01-01" },
+  ];
+  assert.equal(payoutPercentForOutcome(rules, "SCHOOL_HOLIDAY", "2026-10-01"), 50);
+  assert.equal(payoutPercentForOutcome(rules, "SCHOOL_HOLIDAY", "2026-11-01"), 75);
+  assert.equal(payoutPercentForOutcome(rules, "TEACHER_ABSENT", "2026-10-01"), null, "no rule configured yet");
+});
+
+test("slabPercentFor: a new-teacher ramp picks the highest step reached, as of the ramp schedule's own effective date", () => {
+  const slabs: TeacherPercentSlab[] = [
+    { monthsSinceStart: 0, percent: 30, effectiveFrom: "2020-01-01" },
+    { monthsSinceStart: 6, percent: 40, effectiveFrom: "2020-01-01" },
+    { monthsSinceStart: 12, percent: 50, effectiveFrom: "2020-01-01" },
+  ];
+  assert.equal(slabPercentFor(slabs, 0, "2026-10-01"), 30);
+  assert.equal(slabPercentFor(slabs, 5, "2026-10-01"), 30);
+  assert.equal(slabPercentFor(slabs, 6, "2026-10-01"), 40);
+  assert.equal(slabPercentFor(slabs, 11, "2026-10-01"), 40);
+  assert.equal(slabPercentFor(slabs, 12, "2026-10-01"), 50);
+  assert.equal(slabPercentFor(slabs, 99, "2026-10-01"), 50);
+});
+
+test("slabPercentFor: a ramp change the founder makes later does not rewrite an already-computed earlier month", () => {
+  const slabs: TeacherPercentSlab[] = [
+    { monthsSinceStart: 0, percent: 30, effectiveFrom: "2020-01-01" },
+    // Founder raises the month-0 step to 35%, but only from 2026-11-01 on.
+    { monthsSinceStart: 0, percent: 35, effectiveFrom: "2026-11-01" },
+  ];
+  assert.equal(slabPercentFor(slabs, 0, "2026-10-01"), 30);
+  assert.equal(slabPercentFor(slabs, 0, "2026-11-01"), 35);
+});
+
+test("slabPercentFor: no slab configured yet for that step returns null, never a guess", () => {
+  assert.equal(slabPercentFor([], 0, "2026-10-01"), null);
 });
 
 test("only VERIFIED classes settle", () => {

@@ -8,7 +8,7 @@ import { s, n, d, newId, nextDocSeq, bumpRevisions, schoolByIdOrCode } from "@/l
 import { randomBytes } from "crypto";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo } from "@/lib/rpc/numbering";
 import { normalizeEmail, isValidEmail } from "@/lib/email/otp";
-import { todayIso, addMonths, splitInstalments } from "@/lib/rpc/fees";
+import { todayIso, addMonths, splitInstalments, accruedLateFee, type LateFeeSetting } from "@/lib/rpc/fees";
 import {
   EXPECTED_EVENTS_FLOOR,
   addDays,
@@ -917,14 +917,25 @@ async function submitLateFeeWaiverRequest(arg: Record<string, unknown>, scope: B
   const intent = s(arg["clientIntentKey"] ?? arg["requestId"]).trim() || null;
   if (!studentId) return refuse("STUDENT_ID_REQUIRED", "Pick the student.");
   if (!reason) return refuse("REASON_REQUIRED", "Say why the late fee is being waived.");
-  const student = await queryOne<{ name: string; branch: string; next_due_date: string | null }>(
-    `select name, branch, next_due_date::text from students_acad where id = $1`,
+  const student = await queryOne<{ name: string; branch: string; next_due_date: string | null; status: string }>(
+    `select name, branch, next_due_date::text, status from students_acad where id = $1`,
     [studentId],
   );
   if (!student) return refuse("STUDENT_NOT_FOUND", `No student ${studentId}`);
   const branch = recordBranch(student.branch);
   if (!inScope(scope, branch)) return branchForbidden(branch);
-  const waivedAmount = arg["waivedAmount"] != null && n(arg["waivedAmount"]) > 0 ? n(arg["waivedAmount"]) : null;
+  // E: default the waive amount to the REAL computed accrued late fee (brief:
+  // the waiver must waive a real number, not an arbitrary typed one) — staff
+  // may still type a different amount (e.g. a deliberate partial waiver).
+  let waivedAmount = arg["waivedAmount"] != null && n(arg["waivedAmount"]) > 0 ? n(arg["waivedAmount"]) : null;
+  if (waivedAmount == null) {
+    const settingRows = await query<{ grace_days: number; daily_rate: string; effective_from: string }>(
+      `select grace_days, daily_rate::text, effective_from::text from late_fee_settings order by effective_from`,
+    );
+    const settings: LateFeeSetting[] = settingRows.map((r) => ({ graceDays: r.grace_days, dailyRate: n(r.daily_rate), effectiveFrom: r.effective_from }));
+    const accrued = accruedLateFee(student.next_due_date, todayIso(), settings);
+    if (accrued.amount > 0) waivedAmount = accrued.amount;
+  }
   const newNextDueDate = /^\d{4}-\d{2}-\d{2}$/.test(s(arg["newNextDueDate"])) ? s(arg["newNextDueDate"]) : null;
   if (intent) {
     const earlier = await queryOne<{ id: string; status: string }>(`select id, status from late_fee_waiver_requests where client_intent_key = $1`, [intent]);

@@ -96,6 +96,21 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_updateTeacherCompensation: FOUNDER,
   api_teacherPayoutPreview: FOUNDER,
   api_founder_closePayoutPeriod: FOUNDER,
+  // Founder request 2026-10-03: payout statement workflow (DRAFT ->
+  // CALCULATED -> FOUNDER_APPROVED -> PAID), manual adjustments, and the
+  // founder-editable settings behind outcome-based pay %, the new-teacher
+  // percent-slab ramp and late fees — all rate/approval/money decisions, so
+  // all founder-only, matching every other rate/slab/money gate here.
+  api_founder_generatePayoutStatement: FOUNDER,
+  api_founder_approvePayoutStatement: FOUNDER,
+  api_founder_addPayoutAdjustment: FOUNDER,
+  api_founder_setPayoutStatusRule: FOUNDER,
+  api_founder_setTeacherPercentSlab: FOUNDER,
+  api_founder_setLateFeeSettings: FOUNDER,
+  // The endpoint an external cron (or a founder/staff stopgap button) calls
+  // once a day to fire overdue late-fee reminders — same founder-only
+  // pattern as api_founder_sendDailyDigest below.
+  api_founder_sendOverdueLateFeeReminders: FOUNDER,
   // Paying a teacher is money leaving the academy: founder only.
   api_recordTeacherPayout: FOUNDER,
   api_teacherPayoutHistory: FOUNDER,
@@ -328,6 +343,9 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_addInstrument",
   "api_addTeacher", "api_staff_requestAddTeacher", "api_founder_addTeacherRequestApprove", "api_founder_addTeacherRequestReject",
   "api_updateTeacherStatus", "api_updateTeacherCompensation", "api_recordTeacherPayout", "api_assignSharedStudent", "api_founder_closePayoutPeriod",
+  "api_founder_generatePayoutStatement", "api_founder_approvePayoutStatement", "api_founder_addPayoutAdjustment",
+  "api_founder_setPayoutStatusRule", "api_founder_setTeacherPercentSlab", "api_founder_setLateFeeSettings",
+  "api_founder_sendOverdueLateFeeReminders",
   "api_addExpenseEntry", "api_staff_submitExpenseDraft",
   "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject",
   "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject",

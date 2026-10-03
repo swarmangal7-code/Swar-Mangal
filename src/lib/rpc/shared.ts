@@ -215,6 +215,11 @@ export interface AcadTeacher {
   email: string;
   instrument: string;
   status: string;
+  // Founder request 2026-10-03: when a teacher's agreed compensation follows
+  // the new percentage-slab ramp instead of their payout_rules row. Defaults
+  // false for every existing (legacy) teacher — never auto-migrated.
+  joined_date?: string | null;
+  uses_percent_slab?: boolean;
 }
 
 /** A school, as it appears on an invoice: code, name, address, contact. */
@@ -335,11 +340,11 @@ export async function acadStudentById(id: string): Promise<AcadStudent | null> {
 }
 
 export async function acadTeachers(): Promise<AcadTeacher[]> {
-  return query<AcadTeacher>(`select id, name, phone, email, instrument, status from teachers_acad order by name`);
+  return query<AcadTeacher>(`select id, name, phone, email, instrument, status, joined_date::text, uses_percent_slab from teachers_acad order by name`);
 }
 
 export async function acadTeacherById(id: string): Promise<AcadTeacher | null> {
-  return queryOne<AcadTeacher>(`select id, name, phone, email, instrument, status from teachers_acad where id = $1`, [id]);
+  return queryOne<AcadTeacher>(`select id, name, phone, email, instrument, status, joined_date::text, uses_percent_slab from teachers_acad where id = $1`, [id]);
 }
 
 // --------------------------------------------------------------------------

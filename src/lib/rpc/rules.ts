@@ -113,8 +113,11 @@ export function inquiryDormancyDue(createdAt: string, today: string): boolean {
 export const CUSTOM_KINDS = ["SUBSTITUTE", "REPLACEMENT", "GOODWILL_RECOVERY"] as const;
 export type CustomKind = (typeof CUSTOM_KINDS)[number];
 
-/** Outcomes after which a class is owed a replacement. */
-const OWED_OUTCOMES = new Set(["TEACHER_CANCELLED", "ACADEMY_CANCELLED", "RESCHEDULED"]);
+/** Outcomes after which a class is owed a replacement. TEACHER_ABSENT behaves
+ *  like TEACHER_CANCELLED for the student's side: the academy failed to
+ *  deliver, so the student is still owed the class. SCHOOL_HOLIDAY and
+ *  STUDENT_ABSENT are not the academy's failure, so neither owes one. */
+const OWED_OUTCOMES = new Set(["TEACHER_CANCELLED", "ACADEMY_CANCELLED", "RESCHEDULED", "TEACHER_ABSENT"]);
 
 export function customSessionRefusal(input: {
   kind: string;
@@ -266,4 +269,64 @@ export function unsettleableClasses(
 /** First day of the month after a service month, for range queries. */
 export function monthEndExclusive(month: string): string {
   return addMonths(`${month}-01`, 1);
+}
+
+// ------------------------------------------------- effective-dated settings
+// Founder request 2026-10-03: payout_status_rules, teacher_percent_slabs and
+// late_fee_settings are all append-only, effective-dated tables (new rows,
+// never edited/deleted rows) so a future rate/slab/fee change can never
+// silently reshape a past month's numbers. These two lookups are the shared
+// "which row applies on this date" logic both settings use.
+
+export interface EffectiveDatedRow {
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+}
+
+/** The row effective on `onDate`: the latest effective_from <= onDate whose
+ *  effective_to (if any) is still in the future of onDate. Null when none. */
+export function effectiveRowOn<T extends EffectiveDatedRow>(rows: T[], onDate: string): T | null {
+  const applicable = rows.filter((r) => r.effectiveFrom <= onDate && (!r.effectiveTo || r.effectiveTo > onDate));
+  if (!applicable.length) return null;
+  return applicable.slice().sort((a, b) => (a.effectiveFrom < b.effectiveFrom ? 1 : -1))[0];
+}
+
+export interface PayoutStatusRule extends EffectiveDatedRow {
+  outcome: string;
+  payoutPercent: number;
+}
+
+/** What % of the normal rate a teacher is paid for a given class outcome, as
+ *  of `onDate` (brief: SCHOOL_HOLIDAY/ACADEMY_CANCELLED retainer %, etc —
+ *  see payout_status_rules seed defaults in db/schema.sql). Null when the
+ *  founder has not configured a rule for that outcome yet. */
+export function payoutPercentForOutcome(rules: PayoutStatusRule[], outcome: string, onDate: string): number | null {
+  const row = effectiveRowOn(
+    rules.filter((r) => r.outcome === outcome),
+    onDate,
+  );
+  return row ? row.payoutPercent : null;
+}
+
+export interface TeacherPercentSlab extends EffectiveDatedRow {
+  monthsSinceStart: number;
+  percent: number;
+}
+
+/**
+ * The slab-ramp percent for a teacher `monthsSinceStart` months into their
+ * tenure, using the slab schedule as it stood on `onDate` — a founder
+ * changing the ramp later never rewrites an already-computed month. Only
+ * used for a teacher the founder has explicitly opted into the slab model
+ * (teachers_acad.uses_percent_slab); legacy teachers never reach this.
+ */
+export function slabPercentFor(slabs: TeacherPercentSlab[], monthsSinceStart: number, onDate: string): number | null {
+  const byStep = new Map<number, TeacherPercentSlab>();
+  for (const row of slabs) {
+    if (row.effectiveFrom > onDate) continue;
+    const cur = byStep.get(row.monthsSinceStart);
+    if (!cur || row.effectiveFrom > cur.effectiveFrom) byStep.set(row.monthsSinceStart, row);
+  }
+  const steps = [...byStep.values()].filter((r) => r.monthsSinceStart <= monthsSinceStart).sort((a, b) => b.monthsSinceStart - a.monthsSinceStart);
+  return steps.length ? steps[0].percent : null;
 }

@@ -135,3 +135,48 @@ test("a fee payment needs a UTR or a receipt-book number", () => {
   assert.equal(referenceRuleViolation("", "BK-0042"), null);
   assert.match(referenceRuleViolation("", " ") ?? "", /never neither|cannot have neither/i);
 });
+
+import { accruedLateFee, type LateFeeSetting } from "../src/lib/rpc/fees.ts";
+
+const LFS: LateFeeSetting[] = [{ graceDays: 7, dailyRate: 50, effectiveFrom: "2020-01-01" }];
+
+test("late fee: nothing accrues inside the grace period", () => {
+  // Due 2026-09-01, 7-day grace -> accrual starts 2026-09-09.
+  assert.deepEqual(accruedLateFee("2026-09-01", "2026-09-05", LFS), { amount: 0, daysLate: 0, graceDays: 7, overdueSince: "2026-09-09" });
+  assert.equal(accruedLateFee("2026-09-01", "2026-09-08", LFS).amount, 0);
+});
+
+test("late fee: accrual starts the day after grace ends and counts inclusively", () => {
+  const first = accruedLateFee("2026-09-01", "2026-09-09", LFS);
+  assert.equal(first.daysLate, 1);
+  assert.equal(first.amount, 50);
+  const fifth = accruedLateFee("2026-09-01", "2026-09-13", LFS);
+  assert.equal(fifth.daysLate, 5);
+  assert.equal(fifth.amount, 250);
+});
+
+test("late fee: no due date or no settings means nothing accrues", () => {
+  assert.deepEqual(accruedLateFee(null, "2026-09-13", LFS), { amount: 0, daysLate: 0, graceDays: 0, overdueSince: null });
+  assert.deepEqual(accruedLateFee("2026-09-01", "2026-09-13", []), { amount: 0, daysLate: 0, graceDays: 0, overdueSince: null });
+});
+
+test("late fee: a later rate change never rewrites days already accrued under the earlier rate", () => {
+  const changing: LateFeeSetting[] = [
+    { graceDays: 7, dailyRate: 50, effectiveFrom: "2020-01-01" },
+    { graceDays: 7, dailyRate: 100, effectiveFrom: "2026-09-11" },
+  ];
+  // Accrual starts 2026-09-09 at ₹50/day for the 9th and 10th, then ₹100/day
+  // from the 11th onward once the new rate takes effect.
+  const r = accruedLateFee("2026-09-01", "2026-09-13", changing);
+  assert.equal(r.daysLate, 5);
+  assert.equal(r.amount, 50 + 50 + 100 + 100 + 100); // 9,10 @50 + 11,12,13 @100
+});
+
+test("late fee: the grace period used is the one effective on the due date, not on today", () => {
+  const graceChange: LateFeeSetting[] = [
+    { graceDays: 7, dailyRate: 50, effectiveFrom: "2020-01-01" },
+    { graceDays: 3, dailyRate: 50, effectiveFrom: "2026-09-10" },
+  ];
+  // Due 2026-09-01 is before the grace change, so the 7-day grace still applies.
+  assert.equal(accruedLateFee("2026-09-01", "2026-09-09", graceChange).overdueSince, "2026-09-09");
+});

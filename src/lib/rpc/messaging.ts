@@ -68,7 +68,10 @@ async function whatsappStatus(): Promise<Result> {
   return ok({ enabled: sendingEnabled(), connected: st.connected, status: st.status, error: st.error ?? "" });
 }
 
-async function sendWhatsApp(
+/** Exported so other server-side callers (e.g. the overdue late-fee reminder
+ *  sweep in handlers2.ts) can send through the exact same gateway call, dedup
+ *  window and opt-out/allow-list checks — never a second messaging path. */
+export async function sendWhatsApp(
   arg: Record<string, unknown>,
   scope: BranchScope,
   session: RpcSession,
