@@ -6,6 +6,7 @@ import 'core/theme.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/founder/founder_shell.dart';
 import 'screens/staff/staff_shell.dart';
+import 'services/push_service.dart';
 import 'state/auth_provider.dart';
 import 'state/sync_manager.dart';
 import 'widgets/music_mark.dart';
@@ -47,6 +48,7 @@ class AcademyApp extends StatelessWidget {
           child: MaterialApp(
             title: 'Swar Mangal',
             debugShowCheckedModeBanner: false,
+            navigatorKey: PushService.navigatorKey,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
             themeMode: theme.mode,
@@ -131,6 +133,7 @@ class StartupGate extends StatefulWidget {
 
 class _StartupGateState extends State<StartupGate> {
   bool _restored = false;
+  bool _checkedInitialPush = false;
 
   @override
   void didChangeDependencies() {
@@ -152,6 +155,17 @@ class _StartupGateState extends State<StartupGate> {
     // Still restoring → splash/loading, never flash login.
     if (auth.restoring) return const _Splash();
     if (auth.isLoggedIn) {
+      // A cold start (app fully killed) that was launched by tapping a system
+      // notification only has its RemoteMessage available via
+      // getInitialMessage(), and only once. Checking it here — after the
+      // user is authenticated and the right shell is about to render, never
+      // before — avoids navigating out from under the login/splash flow.
+      if (!_checkedInitialPush) {
+        _checkedInitialPush = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          PushService.instance.checkInitialMessage(isStaff: auth.isStaff);
+        });
+      }
       if (auth.isFounder) return const FounderShell();
       return const StaffShell();
     }

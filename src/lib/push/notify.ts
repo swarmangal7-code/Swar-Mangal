@@ -31,23 +31,50 @@ async function tokensFor(audience: Audience): Promise<string[]> {
     .map((r) => r.fcm_token);
 }
 
-async function log(audience: string, branch: string, title: string, body: string, dataType: string, dataRef: string, result: { attempted: number; success: number; failure: number; disabled: boolean }) {
+/** Short, stable identifier of which app screen a tap on this notification
+ *  should open. Keep this list short — the Flutter side switches on these
+ *  exact strings (lib/services/push_service.dart). "HOME" means "nowhere
+ *  specific", which is also the safe fallback for any call site that isn't
+ *  sure. */
+export type NotifyScreen =
+  | "HOME"
+  | "APPROVALS"
+  | "MY_REQUESTS"
+  | "STUDENT_PROFILE"
+  | "PAYOUTS"
+  | "TEACHERS"
+  | "TIMETABLE"
+  | "SCHOOL_INVOICE"
+  | "INQUIRIES"
+  | "EXPENSES"
+  | "RECEIPTS";
+
+async function log(
+  audience: string,
+  branch: string,
+  title: string,
+  body: string,
+  dataType: string,
+  dataRef: string,
+  dataScreen: string,
+  result: { attempted: number; success: number; failure: number; disabled: boolean },
+) {
   await query(
-    `insert into push_log (audience, branch, title, body, data_type, data_ref, token_count, success_count, failure_count, disabled)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [audience, branch || null, title, body, dataType || null, dataRef || null, result.attempted, result.success, result.failure, result.disabled],
+    `insert into push_log (audience, branch, title, body, data_type, data_ref, data_screen, token_count, success_count, failure_count, disabled)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    [audience, branch || null, title, body, dataType || null, dataRef || null, dataScreen || null, result.attempted, result.success, result.failure, result.disabled],
   ).catch(() => {});
 }
 
-async function fire(audience: Audience, title: string, body: string, dataType: string, dataRef: string) {
+async function fire(audience: Audience, title: string, body: string, dataType: string, dataRef: string, screen: NotifyScreen) {
   try {
     if (!(await pushEnabled())) return;
     const tokens = await tokensFor(audience);
-    const result = await sendPush(tokens, title, body, { type: dataType, ref: dataRef });
+    const result = await sendPush(tokens, title, body, { type: dataType, ref: dataRef, screen });
     const audienceLabel =
       audience === "FOUNDER" ? "FOUNDER" : audience === "ALL_STAFF" ? "STAFF:ALL" : `STAFF:${recordBranch(audience.branch)}`;
     const audienceBranch = typeof audience === "object" ? recordBranch(audience.branch) : "";
-    await log(audienceLabel, audienceBranch, title, body, dataType, dataRef, result);
+    await log(audienceLabel, audienceBranch, title, body, dataType, dataRef, screen, result);
   } catch (e) {
     console.error(`[push] notify failed: ${e instanceof Error ? e.message : "unknown"}`);
   }
@@ -55,28 +82,28 @@ async function fire(audience: Audience, title: string, body: string, dataType: s
 
 /** A staff draft/request landed in the founder's approval queue. */
 export function notifyFounderApproval(kind: string, summary: string, ref: string) {
-  void fire("FOUNDER", "Waiting for your approval", `${kind}: ${summary}`, "APPROVAL_WAITING", ref);
+  void fire("FOUNDER", "Waiting for your approval", `${kind}: ${summary}`, "APPROVAL_WAITING", ref, "APPROVALS");
 }
 
 /** The founder decided on something a staff device submitted. */
 export function notifyStaffDecision(branch: string, kind: string, summary: string, ref: string) {
-  void fire({ branch }, "Sharvil has decided", `${kind}: ${summary}`, "DECISION_MADE", ref);
+  void fire({ branch }, "Sharvil has decided", `${kind}: ${summary}`, "DECISION_MADE", ref, "MY_REQUESTS");
 }
 
 /** Generic branch-scoped notice (used by the daily digest script). */
-export function notifyBranch(branch: string, title: string, body: string, ref = "") {
-  void fire({ branch }, title, body, "DIGEST", ref);
+export function notifyBranch(branch: string, title: string, body: string, ref = "", screen: NotifyScreen = "HOME") {
+  void fire({ branch }, title, body, "DIGEST", ref, screen);
 }
 
-export function notifyFounderGeneric(title: string, body: string, ref = "") {
-  void fire("FOUNDER", title, body, "DIGEST", ref);
+export function notifyFounderGeneric(title: string, body: string, ref = "", screen: NotifyScreen = "HOME") {
+  void fire("FOUNDER", title, body, "DIGEST", ref, screen);
 }
 
 /** Every staff device, regardless of branch — for academy-wide changes with
  *  no single branch to scope to (a new school, a new teacher, closing the
  *  books for the month). */
-export function notifyAllStaff(title: string, body: string, ref = "") {
-  void fire("ALL_STAFF", title, body, "DIGEST", ref);
+export function notifyAllStaff(title: string, body: string, ref = "", screen: NotifyScreen = "HOME") {
+  void fire("ALL_STAFF", title, body, "DIGEST", ref, screen);
 }
 
 /** Register/replace a device's push token. Upsert on the token itself. */

@@ -211,13 +211,14 @@ async function sendDailyDigest(): Promise<Record<string, unknown>> {
       by.DUE_TODAY.length ? `${by.DUE_TODAY.length} due today` : "",
       by.OVERDUE.length ? `${by.OVERDUE.length} overdue` : "",
     ].filter(Boolean);
-    notifyBranch(branch, "Fees today", parts.join(" · "), branch);
+    notifyBranch(branch, "Fees today", parts.join(" · "), branch, "HOME");
   }
   if (totalDueToday || totalOverdue) {
     notifyFounderGeneric(
       "Fees today",
       `Academy-wide: ${totalDueToday} due today, ${totalOverdue} overdue.`,
       "ALL",
+      "HOME",
     );
   }
   return ok({ sent: true, totalDueToday, totalOverdue });
@@ -506,7 +507,7 @@ async function addTeacher(arg: Record<string, unknown>): Promise<Record<string, 
     [id, name, s(arg["phone"]), s(arg["email"]), instrument],
   );
   await bumpRevisions(["teachers"]);
-  notifyAllStaff("New teacher", `${name} (${instrument}) added`, id);
+  notifyAllStaff("New teacher", `${name} (${instrument}) added`, id, "TEACHERS");
   return ok({ teacherId: id, teacherName: name, note: "teacher created" });
 }
 
@@ -684,7 +685,7 @@ async function updateTeacherStatus(arg: Record<string, unknown>, session?: RpcSe
   await query("update teachers_acad set status = $1 where id = $2", [status, id]);
   if (status === "LEFT") await createTeacherWinBackLeadIfNeeded(id, reason || "removed by founder");
   await bumpRevisions(["teachers", "inquiries"]);
-  notifyAllStaff("Teacher status changed", `${before.name} → ${status}${reason ? `: ${reason}` : ""}`, id);
+  notifyAllStaff("Teacher status changed", `${before.name} → ${status}${reason ? `: ${reason}` : ""}`, id, "TEACHERS");
   return ok({ teacherId: id, oldStatus: s(before.status), newStatus: status, message: reason || "updated", changedBy: session?.email ?? "" });
 }
 
@@ -1018,7 +1019,7 @@ async function closePayoutPeriod(arg: Record<string, unknown>, session?: RpcSess
     [month, session?.deviceLabel || session?.email || "", JSON.stringify(snapshot)],
   );
   await bumpRevisions(["payouts"]);
-  notifyAllStaff("Payout period closed", `${monthLabel(month)} is now frozen`, month);
+  notifyAllStaff("Payout period closed", `${monthLabel(month)} is now frozen`, month, "PAYOUTS");
   return ok({ month, closed: true, note: `${monthLabel(month)} closed. Its payout figures are now frozen.` });
 }
 
@@ -1186,7 +1187,7 @@ async function approvePayoutStatement(arg: Record<string, unknown>, session?: Rp
     [id, approvedAmount, who],
   );
   await bumpRevisions(["payouts"]);
-  notifyAllStaff("Payout statement approved", `${row.teacher_id} · ${monthLabel(row.service_month)} · ₹${approvedAmount}`, id);
+  notifyAllStaff("Payout statement approved", `${row.teacher_id} · ${monthLabel(row.service_month)} · ₹${approvedAmount}`, id, "PAYOUTS");
   return ok({ statementId: id, changed: true, status: "FOUNDER_APPROVED", approvedAmount, note: "Approved. recordTeacherPayout can now be used for this teacher/month." });
 }
 
@@ -1330,7 +1331,7 @@ async function recordTeacherPayout(arg: Record<string, unknown>, scope: BranchSc
     }
   });
   await bumpRevisions(["payouts", "expenses", "teachers", "dashboard"]);
-  notifyBranch(branch, "Teacher payout recorded", `₹${amount} to ${teacher.name} for ${monthLabel(month)}`, id);
+  notifyBranch(branch, "Teacher payout recorded", `₹${amount} to ${teacher.name} for ${monthLabel(month)}`, id, "PAYOUTS");
 
   const totals = await queryOne<{ paid: string }>(
     `select coalesce(sum(amount),0)::text as paid from teacher_payouts where teacher_id = $1 and service_month = $2`,
@@ -1507,7 +1508,7 @@ async function addExpense(arg: Record<string, unknown>, scope: BranchScope): Pro
     );
   });
   await bumpRevisions(["expenses", "dashboard"]);
-  notifyBranch(branch, "Expense recorded", `₹${amount} · ${desc}`, id);
+  notifyBranch(branch, "Expense recorded", `₹${amount} · ${desc}`, id, "EXPENSES");
   return ok({ entryId: id, note: "expense recorded" });
 }
 
@@ -1761,7 +1762,7 @@ async function addSchool(arg: Record<string, unknown>): Promise<Record<string, u
     await replaceSchoolBeneficiaries(id, beneficiaries, tx);
   });
   await bumpRevisions(["invoices"]);
-  notifyAllStaff("New school added", `${name} (${code}) can now be invoiced`, id);
+  notifyAllStaff("New school added", `${name} (${code}) can now be invoiced`, id, "SCHOOL_INVOICE");
   return ok({ schoolId: id, code, name, note: `School ${code} saved. It will use the same invoice template.` });
 }
 
@@ -1883,7 +1884,7 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     return invoiceNo;
   });
   await bumpRevisions(["invoices", "dashboard"]);
-  notifyBranch(branch, "School invoice issued", `${no} · ${school.name} · ₹${amount}`, id);
+  notifyBranch(branch, "School invoice issued", `${no} · ${school.name} · ₹${amount}`, id, "SCHOOL_INVOICE");
   const beneficiaries = computeBeneficiaryAmounts(amount, await schoolBeneficiaries(school.id));
   return ok({
     invoiceId: id,
@@ -2018,7 +2019,7 @@ async function timetableCreate(arg: Record<string, unknown>, scope: BranchScope)
     [id, branch, n(arg["dayOfWeek"]), s(arg["startTime"]), s(arg["endTime"]), s(arg["className"]), s(arg["teacherId"]), s(arg["teacherName"]), s(arg["status"]).toUpperCase() || "ENABLED", s(arg["substituteTeacherId"]) || null, s(arg["substituteTeacherName"]) || null],
   );
   await bumpRevisions(["timetable", "sessions"]);
-  notifyFounderGeneric("Timetable updated", `New class: ${s(arg["className"])} added at ${branch}`, id);
+  notifyFounderGeneric("Timetable updated", `New class: ${s(arg["className"])} added at ${branch}`, id, "TIMETABLE");
   return ok({
     entry: {
       id, branch, dayOfWeek: n(arg["dayOfWeek"]), startTime: s(arg["startTime"]), endTime: s(arg["endTime"]), className: s(arg["className"]),
@@ -2060,7 +2061,7 @@ async function timetableUpdate(arg: Record<string, unknown>, scope: BranchScope)
       ],
     );
     await bumpRevisions(["timetable", "sessions"]);
-    notifyFounderGeneric("Timetable updated", `${s(arg["className"] ?? cur.class_name)} changed for week of ${weekStart}`, id);
+    notifyFounderGeneric("Timetable updated", `${s(arg["className"] ?? cur.class_name)} changed for week of ${weekStart}`, id, "TIMETABLE");
     return ok({ entry: { ...cur, ...arg, id }, note: "updated for this week only" });
   }
 
@@ -2073,7 +2074,7 @@ async function timetableUpdate(arg: Record<string, unknown>, scope: BranchScope)
     ],
   );
   await bumpRevisions(["timetable", "sessions"]);
-  notifyFounderGeneric("Timetable updated", `${s(arg["className"] ?? cur.class_name)} permanently changed`, id);
+  notifyFounderGeneric("Timetable updated", `${s(arg["className"] ?? cur.class_name)} permanently changed`, id, "TIMETABLE");
   return ok({ entry: { ...cur, ...arg, id }, note: "updated" });
 }
 
@@ -2100,6 +2101,7 @@ async function timetableDelete(arg: Record<string, unknown>, scope: BranchScope)
       "Timetable updated",
       editScope === "THIS_WEEK" ? `A class was cancelled for one week at ${recordBranch(before.branch)}` : `A class was removed at ${recordBranch(before.branch)}`,
       id,
+      "TIMETABLE",
     );
   }
   return ok({ deleted: before != null && editScope === "ALL_WEEKS", cancelledThisWeek: before != null && editScope === "THIS_WEEK", note: editScope === "THIS_WEEK" ? "removed for this week only" : "deleted" });
@@ -2600,7 +2602,7 @@ async function scheduleSession(arg: Record<string, unknown>, scope: BranchScope)
     }
   });
   await bumpRevisions(["sessions", "tasks"]);
-  notifyFounderGeneric("Session scheduled", `${kind} class for ${s(arg["course"] ?? arg["className"] ?? arg["instrument"])} on ${sessionDate} at ${recordBranch(branch)}`, id);
+  notifyFounderGeneric("Session scheduled", `${kind} class for ${s(arg["course"] ?? arg["className"] ?? arg["instrument"])} on ${sessionDate} at ${recordBranch(branch)}`, id, "TIMETABLE");
   return ok({
     scheduledSessionId: id,
     status: "SCHEDULED",
@@ -2685,7 +2687,11 @@ async function grantRecoveryCredit(arg: Record<string, unknown>, scope: BranchSc
     [id, studentId, student.name, recordBranch(student.branch), s(student.instrument), reason, sourceEventId, useByDate, session?.deviceLabel || session?.email || ""],
   );
   await bumpRevisions(["students", "dashboard"]);
-  notifyFounderGeneric("Recovery credit granted", `${student.name} — usable by ${useByDate}`, id);
+  // `id` here is the recovery-credit row, not the student — there is no
+  // screen that opens a recovery credit by its own id (it only ever shows
+  // inside a student's profile, which needs the Student object, not just an
+  // id). HOME is the honest fallback; see push_service.dart's _handleTap.
+  notifyFounderGeneric("Recovery credit granted", `${student.name} — usable by ${useByDate}`, id, "HOME");
   return ok({ creditId: id, status: "AVAILABLE", useByDate, note: `Recovery credit granted to ${student.name}, usable by ${useByDate}.` });
 }
 
@@ -2738,7 +2744,7 @@ async function scheduleRecoveryCredit(arg: Record<string, unknown>, scope: Branc
     );
   });
   await bumpRevisions(["students", "sessions", "tasks", "dashboard"]);
-  notifyFounderGeneric("Recovery class scheduled", `${s(credit.student_name)} on ${sessionDate}`, creditId);
+  notifyFounderGeneric("Recovery class scheduled", `${s(credit.student_name)} on ${sessionDate}`, creditId, "HOME");
   return ok({ creditId, status: "SCHEDULED", scheduledEventId, sessionDate, note: `Recovery class scheduled for ${sessionDate}.` });
 }
 
@@ -2766,7 +2772,7 @@ async function resolveRecoveryCredit(arg: Record<string, unknown>, scope: Branch
     await tx.query(`update recovery_credits set status = $1, resolved_at = now() where id = $2`, [outcome, creditId]);
   });
   await bumpRevisions(["students", "sessions", "tasks", "dashboard", "payouts"]);
-  notifyFounderGeneric("Recovery class resolved", `${s(credit.student_name)} — ${outcome}`, creditId);
+  notifyFounderGeneric("Recovery class resolved", `${s(credit.student_name)} — ${outcome}`, creditId, "HOME");
   return ok({ creditId, status: outcome, note: outcome === "DELIVERED" ? "Recovery class delivered." : "Recorded as a no-show — credit used, teacher still paid." });
 }
 
@@ -2964,7 +2970,7 @@ async function inquiryQuickAdd(arg: Record<string, unknown>, scope: BranchScope,
     [id, name, phone, s(arg["instrument"] ?? arg["course"]), branch, s(arg["source"]) || "Walk-in", s(arg["notes"]) || (session?.deviceLabel ? `added by ${session.deviceLabel}` : "")],
   );
   await bumpRevisions(["inquiries", "tasks"]);
-  notifyFounderGeneric("New inquiry", `${name || phone} at ${recordBranch(branch)}`, id);
+  notifyFounderGeneric("New inquiry", `${name || phone} at ${recordBranch(branch)}`, id, "INQUIRIES");
   return ok({ inquiryId: id, status: "OPEN", nextContactDate: "tomorrow", note: "inquiry captured" });
 }
 
@@ -3092,8 +3098,8 @@ async function inquiryTransition(arg: Record<string, unknown>, scope: BranchScop
   await bumpRevisions(["inquiries", "tasks"]);
   // Only the terminal outcomes notify — LOG_CONTACT/NO_ANSWER/SCHEDULE_TRIAL
   // happen many times a day per lead and would drown everything else out.
-  if (action === "CONVERT") notifyFounderGeneric("Lead converted", `${cur.name || id} joined as a student`, id);
-  if (action === "DROP") notifyFounderGeneric("Lead dropped", `${cur.name || id}: ${set.dropReason}`, id);
+  if (action === "CONVERT") notifyFounderGeneric("Lead converted", `${cur.name || id} joined as a student`, id, "INQUIRIES");
+  if (action === "DROP") notifyFounderGeneric("Lead dropped", `${cur.name || id}: ${set.dropReason}`, id, "INQUIRIES");
   return ok({
     inquiryId: id,
     action,

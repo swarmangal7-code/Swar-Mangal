@@ -1049,11 +1049,17 @@ create table if not exists push_log (
   body text not null,
   data_type text,
   data_ref text,
+  data_screen text,
   token_count int not null default 0,
   success_count int not null default 0,
   failure_count int not null default 0,
   disabled boolean not null default false
 );
+
+-- Additive: push_log already existed in production before data_screen was
+-- introduced, so `create table if not exists` above never touches it. This
+-- backfills the column on an existing table without blocking sends if it fails.
+alter table push_log add column if not exists data_screen text;
 
 -- P1: how a student's enquiry became an admission (brief P1, extended per
 -- founder request 2026-09-17: track intake source for reporting).
