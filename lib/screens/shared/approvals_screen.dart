@@ -12,7 +12,14 @@ import '../../widgets/atoms.dart';
 /// Money (payment drafts) approves via the audited approve endpoint; student
 /// drafts merge into the master. Nothing here writes money silently.
 class ApprovalsScreen extends StatefulWidget {
-  const ApprovalsScreen({super.key});
+  const ApprovalsScreen({super.key, this.highlightItemId});
+
+  /// Set when this screen was opened from a push notification tap
+  /// (push_service.dart) — once the queue has loaded, the matching item's
+  /// detail sheet opens automatically, the same sheet `_showDetails` opens
+  /// for a manual tap on the item's "Details" button.
+  final String? highlightItemId;
+
   @override
   State<ApprovalsScreen> createState() => _ApprovalsScreenState();
 }
@@ -30,6 +37,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
   bool _busy = true;
   String _tab = 'ALL';
   final Set<String> _acting = {};
+  bool _highlightHandled = false;
 
   @override
   void initState() {
@@ -55,6 +63,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
         _queue = results[1] as List<PaymentDraftRow>;
         _busy = false;
       });
+      _maybeOpenHighlight();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -242,6 +251,29 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> with SyncAware {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _acting.remove(item.itemId));
+    }
+  }
+
+  /// Called once the queue has loaded — opens the highlighted item's own
+  /// detail sheet (same one "Details" opens) if it's still in the queue.
+  /// A no-op once already handled, and a silent no-op if the item has since
+  /// been decided and dropped off the queue (nothing left to show).
+  void _maybeOpenHighlight() {
+    if (_highlightHandled) return;
+    final id = widget.highlightItemId;
+    if (id == null || id.isEmpty) return;
+    final data = _data;
+    if (data == null) return;
+    _highlightHandled = true;
+    for (final g in data.groups) {
+      for (final item in g.items) {
+        if (item.itemId == id) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showDetails(item);
+          });
+          return;
+        }
+      }
     }
   }
 

@@ -13,7 +13,15 @@ import '../../widgets/atoms.dart';
 /// Business rule #5: staff proposal → submitted → founder decides. This
 /// screen is read-only status for the operator.
 class MyRequestsScreen extends StatefulWidget {
-  const MyRequestsScreen({super.key});
+  const MyRequestsScreen({super.key, this.highlightItemId});
+
+  /// Set when this screen was opened from a push notification tap
+  /// (push_service.dart). This screen has no separate detail sheet — every
+  /// request's full state already shows inline on its card — so "opening"
+  /// the highlighted request means scrolling it into view and giving it a
+  /// brief visual highlight instead.
+  final String? highlightItemId;
+
   @override
   State<MyRequestsScreen> createState() => _MyRequestsScreenState();
 }
@@ -29,6 +37,9 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
   String? _error;
   bool _busy = true;
   String _tab = 'ALL';
+  bool _highlightHandled = false;
+  String? _highlightedRowId;
+  final _highlightKey = GlobalKey();
 
   @override
   void initState() {
@@ -50,6 +61,7 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
         _rows = rows;
         _busy = false;
       });
+      _maybeOpenHighlight();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -68,6 +80,37 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
   String _labelFor(String type) =>
       _rows.firstWhere((r) => r.type == type, orElse: () => _rows.first).typeLabel;
 
+  /// Called once the list has loaded — switches to the highlighted request's
+  /// tab (so it's actually visible) and scrolls it into view with a brief
+  /// highlight. A no-op once handled, and silent if the request is no longer
+  /// present (e.g. it was filtered server-side).
+  void _maybeOpenHighlight() {
+    if (_highlightHandled) return;
+    final id = widget.highlightItemId;
+    if (id == null || id.isEmpty) return;
+    ApprovalRequestRow? match;
+    for (final r in _rows) {
+      if (r.id == id) {
+        match = r;
+        break;
+      }
+    }
+    if (match == null) return;
+    _highlightHandled = true;
+    setState(() {
+      _tab = match!.type;
+      _highlightedRowId = id;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _highlightKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), alignment: 0.1);
+      }
+    });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _highlightedRowId = null);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +192,15 @@ class _MyRequestsScreenState extends State<MyRequestsScreen> with SyncAware {
             const EmptyState('No requests submitted from this branch.', icon: Icons.outbox_outlined),
           for (final row in visible)
             Card(
+              key: row.id == _highlightedRowId ? _highlightKey : null,
               margin: const EdgeInsets.only(bottom: AppSpace.s3),
+              color: row.id == _highlightedRowId ? AppColors.adaptive(context, AppColors.focus).withValues(alpha: .18) : null,
+              shape: row.id == _highlightedRowId
+                  ? RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.s),
+                      side: BorderSide(color: AppColors.adaptive(context, AppColors.focus), width: 1.5),
+                    )
+                  : null,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpace.s4),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

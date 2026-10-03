@@ -1,10 +1,24 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:provider/provider.dart';
 
+import '../screens/shared/approvals_screen.dart';
+import '../screens/shared/expenses_screen.dart';
+import '../screens/shared/inquiries_screen.dart';
+import '../screens/shared/inquiry_profile_screen.dart';
+import '../screens/shared/my_requests_screen.dart';
+import '../screens/shared/payout_preview_screen.dart';
+import '../screens/shared/receipts_screen.dart';
+import '../screens/shared/school_invoice_screen.dart';
+import '../screens/shared/students_screen.dart';
+import '../screens/shared/teacher_profile_screen.dart';
+import '../screens/shared/timetable_screen.dart';
+import '../state/auth_provider.dart';
 import 'api_service.dart';
 
 /// Must be a top-level (or static) function, marked with this pragma, so
@@ -12,7 +26,10 @@ import 'api_service.dart';
 /// while the app is fully killed. A plain "notification" payload (which is
 /// all this app ever sends — see fcm.ts) is already shown by the OS without
 /// any code running here; this exists so Firebase never warns about a
-/// missing handler and so a future data-only payload has somewhere to go.
+/// missing handler. The `data` map that rides alongside it (`type`/`ref`/
+/// `screen`) is read on tap, not here — see checkInitialMessage() and
+/// _handleTap() below, driven from main.dart's StartupGate once the app has
+/// relaunched and the user is back on an authenticated shell.
 ///
 /// That fresh isolate never ran main() or any login flow, so Firebase must
 /// be (re-)initialised here even though PushService.start already did it in
@@ -32,7 +49,14 @@ class PushService {
   PushService._();
   static final PushService instance = PushService._();
 
+  /// The app's single Navigator, set on MaterialApp in main.dart. PushService
+  /// is a singleton with no BuildContext of its own (it is driven by Firebase
+  /// callbacks that fire with no widget in scope), so a tap on a notification
+  /// reaches the navigator through this global key instead.
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   bool _ready = false;
+  bool _initialMessageChecked = false;
   ApiService? _api;
   String? _registeredToken;
   final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
@@ -64,6 +88,9 @@ class PushService {
       await _initLocalNotifications();
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       FirebaseMessaging.onMessage.listen(_showWhileForeground);
+      // The app was already running (foreground or background, not killed)
+      // and the user tapped the system notification — deep-link immediately.
+      FirebaseMessaging.onMessageOpenedApp.listen((m) => _handleTap(m.data));
       FirebaseMessaging.instance.onTokenRefresh.listen(_register);
       _ready = true;
       await _registerCurrentToken();
@@ -72,9 +99,29 @@ class PushService {
     }
   }
 
+  /// Cold-start case: the app was fully killed and the user tapped the system
+  /// notification to launch it. `getInitialMessage()` only ever returns that
+  /// one message once, so this must run exactly once per launch — and only
+  /// once the caller knows the user is authenticated and the right shell
+  /// (founder/staff) is about to be shown, never before (see main.dart's
+  /// StartupGate, the only caller).
+  Future<void> checkInitialMessage({required bool isStaff}) async {
+    if (_initialMessageChecked) return;
+    _initialMessageChecked = true;
+    try {
+      final message = await FirebaseMessaging.instance.getInitialMessage();
+      if (message != null) _handleTap(message.data);
+    } catch (e) {
+      debugPrint('[push] getInitialMessage failed: $e');
+    }
+  }
+
   Future<void> _initLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _local.initialize(settings: const InitializationSettings(android: androidInit));
+    await _local.initialize(
+      settings: const InitializationSettings(android: androidInit),
+      onDidReceiveNotificationResponse: _handleLocalTap,
+    );
     const channel = AndroidNotificationChannel(
       _channelId,
       _channelName,
@@ -84,6 +131,82 @@ class PushService {
     await _local
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+  }
+
+  /// flutter_local_notifications only ever hands a tap callback a string
+  /// payload, never the original RemoteMessage — so _showWhileForeground
+  /// below stashes the message's data map as JSON, and this reverses that.
+  void _handleLocalTap(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) return;
+    try {
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+      _handleTap(data.map((k, v) => MapEntry(k, v?.toString() ?? '')));
+    } catch (e) {
+      debugPrint('[push] could not decode local notification payload: $e');
+    }
+  }
+
+  /// One place that turns a notification's data (`type`/`ref`/`screen` — see
+  /// fire() in src/lib/push/notify.ts) into in-app navigation, whether the
+  /// tap came from the system tray (killed or backgrounded) or from the
+  /// in-app banner shown by _showWhileForeground. Best-effort: a `screen`
+  /// this build doesn't recognise, or one with no precise destination yet,
+  /// is a documented gap — it simply does nothing rather than guessing a
+  /// route that doesn't exist.
+  void _handleTap(Map<String, dynamic> data) {
+    final screen = (data['screen'] ?? '').toString();
+    final ref = (data['ref'] ?? '').toString();
+    final context = navigatorKey.currentContext;
+    final navigator = navigatorKey.currentState;
+    if (context == null || navigator == null) return;
+    final isStaff = context.read<AuthProvider>().isStaff;
+
+    Widget? target;
+    switch (screen) {
+      case 'APPROVALS':
+        // Founder-only destination regardless of who is signed in on this
+        // device — matches notifyFounderApproval, which only ever pages the
+        // founder's token.
+        target = ApprovalsScreen(highlightItemId: ref.isEmpty ? null : ref);
+        break;
+      case 'MY_REQUESTS':
+        target = MyRequestsScreen(highlightItemId: ref.isEmpty ? null : ref);
+        break;
+      case 'TEACHERS':
+        target = ref.isEmpty ? null : TeacherProfileScreen(teacherId: ref, staff: isStaff);
+        break;
+      case 'INQUIRIES':
+        target = ref.isEmpty ? InquiriesScreen() : InquiryProfileScreen(inquiryId: ref);
+        break;
+      case 'STUDENT_PROFILE':
+        // No lightweight studentId -> Student lookup is wired here yet, and
+        // StudentProfileScreen needs the full Student object — land on the
+        // list rather than guess. Known gap, see push_service.dart report.
+        target = StudentsScreen(staff: isStaff);
+        break;
+      case 'PAYOUTS':
+        target = const PayoutPreviewScreen();
+        break;
+      case 'TIMETABLE':
+        target = TimetableScreen(staff: isStaff);
+        break;
+      case 'SCHOOL_INVOICE':
+        target = SchoolInvoiceScreen(staff: isStaff);
+        break;
+      case 'EXPENSES':
+        target = ExpensesScreen(staff: isStaff);
+        break;
+      case 'RECEIPTS':
+        target = ReceiptsScreen(staff: isStaff);
+        break;
+      case 'HOME':
+      default:
+        // Nothing more specific to do — same as today's behaviour.
+        return;
+    }
+    if (target == null) return;
+    navigator.push(MaterialPageRoute(builder: (_) => target!));
   }
 
   /// Android does not show a "notification" payload's system banner while
@@ -104,6 +227,10 @@ class PushService {
           priority: Priority.high,
         ),
       ),
+      // Stashed so a tap on this self-shown banner can deep-link too —
+      // flutter_local_notifications only ever gives the tap callback a
+      // string payload, never the original RemoteMessage/data map.
+      payload: message.data.isEmpty ? null : jsonEncode(message.data),
     );
   }
 
