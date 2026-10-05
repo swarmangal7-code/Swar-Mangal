@@ -65,6 +65,13 @@ export const founderNav: WebNavSection[] = [
       { title: "Approvals", href: "/founder/approvals", icon: CheckCircle2 },
     ],
   },
+  // Founder request 2026-10-05: the founder previously had zero access to
+  // Inquiries on the web (staff-only nav entry below) — add it here so both
+  // roles see the identical Inquiries feature set.
+  {
+    label: "Connect",
+    items: [{ title: "Inquiries", href: "/founder/inquiries", icon: MessageSquareText }],
+  },
   {
     label: "Academy",
     items: [

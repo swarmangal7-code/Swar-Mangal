@@ -325,14 +325,15 @@ test("admission terms: staff mint tokens or request manual acceptance, founder d
   }
 });
 
-test("fee rate card: staff read, founder writes (it's the published price list)", () => {
+test("fee rate card: both staff and founder read and write (public-facing price list, not a founder-only money decision)", () => {
   assert.equal(RPC_POLICY["api_listFeeRateCard"], "STAFF");
-  assert.equal(RPC_POLICY["api_founder_upsertFeeRateCard"], "FOUNDER");
-  assert.equal(RPC_POLICY["api_founder_deactivateFeeRateCard"], "FOUNDER");
+  assert.equal(RPC_POLICY["api_founder_upsertFeeRateCard"], "STAFF");
+  assert.equal(RPC_POLICY["api_founder_deactivateFeeRateCard"], "STAFF");
   assert.equal(authorizeRpc(staff, "api_listFeeRateCard").ok, true);
-  assert.equal(authorizeRpc(staff, "api_founder_upsertFeeRateCard").ok, false);
-  assert.equal(authorizeRpc(staff, "api_founder_deactivateFeeRateCard").ok, false);
+  assert.equal(authorizeRpc(staff, "api_founder_upsertFeeRateCard").ok, true);
+  assert.equal(authorizeRpc(staff, "api_founder_deactivateFeeRateCard").ok, true);
   assert.equal(authorizeRpc(founder, "api_founder_upsertFeeRateCard").ok, true);
+  assert.equal(authorizeRpc(founder, "api_founder_deactivateFeeRateCard").ok, true);
   for (const fn of ["api_founder_upsertFeeRateCard", "api_founder_deactivateFeeRateCard"]) {
     assert.ok(WRITE_FUNCTIONS.has(fn), `${fn} must be audited`);
   }

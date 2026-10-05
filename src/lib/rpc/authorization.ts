@@ -207,13 +207,15 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_timetableWeek: STAFF,
   api_timetableSessionDetail: STAFF,
 
-  // Founder request 2026-10-05: a founder-maintained fee rate card (quotable
-  // price list per instrument). Either role reads it; only the founder
-  // writes it — it's the published price list, a business decision, matching
-  // api_addSchool/api_updateSchool above.
+  // Founder request 2026-10-05: a fee rate card (quotable price list per
+  // instrument). Originally founder-only to write, same as a school record;
+  // founder request 2026-10-05 (later same day) widened writes to staff too
+  // — unlike a school/receipt, the rate card is public-facing price info staff
+  // already quote to enquirers, so either role may add/edit/deactivate rows.
+  // (Function names keep the api_founder_ prefix as a naming artifact only.)
   api_listFeeRateCard: STAFF,
-  api_founder_upsertFeeRateCard: FOUNDER,
-  api_founder_deactivateFeeRateCard: FOUNDER,
+  api_founder_upsertFeeRateCard: STAFF,
+  api_founder_deactivateFeeRateCard: STAFF,
 
   // ------------------------------------------------- periods / corrections
   // Brief §11.7, P6.7: closing a service month is founder-only.
