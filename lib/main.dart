@@ -7,9 +7,11 @@ import 'screens/auth/login_screen.dart';
 import 'screens/founder/founder_shell.dart';
 import 'screens/staff/staff_shell.dart';
 import 'services/push_service.dart';
+import 'services/update_service.dart';
 import 'state/auth_provider.dart';
 import 'state/sync_manager.dart';
 import 'widgets/music_mark.dart';
+import 'widgets/update_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -134,6 +136,7 @@ class StartupGate extends StatefulWidget {
 class _StartupGateState extends State<StartupGate> {
   bool _restored = false;
   bool _checkedInitialPush = false;
+  bool _checkedForUpdate = false;
 
   @override
   void didChangeDependencies() {
@@ -164,6 +167,15 @@ class _StartupGateState extends State<StartupGate> {
         _checkedInitialPush = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           PushService.instance.checkInitialMessage(isStaff: auth.isStaff);
+        });
+      }
+      // Silent, best-effort — never nags in demo mode (a reviewer/screenshot
+      // account, not a real install) and never blocks or retries on failure.
+      if (!_checkedForUpdate && !auth.isDemo) {
+        _checkedForUpdate = true;
+        UpdateService.instance.checkForUpdate().then((info) {
+          final ctx = PushService.navigatorKey.currentContext;
+          if (info != null && ctx != null && ctx.mounted) showUpdateDialog(ctx, info);
         });
       }
       if (auth.isFounder) return const FounderShell();

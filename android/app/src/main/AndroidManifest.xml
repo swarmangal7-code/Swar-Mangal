@@ -5,6 +5,12 @@
          can be shown at all — including one FCM delivers while the app is
          killed. Requested explicitly from push_service.dart on first launch. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Lets the app launch the system package installer on an APK it has
+         downloaded itself (in-app update, since this app isn't distributed
+         through the Play Store). Android still makes the user explicitly
+         allow "install unknown apps" for this app the first time; this
+         permission only lets the app ask, it doesn't grant it silently. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="Swar Mangal"
         android:name="${applicationName}"

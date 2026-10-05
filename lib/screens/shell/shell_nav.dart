@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme.dart';
+import '../../services/update_service.dart';
 import '../../state/auth_provider.dart';
 import '../../state/sync_manager.dart';
 import '../../widgets/atmosphere.dart';
 import '../../widgets/anim.dart';
 import '../../widgets/atoms.dart';
+import '../../widgets/update_dialog.dart';
 import '../shared/staff_access_screen.dart';
 
 /// Inherited handle letting a body screen switch the shell's current view.
@@ -342,30 +345,77 @@ const staffItems = <({String key, String label, IconData icon})>[
   (key: 'about', label: 'About', icon: Icons.info_outline),
 ];
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key, required this.staff});
   final bool staff;
   @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _version = '';
+  bool _checking = false;
+  String? _checkResult;
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((p) {
+      if (mounted) setState(() => _version = '${p.version}+${p.buildNumber}');
+    });
+  }
+
+  Future<void> _checkForUpdates() async {
+    setState(() {
+      _checking = true;
+      _checkResult = null;
+    });
+    final info = await UpdateService.instance.checkForUpdate();
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _checkResult = info == null ? "You're up to date." : null;
+    });
+    if (info != null) await showUpdateDialog(context, info);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final staff = widget.staff;
     return ListView(
       padding: const EdgeInsets.all(AppSpace.s4),
       children: [
-        const Card(
+        Card(
           child: Padding(
-            padding: EdgeInsets.all(AppSpace.s4),
+            padding: const EdgeInsets.all(AppSpace.s4),
             child: Row(children: [
-              Icon(Icons.music_note, size: 36, color: AppColors.primary),
-              SizedBox(width: AppSpace.s3),
+              const Icon(Icons.music_note, size: 36, color: AppColors.primary),
+              const SizedBox(width: AppSpace.s3),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Swar Mangal', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                  Text('Music Academy ERP · v1.0.0', style: TextStyle(fontSize: 13, color: AppColors.muted)),
+                  const Text('Swar Mangal', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  Text(
+                    _version.isEmpty ? 'Music Academy ERP' : 'Music Academy ERP · v$_version',
+                    style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                  ),
                 ]),
               ),
             ]),
           ),
         ),
+        const SizedBox(height: AppSpace.s3),
+        OutlinedButton.icon(
+          onPressed: _checking ? null : _checkForUpdates,
+          icon: _checking
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.system_update_alt_outlined, size: 18),
+          label: Text(_checking ? 'Checking…' : 'Check for updates'),
+        ),
+        if (_checkResult != null) ...[
+          const SizedBox(height: AppSpace.s2),
+          Text(_checkResult!, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+        ],
         const SectionTitle('Session'),
         Card(
           child: Padding(
