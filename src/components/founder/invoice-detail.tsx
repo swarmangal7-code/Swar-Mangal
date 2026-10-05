@@ -47,7 +47,7 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
 
   const handleShare = async () => {
     if (!invoice) return;
-    const text = `Invoice ${invoice.invoiceNo} · ${invoice.className} · ${inr.format(invoice.amount)}`;
+    const text = `Invoice ${invoice.invoiceNo} · ${invoice.className} · ${inr.format(Number(invoice.total ?? invoice.amount) || 0)}`;
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: `School invoice ${invoice.invoiceNo}`, text });
@@ -136,8 +136,10 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-5">
-          <p className="text-xs text-dash-fg/45">Amount</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums text-dash-fg">{inr.format(Number(invoice.amount) || 0)}</p>
+          <p className="text-xs text-dash-fg/45">{invoice.charges?.length ? "Total due" : "Amount"}</p>
+          <p className="mt-2 text-2xl font-semibold tabular-nums text-dash-fg">
+            {inr.format(Number(invoice.total ?? invoice.amount) || 0)}
+          </p>
         </div>
         <div className="rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.03] p-5">
           <p className="text-xs text-dash-fg/45">Tenure</p>
@@ -175,6 +177,7 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
           schoolName={invoice.schoolName ?? ""}
           schoolAddress={invoice.schoolAddress ?? ""}
           schoolContact={invoice.schoolContact ?? ""}
+          charges={invoice.charges ?? []}
           owner1={invoice.owner1}
           owner2={invoice.owner2}
         />

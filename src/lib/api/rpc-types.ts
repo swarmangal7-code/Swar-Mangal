@@ -597,6 +597,13 @@ export interface InvoiceOwner {
   title: string;
 }
 
+/** One optional "Other charges" line on a school invoice, on top of the
+ *  fixed `amount` — e.g. "Diwali decoration" / 500. */
+export interface ExtraCharge {
+  description: string;
+  amount: number;
+}
+
 export interface InvoiceBeneficiaryAmount {
   name: string;
   amount: number;
@@ -627,6 +634,10 @@ export interface SchoolInvoice {
   tenure: string;
   pdfUrl: string;
   demo: boolean;
+  /** Optional "Other charges" on top of `amount`. */
+  charges?: ExtraCharge[];
+  /** amount + sum(charges). */
+  total?: number;
   beneficiaries?: InvoiceBeneficiaryAmount[];
   owner1: InvoiceOwner;
   owner2: InvoiceOwner;
@@ -671,6 +682,8 @@ export interface InvoiceSummary {
   amount: number;
   tenure: string;
   status: string;
+  charges?: ExtraCharge[];
+  total?: number;
 }
 
 export interface SchoolInvoiceListResponse extends RpcEnvelope {

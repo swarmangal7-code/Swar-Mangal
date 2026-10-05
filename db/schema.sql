@@ -1846,3 +1846,32 @@ create table if not exists fee_rate_card (
 );
 create index if not exists idx_fee_rate_card_instrument on fee_rate_card (instrument, active);
 create index if not exists idx_rate_change_history_entity on rate_change_history (entity_type, entity_id, changed_at desc);
+
+-- ============================================================
+-- Founder request 2026-10-05: optional extra line-item charges on a school
+-- invoice, on top of the existing fixed `amount` (e.g. "Diwali decoration —
+-- ₹500", "Extra class — ₹300"). `amount` keeps its existing meaning as the
+-- base/fixed amount, unchanged — the invoice total becomes
+-- amount + sum(extra charges).
+-- ============================================================
+
+-- A staff draft only PREVIEWS the proposed charges as a JSON array of
+-- {description, amount} — same pattern as every other draft table here (a
+-- draft is a proposal the founder decides, not real linked rows yet). Real
+-- school_invoice_charges rows are only created once the founder finalises
+-- the draft, or raises the invoice directly.
+alter table school_invoice_drafts add column if not exists extra_charges jsonb;
+
+-- One row per extra charge on a FINALISED invoice. Minted inside the same
+-- transaction that mints the invoice's id/number, so a charge can never
+-- exist without its invoice and an invoice's charges are never partially
+-- written.
+create table if not exists school_invoice_charges (
+  id text primary key,
+  invoice_id text not null references school_invoices_rpc(id) on delete cascade,
+  description text not null,
+  amount numeric(10,2) not null,
+  seq int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_school_invoice_charges_invoice on school_invoice_charges (invoice_id, seq);

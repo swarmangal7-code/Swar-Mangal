@@ -314,6 +314,25 @@ export function computeBeneficiaryAmounts(totalAmount: number, beneficiaries: Sc
   }));
 }
 
+// -------------------------------------------------------- school invoice extra charges
+
+// Validation itself lives in extraCharges.ts, dependency-free so
+// backend-tests can import it directly with plain node (same as
+// numbering.ts/fees.ts/payouts.ts) — re-exported here so handlers2.ts and
+// governance.ts keep importing everything from this one module.
+import { parseExtraCharges, normalizeChargesJson, type ExtraCharge } from "@/lib/rpc/extraCharges";
+export { parseExtraCharges, normalizeChargesJson };
+export type { ExtraCharge };
+
+/** The real charge rows linked to one finalised invoice, in print order. */
+export async function schoolInvoiceCharges(invoiceId: string): Promise<ExtraCharge[]> {
+  const rows = await query<{ description: string; amount: number }>(
+    `select description, amount from school_invoice_charges where invoice_id = $1 order by seq, id`,
+    [invoiceId],
+  );
+  return rows.map((r) => ({ description: s(r.description), amount: n(r.amount) }));
+}
+
 // A demo student (status 'DEMO') is a trial-stage record, not an admitted one:
 // no fee plan, no due date, no receipt. Every admitted-student surface goes
 // through acadStudents(), so excluding them here is what keeps them out of

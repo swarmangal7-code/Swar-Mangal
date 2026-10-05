@@ -30,6 +30,7 @@ export function InvoicePreview({
   schoolName,
   schoolAddress,
   schoolContact,
+  charges = [],
   owner1,
   owner2,
 }: {
@@ -45,6 +46,8 @@ export function InvoicePreview({
   schoolName?: string;
   schoolAddress?: string;
   schoolContact?: string;
+  /** Optional "Other charges" on top of `amount` (the fixed amount). */
+  charges?: { description: string; amount: number }[];
   owner1?: InvoiceOwner;
   owner2?: InvoiceOwner;
 }) {
@@ -56,6 +59,8 @@ export function InvoicePreview({
       )
     : "—";
   const billingPeriod = billingPeriodFrom && billingPeriodTo ? `${fmtDdMmYyyy(billingPeriodFrom)} to ${fmtDdMmYyyy(billingPeriodTo)}` : "";
+  const hasCharges = charges.length > 0;
+  const total = amount + charges.reduce((sum, c) => sum + c.amount, 0);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#E6DDD3] bg-[#FAF6EF] text-[#2B2B2B] shadow-soft-lg">
@@ -100,15 +105,21 @@ export function InvoicePreview({
           <span>Amount</span>
         </div>
         <div className="flex items-center justify-between px-4 py-3 text-sm">
-          <span>{className ? `${className} classes` : "Music tuition"}</span>
+          <span>{hasCharges ? "Fixed amount" : className ? `${className} classes` : "Music tuition"}</span>
           <span className="font-semibold tabular-nums">{inr.format(amount)}</span>
         </div>
+        {charges.map((c, i) => (
+          <div key={i} className="flex items-center justify-between border-t border-[#E6DDD3] px-4 py-3 text-sm">
+            <span>{c.description || "—"}</span>
+            <span className="font-semibold tabular-nums">{inr.format(c.amount)}</span>
+          </div>
+        ))}
         <div
           className="flex items-center justify-between px-4 py-2.5 text-sm font-bold text-white"
           style={{ backgroundColor: MAROON }}
         >
           <span>Total due</span>
-          <span className="tabular-nums">{inr.format(amount)}</span>
+          <span className="tabular-nums">{inr.format(total)}</span>
         </div>
       </div>
 

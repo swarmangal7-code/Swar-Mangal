@@ -1,6 +1,6 @@
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, newPersonId, nextDocSeq, peekNextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
+import { s, n, d, newId, newPersonId, nextDocSeq, peekNextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts, parseExtraCharges, schoolInvoiceCharges, type ExtraCharge } from "@/lib/rpc/shared";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo, billingMonthRange } from "@/lib/rpc/numbering";
 import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, accruedLateFee, type FeeState, type LateFeeSetting } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
@@ -1907,6 +1907,9 @@ async function peekNextSchoolInvoiceNo(arg: Record<string, unknown>): Promise<Re
 async function generateSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const amount = n(arg["amount"]);
   if (amount <= 0) return { ok: false, code: "BAD_AMOUNT", error: "amount required" };
+  const chargesResult = parseExtraCharges(arg["extraCharges"]);
+  if (!chargesResult.ok) return { ok: false, code: chargesResult.code, error: chargesResult.error };
+  const extraCharges = chargesResult.charges;
   const branch = defaultBranch(scope, arg["branch"]);
   if (!inScope(scope, branch)) return branchForbidden(branch);
   const schoolRef = s(arg["schoolId"] ?? arg["schoolCode"] ?? arg["school"]).trim();
@@ -1960,6 +1963,12 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
        values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9,$10)`,
       [id, invoiceNo, invoiceDate, branch, s(arg["className"]), amount, s(arg["tenure"]), school.id, billingMonth, billedAddress],
     );
+    for (let i = 0; i < extraCharges.length; i++) {
+      await tx.query(
+        `insert into school_invoice_charges (id, invoice_id, description, amount, seq) values ($1,$2,$3,$4,$5)`,
+        [newId("SICH"), id, extraCharges[i].description, extraCharges[i].amount, i],
+      );
+    }
     if (manualSeq != null) {
       // Never let the shared counter fall behind a manually-assigned number,
       // so the next auto-generated invoice can't collide with it. A manual
@@ -1973,7 +1982,8 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     return invoiceNo;
   });
   await bumpRevisions(["invoices", "dashboard"]);
-  notifyBranch(branch, "School invoice issued", `${no} · ${school.name} · ₹${amount}`, id, "SCHOOL_INVOICE");
+  const total = amount + extraCharges.reduce((sum, c) => sum + c.amount, 0);
+  notifyBranch(branch, "School invoice issued", `${no} · ${school.name} · ₹${total}`, id, "SCHOOL_INVOICE");
   const beneficiaries = computeBeneficiaryAmounts(amount, await schoolBeneficiaries(school.id));
   return ok({
     invoiceId: id,
@@ -1993,6 +2003,8 @@ async function generateSchoolInvoice(arg: Record<string, unknown>, scope: Branch
     className: s(arg["className"]),
     amount,
     tenure: s(arg["tenure"]),
+    charges: extraCharges,
+    total,
     beneficiaries,
     owner1: { name: "Sharvil Vaidya", id: "OWNER-1", signatureUrl: "", title: "Owner 1" },
     owner2: { name: "Piyush Kashyap", id: "OWNER-2", signatureUrl: "", title: "Owner 2" },
@@ -2004,24 +2016,34 @@ async function listSchoolInvoices(arg: Record<string, unknown>, scope: BranchSco
   const requestedBranch = s(arg["branch"] ?? "ALL");
   const rows = (
     await query<Record<string, unknown>>(`select i.id, i.invoice_no, i.invoice_date, i.branch, i.class_name, i.amount, i.tenure, i.status,
-                                                 sc.code as school_code, sc.name as school_name
+                                                 sc.code as school_code, sc.name as school_name,
+                                                 coalesce((select json_agg(json_build_object('description', c.description, 'amount', c.amount) order by c.seq, c.id)
+                                                           from school_invoice_charges c where c.invoice_id = i.id), '[]'::json) as charges
                                           from school_invoices_rpc i
                                           left join schools sc on sc.id = i.school_id
                                           order by i.id desc`)
   ).filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(requestedBranch, r.branch));
   return ok({
-    invoices: rows.map((r) => ({
-      invoiceId: s(r.id),
-      invoiceNo: s(r.invoice_no),
-      invoiceDate: s(r.invoice_date),
-      branch: s(r.branch),
-      schoolCode: s(r.school_code),
-      schoolName: s(r.school_name),
-      className: s(r.class_name),
-      amount: n(r.amount),
-      tenure: s(r.tenure),
-      status: s(r.status),
-    })),
+    invoices: rows.map((r) => {
+      const amount = n(r.amount);
+      const charges: ExtraCharge[] = Array.isArray(r.charges)
+        ? (r.charges as Record<string, unknown>[]).map((c) => ({ description: s(c.description), amount: n(c.amount) }))
+        : [];
+      return {
+        invoiceId: s(r.id),
+        invoiceNo: s(r.invoice_no),
+        invoiceDate: s(r.invoice_date),
+        branch: s(r.branch),
+        schoolCode: s(r.school_code),
+        schoolName: s(r.school_name),
+        className: s(r.class_name),
+        amount,
+        tenure: s(r.tenure),
+        status: s(r.status),
+        charges,
+        total: amount + charges.reduce((sum, c) => sum + c.amount, 0),
+      };
+    }),
   });
 }
 
@@ -2037,6 +2059,8 @@ async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope
   if (!r) return { ok: false, code: "NOT_FOUND", error: `No invoice ${id}` };
   if (!inScope(scope, r.branch)) return branchForbidden(recordBranch(r.branch));
   const amount = n(r.amount);
+  const charges = await schoolInvoiceCharges(id);
+  const total = amount + charges.reduce((sum, c) => sum + c.amount, 0);
   const beneficiaries = computeBeneficiaryAmounts(amount, s(r.school_id) ? await schoolBeneficiaries(s(r.school_id)) : []);
   const billingMonth = s(r.billing_month).trim();
   const { from: billingPeriodFrom, to: billingPeriodTo } = billingMonth
@@ -2061,6 +2085,8 @@ async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope
       className: s(r.class_name),
       amount,
       tenure: s(r.tenure),
+      charges,
+      total,
       beneficiaries,
       pdfUrl: "",
       owner1: { name: "Sharvil Vaidya", id: "OWNER-1", signatureUrl: "", title: "Owner 1" },

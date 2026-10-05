@@ -49,6 +49,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
   }
 
   const amount = Number(row.amount) || 0;
+  const charges = (
+    await query<Record<string, unknown>>(
+      `select description, amount from school_invoice_charges where invoice_id = $1 order by seq, id`,
+      [invoiceId],
+    )
+  ).map((c) => ({ description: String(c.description ?? ""), amount: Number(c.amount) || 0 }));
   const invoiceDate = String(row.invoice_date ?? "");
   const billingMonth = String(row.billing_month ?? "").trim();
   // Invoices raised before billing_month existed don't have it — fall back to
@@ -74,6 +80,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
     billingBasis: String(row.billing_basis ?? "") || "Fixed Monthly",
     serviceDescription: String(row.service_description ?? "") || String(row.class_name ?? ""),
     amount,
+    charges,
   };
 
   const buffer = await renderToBuffer(InvoiceDocument({ data, beneficiaries }));

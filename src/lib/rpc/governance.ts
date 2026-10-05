@@ -4,7 +4,7 @@
 //  * school invoice drafts (P11: only the founder allocates an SMI- number).
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, nextDocSeq, bumpRevisions, schoolByIdOrCode } from "@/lib/rpc/shared";
+import { s, n, d, newId, nextDocSeq, bumpRevisions, schoolByIdOrCode, parseExtraCharges, normalizeChargesJson } from "@/lib/rpc/shared";
 import { randomBytes } from "crypto";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo } from "@/lib/rpc/numbering";
 import { normalizeEmail, isValidEmail } from "@/lib/email/otp";
@@ -403,6 +403,9 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   const amount = n(arg["amount"]);
   const intent = s(arg["clientIntentKey"] ?? arg["requestId"]).trim() || null;
   if (amount <= 0) return refuse("BAD_AMOUNT", "Enter the invoice amount.");
+  const chargesResult = parseExtraCharges(arg["extraCharges"]);
+  if (!chargesResult.ok) return refuse(chargesResult.code, chargesResult.error);
+  const extraCharges = chargesResult.charges;
   const billingMonth = s(arg["billingMonth"]).trim();
   if (!/^\d{4}-\d{2}$/.test(billingMonth)) return refuse("BILLING_MONTH_REQUIRED", "Pick the month this invoice bills for.");
   if (arg["previewConfirmed"] !== true) return refuse("PREVIEW_REQUIRED", "Check the preview and confirm it before sending.");
@@ -437,9 +440,9 @@ async function submitSchoolInvoiceDraft(arg: Record<string, unknown>, scope: Bra
   }
   const id = newId("SIDRAFT");
   await query(
-    `insert into school_invoice_drafts (id, branch, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key, school_id, billing_month, billed_address, proposed_invoice_seq)
-     values ($1,$2,$3,$4,$5::date,$6,true,$7,$8,$9,$10,$11,$12)`,
-    [id, branch, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent, school.id, billingMonth, billedAddress, proposedSeq],
+    `insert into school_invoice_drafts (id, branch, amount, tenure, invoice_date, notes, preview_confirmed, submitted_by, client_intent_key, school_id, billing_month, billed_address, proposed_invoice_seq, extra_charges)
+     values ($1,$2,$3,$4,$5::date,$6,true,$7,$8,$9,$10,$11,$12,$13)`,
+    [id, branch, amount, s(arg["tenure"]), invoiceDate, s(arg["notes"]).trim() || null, who(session), intent, school.id, billingMonth, billedAddress, proposedSeq, JSON.stringify(extraCharges)],
   );
   await bumpRevisions(["invoices", "approvals", "tasks"]);
   notifyFounderApproval("School invoice", "a draft invoice to issue", id);
@@ -456,6 +459,13 @@ async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session:
       return ok({ draftId: id, changed: false, idempotent: true, invoiceNo: s(draft.final_invoice_no), invoiceId: s(draft.final_invoice_id) });
     }
     if (s(draft.status) !== "SUBMITTED") return refuse("NOT_SUBMITTED", `Draft status ${s(draft.status)}`);
+    // Re-validate the charges the draft carried as a preview — the same rule
+    // as raising an invoice directly (both description and amount, or
+    // neither) — BEFORE any write, so an invalid charge never leaves a
+    // half-finalised invoice behind.
+    const chargesResult = parseExtraCharges(normalizeChargesJson(draft.extra_charges));
+    if (!chargesResult.ok) return refuse(chargesResult.code, chargesResult.error);
+    const extraCharges = chargesResult.charges;
     const invoiceDate = d(draft.invoice_date) || todayIso();
     const locked = await closedMonthRefusal(invoiceDate, tx);
     if (locked) return locked;
@@ -481,6 +491,12 @@ async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session:
        values ($1,$2,$3,$4,$5,$6,$7,'FINAL',$8,$9,$10)`,
       [invoiceId, invoiceNo, invoiceDate, s(draft.branch), s(draft.class_name), n(draft.amount), s(draft.tenure), school.id, s(draft.billing_month), s(draft.billed_address)],
     );
+    for (let i = 0; i < extraCharges.length; i++) {
+      await tx.query(
+        `insert into school_invoice_charges (id, invoice_id, description, amount, seq) values ($1,$2,$3,$4,$5)`,
+        [newId("SICH"), invoiceId, extraCharges[i].description, extraCharges[i].amount, i],
+      );
+    }
     if (proposedSeq != null) {
       await tx.query(
         `insert into doc_counters (series, last_no) values ($1, $2)
@@ -492,7 +508,8 @@ async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session:
       `update school_invoice_drafts set status = 'FINALISED', decided_by = $2, decided_at = now(), final_invoice_id = $3, final_invoice_no = $4 where id = $1`,
       [id, who(session), invoiceId, invoiceNo],
     );
-    return ok({ draftId: id, changed: true, invoiceId, invoiceNo, branch: s(draft.branch), note: `Invoice ${invoiceNo} issued.` });
+    const total = n(draft.amount) + extraCharges.reduce((sum, c) => sum + c.amount, 0);
+    return ok({ draftId: id, changed: true, invoiceId, invoiceNo, branch: s(draft.branch), charges: extraCharges, total, note: `Invoice ${invoiceNo} issued.` });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["invoices", "approvals", "dashboard"]);
