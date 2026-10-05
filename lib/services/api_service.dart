@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
 
 import '../core/api.dart';
 import '../models/models.dart';
@@ -855,6 +858,136 @@ class ApiService {
   Future<bool> pushEnabled() async {
     final b = await _api.call('api_pushStatus');
     return (b as Map)['enabled'] == true;
+  }
+
+  // ---------------------------------------------------------- instruments
+  /// Shared, growable picklist (teachers_screen already feeds its instrument
+  /// dropdown from this exact RPC via `.raw()` — same source here, not a
+  /// second fetch path).
+  Future<List<String>> listInstruments() async {
+    final b = await _api.call('api_listInstruments', {});
+    return ((b as Map)['instruments'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => (e['name'] ?? '').toString())
+        .where((n) => n.isNotEmpty)
+        .toList()
+      ..sort();
+  }
+
+  // ------------------------------------------------------- fee rate card
+  /// Founder-maintained quotable price list per instrument — separate from
+  /// what any individual student actually pays. STAFF may read; only
+  /// FOUNDER may upsert/deactivate.
+  Future<List<FeeRateCardRow>> listFeeRateCard({bool includeInactive = false}) async {
+    final b = await _api.call('api_listFeeRateCard', {'includeInactive': includeInactive});
+    return ((b as Map)['rows'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(FeeRateCardRow.fromApi)
+        .toList();
+  }
+
+  /// Create (no id) or update (id given) a rate-card row.
+  Future<FeeRateCardRow> upsertFeeRateCard({
+    String id = '',
+    required String instrument,
+    required String name,
+    required num feeAmount,
+    String billingPeriod = 'Monthly',
+    String notes = '',
+  }) async {
+    final b = await _api.call('api_founder_upsertFeeRateCard', {
+      if (id.isNotEmpty) 'id': id,
+      'instrument': instrument,
+      'name': name,
+      'feeAmount': feeAmount,
+      'billingPeriod': billingPeriod,
+      if (notes.isNotEmpty) 'notes': notes,
+    });
+    return FeeRateCardRow.fromApi((b as Map)['row'] as Map<String, dynamic>);
+  }
+
+  /// Never hard-deletes founder-entered price data — sets active=false.
+  Future<FeeRateCardRow> deactivateFeeRateCard(String id) async {
+    final b = await _api.call('api_founder_deactivateFeeRateCard', {'id': id});
+    return FeeRateCardRow.fromApi((b as Map)['row'] as Map<String, dynamic>);
+  }
+
+  // ------------------------------------------------ pdf export (timetable/rate card)
+  /// Strips the `/api/rpc` suffix from the gateway URL to get the base the
+  /// PDF export routes hang off — same derivation as EmailAuthService.
+  String? get _pdfBase {
+    final url = _api.apiUrl;
+    if (!url.startsWith('http')) return null; // demo mode has no real server
+    const suffix = '/api/rpc';
+    return url.endsWith(suffix) ? url.substring(0, url.length - suffix.length) : url;
+  }
+
+  Future<Uint8List> _fetchPdf(String path, Map<String, dynamic> query) async {
+    final base = _pdfBase;
+    if (base == null) {
+      throw ApiException('PDF export is not available in demo mode.', code: 'DEMO_UNAVAILABLE');
+    }
+    final uri = Uri.parse('$base$path').replace(queryParameters: {
+      'token': _api.token,
+      ...query,
+    });
+    http.Response res;
+    try {
+      res = await http.get(uri).timeout(const Duration(seconds: 45));
+    } catch (e) {
+      throw ApiUnreachable('Could not reach server for the PDF. Detail: $e');
+    }
+    if (res.statusCode != 200) {
+      String msg = 'Could not fetch PDF (HTTP ${res.statusCode}).';
+      try {
+        final body = jsonDecode(utf8.decode(res.bodyBytes));
+        if (body is Map && body['error'] != null) msg = body['error'].toString();
+      } catch (_) {/* body wasn't JSON (a real PDF, or plain text) — keep the generic message */}
+      throw ApiException(msg, code: kErrHttpError);
+    }
+    return res.bodyBytes;
+  }
+
+  /// Real PDF bytes for the branch timetable, filtered to one or more
+  /// instruments — GET /api/pdf/timetable, same device token as every other
+  /// call (carried as a query param since this isn't a POST to the gateway).
+  Future<Uint8List> fetchTimetablePdf({String branch = 'ALL', List<String> instruments = const []}) =>
+      _fetchPdf('/api/pdf/timetable', {
+        'branch': branch,
+        if (instruments.isNotEmpty) 'instruments': instruments,
+      });
+
+  /// Real PDF bytes for the founder-maintained Fee Rate Card, filtered to one
+  /// or more instruments — GET /api/pdf/fee-structure. Not branch-scoped.
+  Future<Uint8List> fetchFeeStructurePdf({List<String> instruments = const []}) =>
+      _fetchPdf('/api/pdf/fee-structure', {
+        if (instruments.isNotEmpty) 'instruments': instruments,
+      });
+
+  /// Shares a Timetable or Fee Rate Card PDF on WhatsApp to a hand-typed
+  /// phone number — a deliberate, explicit exception to the "student's
+  /// registered phone only" rule used by [sendWhatsApp]/[sendWhatsAppDocument]
+  /// above (see the comment at the top of src/lib/rpc/messaging.ts on the
+  /// backend). Only for public-facing informational PDFs with no
+  /// student-specific data.
+  Future<WaMessage> shareDocumentViaWhatsApp({
+    required String phone,
+    required String kind,
+    required String fileName,
+    required String fileBase64,
+    required String caption,
+    required String clientIntentKey,
+  }) async {
+    final b = await _api.call('api_staff_shareDocumentViaWhatsApp', {
+      'phone': phone,
+      'kind': kind,
+      'fileName': fileName,
+      'fileBase64': fileBase64,
+      'mimeType': 'application/pdf',
+      'caption': caption,
+      'clientIntentKey': clientIntentKey,
+    });
+    return WaMessage.fromApi((b as Map)['message'] as Map<String, dynamic>);
   }
 
   // ---------------------------------------------------------------- misc

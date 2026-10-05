@@ -9,6 +9,7 @@ import '../../state/auth_provider.dart';
 import '../../widgets/anim.dart';
 import '../../widgets/atoms.dart';
 import 'closures_screen.dart';
+import 'export_share_dialog.dart';
 
 /// Branch timetable — day selector + per-day class cards, weekly view.
 /// Both roles edit (add/edit/enable-disable/delete).
@@ -126,6 +127,16 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
       appBar: AppBar(
         title: const Text('Timetable'),
         actions: [
+          IconButton(
+            tooltip: 'Export / Share',
+            icon: const Icon(Icons.ios_share_outlined),
+            onPressed: () => showExportShareDialog(
+              context,
+              docKind: ExportShareDocKind.timetable,
+              documentLabel: 'Timetable',
+              branch: context.read<AuthProvider>().branch ?? 'ALL',
+            ),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ClosuresScreen(staff: widget.staff),
@@ -269,7 +280,13 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${e.timeLabelStart} — ${e.timeLabelEnd}',
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                Text(e.className, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Row(children: [
+                  Flexible(child: Text(e.className, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+                  if (e.instrument.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    TagChip(e.instrument, color: AppColors.adaptive(context, AppColors.muted)),
+                  ],
+                ]),
                 Text(e.teacherName.isNotEmpty ? e.teacherName : 'No teacher assigned',
                     style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
                 if (e.overridden)
@@ -397,6 +414,8 @@ class _TimetableFormState extends State<_TimetableForm> {
   String? _substituteId;
   late String _substituteName;
   late String _branch;
+  String? _instrument;
+  List<String> _instruments = [];
   String _editScope = 'THIS_WEEK';
   bool _busy = false;
   String? _error;
@@ -415,6 +434,20 @@ class _TimetableFormState extends State<_TimetableForm> {
     _substituteId = (e?.substituteTeacherId ?? '').isEmpty ? null : e!.substituteTeacherId;
     _substituteName = e?.substituteTeacherName ?? '';
     _branch = e?.branch.isNotEmpty == true ? e!.branch.toUpperCase() : '';
+    _instrument = (e?.instrument ?? '').isEmpty ? null : e!.instrument;
+    _loadInstruments();
+  }
+
+  Future<void> _loadInstruments() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    try {
+      final list = await auth.service!.listInstruments();
+      if (!mounted) return;
+      setState(() => _instruments = list);
+    } catch (_) {
+      // Instrument is optional — the free-text class name field still works.
+    }
   }
 
   List<String> get _branches {
@@ -487,6 +520,7 @@ class _TimetableFormState extends State<_TimetableForm> {
       'status': _status,
       'substituteTeacherId': _substituteId ?? '',
       'substituteTeacherName': _substituteName.trim(),
+      'instrument': _instrument ?? '',
     };
     setState(() {
       _busy = true;
@@ -528,6 +562,16 @@ class _TimetableFormState extends State<_TimetableForm> {
           TextFormField(
             controller: _class,
             decoration: const InputDecoration(labelText: 'Class / instrument *', prefixIcon: Icon(Icons.music_note_outlined)),
+          ),
+          const SizedBox(height: AppSpace.s3),
+          DropdownButtonFormField<String>(
+            initialValue: _instrument,
+            decoration: const InputDecoration(labelText: 'Instrument'),
+            hint: const Text('Not set'),
+            items: [
+              for (final i in _instruments) DropdownMenuItem(value: i, child: Text(i)),
+            ],
+            onChanged: (v) => setState(() => _instrument = v),
           ),
           const SizedBox(height: AppSpace.s3),
           Text('DAY', style: AppType.eyebrow.copyWith(fontSize: 10)),
