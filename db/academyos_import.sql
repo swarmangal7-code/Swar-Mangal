@@ -336,4 +336,4 @@ insert into school_compensation (id, teacher_id, teacher_name, school_id, course
 insert into school_compensation (id, teacher_id, teacher_name, school_id, courses, monthly_amount, payout_type, status) values ('SCOMP-FF0499E9', 'TCH-93BC42A9', '', 'MAXWELL', '', null, 'OWNER_DIRECT', 'PARTIAL_NEEDS_FOUNDER_CONFIRMATION') on conflict (id) do nothing;
 -- schools
 insert into schools (id, name, address, entity_id, active) values ('SCH-MHWS', 'SET''s Mumbai High World School', 'SET''s Mumbai High World School, Saibaba Nagar, near Aadi Ganesh Mandir, Borivali West, Mumbai, Maharashtra 400092', '', true) on conflict (id) do nothing;
-insert into schools (id, name, address, entity_id, active) values ('SCH-MXVILLE', 'Maxville School', 'Maxville School, Borivali, Mumbai, Maharashtra', '', true) on conflict (id) do nothing;
+insert into schools (id, name, address, entity_id, active) values ('SCH-MXVILLE', 'Mxville School', 'Mxville School, Borivali, Mumbai, Maharashtra', '', true) on conflict (id) do nothing;
