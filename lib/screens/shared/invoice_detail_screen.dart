@@ -25,6 +25,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   bool _pdfBusy = false;
   bool _voidBusy = false;
   String? _voidError;
+  bool _deleteBusy = false;
+  String? _deleteError;
 
   @override
   void initState() {
@@ -126,6 +128,69 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       setState(() => _voidError = e.message);
     } finally {
       if (mounted) setState(() => _voidBusy = false);
+    }
+  }
+
+  /// Founder-only: a separate, free-standing alternative to void. Removes the
+  /// invoice and its charges from the database entirely — its number becomes
+  /// free to use again. There is no undo. Use this only for a test/duplicate
+  /// invoice that was never actually sent; for a real invoice that needs
+  /// correcting, void it instead and raise a fresh one.
+  Future<void> _deleteInvoice() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null || _inv == null) return;
+    final invoiceNo = _inv!.invoiceNo;
+    final reasonCtl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete $invoiceNo permanently'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            'This removes the invoice and its charges from the database entirely — its number '
+            'becomes free to use again. There is no undo. Use this only for a test or duplicate '
+            'invoice that was never actually sent to the school; for a real invoice that needs '
+            'correcting, void it instead and raise a fresh one.',
+            style: TextStyle(fontSize: 12, color: AppColors.adaptive(ctx, AppColors.muted)),
+          ),
+          const SizedBox(height: AppSpace.s3),
+          TextField(controller: reasonCtl, decoration: const InputDecoration(labelText: 'Reason (required, kept in the audit log)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: () => reasonCtl.text.trim().isEmpty ? null : Navigator.pop(ctx, true),
+            child: const Text('Delete permanently'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _deleteBusy = true;
+      _deleteError = null;
+    });
+    try {
+      final res = await auth.service!.deleteSchoolInvoice(invoiceId: widget.invoiceId, reason: reasonCtl.text.trim());
+      if (!mounted) return;
+      if (res['ok'] == true) {
+        final note = (res['note'] ?? '$invoiceNo deleted.').toString();
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(note)));
+        Navigator.pop(context);
+      } else {
+        setState(() => _deleteError = (res['error'] ?? 'Could not delete the invoice.').toString());
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _deleteError = e.message);
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() => _deleteError = e.message);
+    } finally {
+      if (mounted) setState(() => _deleteBusy = false);
     }
   }
 
@@ -250,6 +315,25 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             Padding(
               padding: const EdgeInsets.only(top: AppSpace.s3),
               child: ErrorView(_voidError!, compact: true),
+            ),
+          if (auth.isFounder) ...[
+            const SizedBox(height: AppSpace.s3),
+            // A separate, free-standing alternative to void — permanently
+            // removes the invoice and its charges, freeing its number for
+            // reuse. For a wrong/duplicate/test invoice, not a real one.
+            OutlinedButton.icon(
+              onPressed: _deleteBusy ? null : _deleteInvoice,
+              icon: _deleteBusy
+                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(Icons.delete_forever_outlined, color: Theme.of(context).colorScheme.error),
+              label: Text('Delete permanently', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              style: OutlinedButton.styleFrom(side: BorderSide(color: Theme.of(context).colorScheme.error)),
+            ),
+          ],
+          if (_deleteError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpace.s3),
+              child: ErrorView(_deleteError!, compact: true),
             ),
           const SizedBox(height: AppSpace.s3),
           Text(
