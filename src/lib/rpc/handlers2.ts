@@ -860,7 +860,7 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
     query<{ teacher_id: string; outcome: string; cnt: string }>(
       `select coalesce(nullif(payee_teacher_id,''), teacher_id) as teacher_id, outcome, count(*)::text as cnt
        from scheduled_sessions
-       where session_date >= $1::date and session_date < ($1::date + interval '1 month')
+       where session_date::date >= $1::date and session_date::date < ($1::date + interval '1 month')
          and outcome in ('TEACHER_ABSENT','SCHOOL_HOLIDAY','STUDENT_ABSENT')
          and coalesce(nullif(payee_teacher_id,''), teacher_id) <> ''
        group by coalesce(nullif(payee_teacher_id,''), teacher_id), outcome`,
