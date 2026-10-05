@@ -283,6 +283,16 @@ class ApiService {
     return b as Map<String, dynamic>;
   }
 
+  /// Founder-only: permanently removes the invoice row and its line-item
+  /// charges from the database, freeing its number for reuse. A separate,
+  /// free-standing alternative to voiding — for a wrong/duplicate/test
+  /// invoice that should never have existed. Void remains correct for a real
+  /// invoice that was actually sent and needs correcting.
+  Future<Map<String, dynamic>> deleteSchoolInvoice({required String invoiceId, required String reason}) async {
+    final b = await _api.call('api_founder_deleteSchoolInvoice', {'invoiceId': invoiceId, 'reason': reason});
+    return b as Map<String, dynamic>;
+  }
+
   // -------------------------------------------------------------- timetable
   /// Branch timetable. Seed is backend-owned and applied only when the
   /// timetable has never been initialised — founder edits are never

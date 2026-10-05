@@ -172,6 +172,7 @@ class DemoApiClient extends ApiClient {
     'api_founder_sendOverdueLateFeeReminders': {},
     'api_generateSchoolInvoice': {'invoices'},
     'api_founder_voidSchoolInvoice': {'invoices', 'dashboard'},
+    'api_founder_deleteSchoolInvoice': {'invoices', 'dashboard'},
     'api_timetableCreate': {'timetable'},
     'api_timetableUpdate': {'timetable'},
     'api_timetableDelete': {'timetable'},
@@ -259,6 +260,7 @@ class DemoApiClient extends ApiClient {
     'api_updateTeacherCompensation',
     'api_generateSchoolInvoice',
     'api_founder_voidSchoolInvoice',
+    'api_founder_deleteSchoolInvoice',
     'api_timetableCreate',
     'api_timetableUpdate',
     'api_timetableDelete',
@@ -447,6 +449,14 @@ class DemoApiClient extends ApiClient {
           'changed': true,
           'status': 'VOID',
           'note': 'demo void — nothing was actually changed',
+        };
+      case 'api_founder_deleteSchoolInvoice':
+        return {
+          'ok': true,
+          'invoiceId': a['invoiceId'] ?? '',
+          'invoiceNo': 'INV-DEMO',
+          'changed': true,
+          'note': 'demo delete — nothing was actually changed',
         };
       case 'api_timetableList':
         return _timetableList(a);
