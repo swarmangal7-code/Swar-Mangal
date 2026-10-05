@@ -312,6 +312,7 @@ const founderItems = <({String key, String label, IconData icon})>[
   (key: 'addFee', label: 'Add Fee', icon: Icons.payments_outlined),
   (key: 'receipts', label: 'Receipts', icon: Icons.receipt_long_outlined),
   (key: 'teachers', label: 'Teachers', icon: Icons.group_outlined),
+  (key: 'inquiries', label: 'Inquiries', icon: Icons.chat_outlined),
   (key: 'expenses', label: 'Expenses & Cashbook', icon: Icons.account_balance_wallet_outlined),
   (key: 'payouts', label: 'Teacher Payouts', icon: Icons.payments_outlined),
   (key: 'payoutSettings', label: 'Payroll Rules', icon: Icons.rule_folder_outlined),

@@ -875,9 +875,9 @@ class ApiService {
   }
 
   // ------------------------------------------------------- fee rate card
-  /// Founder-maintained quotable price list per instrument — separate from
-  /// what any individual student actually pays. STAFF may read; only
-  /// FOUNDER may upsert/deactivate.
+  /// Quotable price list per instrument — separate from what any individual
+  /// student actually pays. Both FOUNDER and STAFF may read and
+  /// upsert/deactivate (server-enforced, STAFF-tier).
   Future<List<FeeRateCardRow>> listFeeRateCard({bool includeInactive = false}) async {
     final b = await _api.call('api_listFeeRateCard', {'includeInactive': includeInactive});
     return ((b as Map)['rows'] as List? ?? const [])
