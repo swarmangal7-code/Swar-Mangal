@@ -196,6 +196,7 @@ class ApiService {
     String branch = 'ALL',
     required String schoolId,
     required String intentKey,
+    List<ExtraCharge> extraCharges = const [],
   }) async {
     final b = await _api.call('api_generateSchoolInvoice', {
       'amount': amount,
@@ -207,6 +208,7 @@ class ApiService {
       'branch': branch,
       'schoolId': schoolId,
       'clientIntentKey': intentKey,
+      'extraCharges': extraCharges.map((c) => c.toApi()).toList(),
     });
     return SchoolInvoice.fromApi(b as Map<String, dynamic>);
   }

@@ -41,6 +41,9 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
   final split = beneficiaries.length > 1;
   final splitTotal = beneficiaries.fold<num>(0, (s, b) => s + b.amount);
   final serviceDescription = inv.serviceDescription.isNotEmpty ? inv.serviceDescription : (inv.className.isNotEmpty ? inv.className : 'Music education');
+  final charges = inv.charges;
+  final hasCharges = charges.isNotEmpty;
+  final total = inv.total;
 
   doc.addPage(
     pw.MultiPage(
@@ -146,19 +149,34 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
           padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: pw.BoxDecoration(border: pw.Border.all(color: _border)),
           child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Expanded(flex: 3, child: pw.Text('Monthly Music Education Services — $serviceDescription', style: const pw.TextStyle(fontSize: 9))),
+            pw.Expanded(
+                flex: 3,
+                child: pw.Text(
+                    hasCharges ? 'Fixed amount' : 'Monthly Music Education Services — $serviceDescription',
+                    style: const pw.TextStyle(fontSize: 9))),
             pw.Expanded(child: pw.Text('1', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)),
             pw.Expanded(flex: 2, child: pw.Text(_rs(inv.amount), style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right)),
             pw.Expanded(flex: 2, child: pw.Text(_rs(inv.amount), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
           ]),
         ),
+        for (final c in charges)
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(color: _border), right: pw.BorderSide(color: _border), bottom: pw.BorderSide(color: _border))),
+            child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Expanded(flex: 3, child: pw.Text(c.description, style: const pw.TextStyle(fontSize: 9))),
+              pw.Expanded(child: pw.Text('1', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)),
+              pw.Expanded(flex: 2, child: pw.Text(_rs(c.amount), style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right)),
+              pw.Expanded(flex: 2, child: pw.Text(_rs(c.amount), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+            ]),
+          ),
         pw.Container(
           padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(color: _border), right: pw.BorderSide(color: _border), bottom: pw.BorderSide(color: _border))),
           child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
             pw.Text('Subtotal', style: const pw.TextStyle(fontSize: 9, color: _gray)),
             pw.SizedBox(width: 24),
-            pw.Text(_rs(inv.amount), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+            pw.Text(_rs(total), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
           ]),
         ),
         pw.Container(
@@ -166,7 +184,7 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
           padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
             pw.Text('Total due', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: pdf.PdfColors.white)),
-            pw.Text(_rs(inv.amount), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: pdf.PdfColors.white)),
+            pw.Text(_rs(total), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: pdf.PdfColors.white)),
           ]),
         ),
 

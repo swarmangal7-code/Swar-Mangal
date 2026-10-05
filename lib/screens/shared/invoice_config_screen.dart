@@ -25,6 +25,11 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
   final _schoolAddress = TextEditingController();
   final _invoiceSeq = TextEditingController();
   final _billingMonthCtrl = TextEditingController();
+  // Dynamic "Other charges" rows (optional) — each needs BOTH a description
+  // and a positive amount, or neither (mirrors InvoiceValidator.chargesValid
+  // / the backend's parseExtraCharges).
+  final List<TextEditingController> _chargeDesc = [];
+  final List<TextEditingController> _chargeAmount = [];
   final _intent = 'SINV-${DateTime.now().microsecondsSinceEpoch}';
   String _tenure = '6 Months';
   String _invoiceDate = '';
@@ -87,8 +92,36 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
     _schoolAddress.dispose();
     _invoiceSeq.dispose();
     _billingMonthCtrl.dispose();
+    for (final c in _chargeDesc) {
+      c.dispose();
+    }
+    for (final c in _chargeAmount) {
+      c.dispose();
+    }
     super.dispose();
   }
+
+  List<(String, String)> get _chargeRows => [
+        for (var i = 0; i < _chargeDesc.length; i++) (_chargeDesc[i].text, _chargeAmount[i].text),
+      ];
+
+  bool get _chargesValid => InvoiceValidator.chargesValid(_chargeRows);
+
+  List<ExtraCharge> get _cleanedCharges => InvoiceValidator.cleanCharges(_chargeRows);
+
+  num get _chargesTotal => _cleanedCharges.fold<num>(0, (sum, c) => sum + c.amount);
+
+  void _addCharge() => setState(() {
+        _chargeDesc.add(TextEditingController());
+        _chargeAmount.add(TextEditingController());
+        _previewed = false;
+      });
+
+  void _removeCharge(int i) => setState(() {
+        _chargeDesc.removeAt(i).dispose();
+        _chargeAmount.removeAt(i).dispose();
+        _previewed = false;
+      });
 
   /// First/last day of a "YYYY-MM" billing month, mirroring the backend's
   /// billingMonthRange so the preview matches what finalising will store.
@@ -154,6 +187,10 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       setState(() => _error = 'Pick the month this invoice bills for.');
       return null;
     }
+    if (!_chargesValid) {
+      setState(() => _error = 'Each other charge needs both a description and an amount greater than 0.');
+      return null;
+    }
     return (ok: true, amount: a.amount);
   }
 
@@ -179,6 +216,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         branch: auth.branch ?? 'ALL',
         schoolId: _school!.schoolId,
         intentKey: _intent,
+        extraCharges: _cleanedCharges,
       );
       if (!mounted) return;
       final demo = auth.isDemo || inv.demo;
@@ -227,6 +265,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       schoolName: _school?.name ?? '',
       schoolAddress: _schoolAddress.text.trim(),
       schoolContact: _school?.contact ?? '',
+      charges: _cleanedCharges,
       owner1: InvoiceOwner(name: 'Sharvil Vaidya', id: 'OWNER-1', signatureUrl: ''),
       owner2: InvoiceOwner(name: 'Piyush Kashyap', id: 'OWNER-2', signatureUrl: ''),
       pdfUrl: '',
@@ -264,6 +303,7 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
         'schoolId': _school!.schoolId,
         'previewConfirmed': true,
         'clientIntentKey': _intent,
+        'extraCharges': _cleanedCharges.map((c) => c.toApi()).toList(),
       });
       final m = res as Map<String, dynamic>;
       if (!mounted) return;
@@ -286,6 +326,19 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
       });
     }
   }
+
+  Widget _previewRow(String label, num amount, {bool bold = false}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(
+            child: Text(label,
+                style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w800 : FontWeight.w500),
+                overflow: TextOverflow.ellipsis),
+          ),
+          Text(inr(amount),
+              style: TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w800 : FontWeight.w600)),
+        ]),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -370,9 +423,83 @@ class _InvoiceConfigScreenState extends State<InvoiceConfigScreen> {
                   onChanged: (_) => setState(() => _previewed = false),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                      labelText: 'Invoice amount (INR) *',
+                      labelText: 'Fixed amount (INR) *',
                       prefixIcon: Icon(Icons.currency_rupee)),
                 ),
+                const SizedBox(height: AppSpace.s3),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Other charges (optional)',
+                        style: AppType.eyebrow.copyWith(color: scheme.onSurfaceVariant)),
+                    TextButton.icon(
+                      onPressed: _addCharge,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Add charge'),
+                    ),
+                  ],
+                ),
+                for (var i = 0; i < _chargeDesc.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpace.s2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _chargeDesc[i],
+                            onChanged: (_) => setState(() => _previewed = false),
+                            style: const TextStyle(fontSize: 13),
+                            decoration: const InputDecoration(
+                              labelText: 'Description',
+                              hintText: 'e.g. Diwali decoration',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpace.s2),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _chargeAmount[i],
+                            onChanged: (_) => setState(() => _previewed = false),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(fontSize: 13),
+                            decoration: const InputDecoration(labelText: '₹'),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _removeCharge(i),
+                          icon: const Icon(Icons.close, size: 18),
+                          tooltip: 'Remove charge',
+                        ),
+                      ],
+                    ),
+                  ),
+                if (!_chargesValid)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: AppSpace.s2),
+                    child: Text('Each other charge needs both a description and an amount.',
+                        style: TextStyle(fontSize: 12, color: AppColors.blockFg)),
+                  ),
+                if (_amount.text.trim().isNotEmpty || _cleanedCharges.isNotEmpty)
+                  Card(
+                    color: scheme.surfaceContainerHighest,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpace.s3),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('PREVIEW', style: AppType.eyebrow.copyWith(color: scheme.onSurfaceVariant)),
+                        const SizedBox(height: AppSpace.s2),
+                        _previewRow('Fixed amount', num.tryParse(_amount.text.trim().replaceAll(',', '')) ?? 0),
+                        for (final c in _cleanedCharges) _previewRow(c.description, c.amount),
+                        const Divider(height: 12),
+                        _previewRow(
+                          'Total',
+                          (num.tryParse(_amount.text.trim().replaceAll(',', '')) ?? 0) + _chargesTotal,
+                          bold: true,
+                        ),
+                      ]),
+                    ),
+                  ),
                 const SizedBox(height: AppSpace.s3),
                 Align(
                   alignment: Alignment.centerLeft,
