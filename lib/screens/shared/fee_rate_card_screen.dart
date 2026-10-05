@@ -8,13 +8,15 @@ import '../../state/auth_provider.dart';
 import '../../state/sync_manager.dart';
 import '../../widgets/anim.dart';
 import '../../widgets/atoms.dart';
-import '../shared/export_share_dialog.dart';
+import 'export_share_dialog.dart';
 
-/// Founder-only: the academy's published, quotable price list per instrument
-/// (2026-10-05) — entirely separate from what any individual student actually
-/// pays (that's each student's own `monthlyFee`). Rows are edited or
-/// deactivated directly, never hard-deleted — same pattern as a teacher or
-/// school record, not the effective-dated/append-only payout settings tables.
+/// Shared by founder and staff: the academy's published, quotable price list
+/// per instrument (2026-10-05) — entirely separate from what any individual
+/// student actually pays (that's each student's own `monthlyFee`). Rows are
+/// edited or deactivated directly, never hard-deleted — same pattern as a
+/// teacher or school record, not the effective-dated/append-only payout
+/// settings tables. Both roles may add/edit/deactivate rows (server-enforced,
+/// STAFF-tier); nothing left here is founder-only.
 class FeeRateCardScreen extends StatefulWidget {
   const FeeRateCardScreen({super.key});
   @override
