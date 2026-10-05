@@ -12,10 +12,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ChevronRight, Filter, MessageSquareText, Phone } from "lucide-react";
+import { ChevronRight, Filter, MessageSquareText, Phone, Plus, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,14 +28,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useInquiries } from "@/lib/api/rpc-hooks";
-import type { Inquiry } from "@/lib/api/rpc-types";
+import { useInquiries, useMutationRpc } from "@/lib/api/rpc-hooks";
+import type { Inquiry, RpcEnvelope } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils/cn";
 import { formatDateOnly } from "@/app/founder/_shared";
+
+interface QuickAddArg extends Record<string, unknown> {
+  name: string;
+  phone: string;
+  instrument: string;
+  branch: string;
+  notes: string;
+}
+interface QuickAddResponse extends RpcEnvelope {
+  inquiryId?: string;
+}
 
 /** Matches the server's TERMINAL_INQUIRY_STATUSES (rules.ts) and the
  *  Flutter model's Inquiry.actionable getter exactly: a converted, dropped,
@@ -64,6 +78,7 @@ export function InquiriesList({ basePath, eyebrow }: { basePath: string; eyebrow
   const branches = session?.branches ?? [];
   const [branch, setBranch] = React.useState(branches.length === 1 ? branches[0] : "ALL");
   const [q, setQ] = React.useState("");
+  const [showAdd, setShowAdd] = React.useState(false);
 
   // Flutter default: _actionableOnly starts true ("Today").
   const [actionableOnly, setActionableOnly] = React.useState(true);
@@ -129,22 +144,44 @@ export function InquiriesList({ basePath, eyebrow }: { basePath: string; eyebrow
             {inquiries.data ? `${callToday.length} to call today · ${all.length} total` : "Leads and follow-ups."}
           </p>
         </div>
-        {branches.length > 1 && (
-          <select
-            aria-label="Branch"
-            value={branch}
-            onChange={(e) => setBranch(e.target.value)}
-            className="h-11 rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
+        <div className="flex items-center gap-2">
+          {branches.length > 1 && (
+            <select
+              aria-label="Branch"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              className="h-11 rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
+            >
+              <option value="ALL">All branches</option>
+              {branches.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button
+            variant={showAdd ? "ghost" : "outline"}
+            className={cn(!showAdd && "border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]")}
+            onClick={() => setShowAdd((v) => !v)}
           >
-            <option value="ALL">All branches</option>
-            {branches.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-        )}
+            {showAdd ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {showAdd ? "Close" : "Quick add"}
+          </Button>
+        </div>
       </motion.div>
+
+      {showAdd && (
+        <motion.div variants={fadeUp}>
+          <QuickAddInquiryForm
+            branch={branches.length === 1 ? branches[0] : branch === "ALL" ? "" : branch}
+            onSaved={() => {
+              setShowAdd(false);
+              inquiries.refetch();
+            }}
+          />
+        </motion.div>
+      )}
 
       <motion.div variants={fadeUp} className="relative">
         <Input
@@ -297,5 +334,76 @@ export function InquiriesList({ basePath, eyebrow }: { basePath: string; eyebrow
         </motion.div>
       )}
     </motion.div>
+  );
+}
+
+/** Mirrors the Flutter app's `_InquiryForm` (lib/screens/shared/inquiries_screen.dart)
+ *  field-for-field: name, phone, instrument, branch, notes via api_staff_inquiryQuickAdd
+ *  — the website never had this capability before, only the app did. */
+function QuickAddInquiryForm({ branch, onSaved }: { branch: string; onSaved: () => void }) {
+  const [name, setName] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [instrument, setInstrument] = React.useState("");
+  const [notes, setNotes] = React.useState("");
+
+  const add = useMutationRpc<QuickAddArg, QuickAddResponse>("api_staff_inquiryQuickAdd", {
+    onSuccess: (res) => {
+      toast.success(`Inquiry ${res.inquiryId ?? ""} captured.`);
+      setName("");
+      setPhone("");
+      setInstrument("");
+      setNotes("");
+      onSaved();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const valid = name.trim().length > 0 || phone.trim().length > 0;
+
+  return (
+    <Card className="border-dash-fg/10 bg-dash-card">
+      <CardContent className="space-y-4 p-4 sm:p-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-dash-fg/70">Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} className="border-dash-fg/12 bg-dash-sidebar text-dash-fg" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-dash-fg/70">Phone</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="border-dash-fg/12 bg-dash-sidebar text-dash-fg" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-dash-fg/70">Instrument (optional)</Label>
+            <Input
+              value={instrument}
+              onChange={(e) => setInstrument(e.target.value)}
+              placeholder="Leave blank for no preference"
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-dash-fg/70">Notes (optional)</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="border-dash-fg/12 bg-dash-sidebar text-dash-fg" />
+          </div>
+        </div>
+        {!valid && <p className="text-xs text-dash-fg/40">Enter at least a name or a phone.</p>}
+        <Button
+          className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+          disabled={!valid}
+          loading={add.isPending}
+          onClick={() =>
+            add.mutate({
+              name: name.trim(),
+              phone: phone.trim(),
+              instrument: instrument.trim(),
+              branch,
+              notes: notes.trim(),
+            })
+          }
+        >
+          Save inquiry
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
