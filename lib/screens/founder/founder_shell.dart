@@ -14,6 +14,7 @@ import '../shared/audit_log_screen.dart';
 import '../shared/payout_preview_screen.dart';
 import '../shared/timetable_screen.dart';
 import '../shared/school_invoice_screen.dart';
+import 'fee_rate_card_screen.dart';
 import 'payout_settings_screen.dart';
 
 /// Founder surface. Same data centre as the web founder app: receipts are
@@ -29,7 +30,7 @@ class FounderShell extends StatelessWidget {
       sections: const [
         (label: 'Today', keys: ['home']),
         (label: 'Students', keys: ['students', 'addStudent', 'demoStudents']),
-        (label: 'Money', keys: ['addFee', 'receipts', 'payouts', 'payoutSettings', 'expenses']),
+        (label: 'Money', keys: ['addFee', 'receipts', 'payouts', 'payoutSettings', 'feeRateCard', 'expenses']),
         (label: 'People', keys: ['teachers', 'approvals']),
         (label: 'Academy', keys: ['timetable', 'schoolInvoice', 'auditLog']),
         (label: '', keys: ['about']),
@@ -56,6 +57,8 @@ class FounderShell extends StatelessWidget {
             return const PayoutPreviewScreen();
           case 'payoutSettings':
             return const PayoutSettingsScreen();
+          case 'feeRateCard':
+            return const FeeRateCardScreen();
           case 'timetable':
             return const TimetableScreen(staff: false);
           case 'schoolInvoice':

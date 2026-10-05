@@ -59,12 +59,48 @@ class DemoApiClient extends ApiClient {
   static Map<String, Map<String, dynamic>>? _sharedStatements;
   static Map<String, Map<String, dynamic>> get _statements => _sharedStatements ??= {};
 
+  /// Shared, growable instrument picklist — same list the teacher dropdown,
+  /// timetable instrument dropdown and fee rate card forms all read from.
+  static List<String>? _sharedInstruments;
+  static List<String> get _instruments => _sharedInstruments ??= [
+        'Vocals', 'Guitar', 'Piano / Keyboard', 'Violin', 'Tabla', 'Drums', 'Flute', 'Harmonium', 'Ukulele',
+      ];
+
+  /// Founder-maintained fee rate card rows, SHARED like the timetable.
+  static List<Map<String, dynamic>>? _sharedFeeRateCard;
+  static List<Map<String, dynamic>> get _feeRateCard => _sharedFeeRateCard ??= [
+        {
+          'id': 'FRC-DEMO-1',
+          'instrument': 'Guitar',
+          'name': 'Standard',
+          'feeAmount': 2500,
+          'billingPeriod': 'Monthly',
+          'notes': '',
+          'active': true,
+          'createdBy': 'demo', 'createdAt': '2026-10-01T00:00:00.000Z',
+          'updatedBy': '', 'updatedAt': '',
+        },
+        {
+          'id': 'FRC-DEMO-2',
+          'instrument': 'Piano / Keyboard',
+          'name': '1-on-1',
+          'feeAmount': 3500,
+          'billingPeriod': 'Monthly',
+          'notes': 'Includes practice slot',
+          'active': true,
+          'createdBy': 'demo', 'createdAt': '2026-10-01T00:00:00.000Z',
+          'updatedBy': '', 'updatedAt': '',
+        },
+      ];
+
   /// Clears the process-wide demo store. Tests call this in setUp so one
   /// test's writes cannot change what another test sees.
   static void resetSharedState() {
     _sharedTimetable = null;
     _sharedInvoices = null;
     _sharedStatements = null;
+    _sharedInstruments = null;
+    _sharedFeeRateCard = null;
     revisions.updateAll((k, v) => 1);
   }
 
@@ -80,6 +116,7 @@ class DemoApiClient extends ApiClient {
         status: e.status,
         substituteTeacherId: e.substituteTeacherId,
         substituteTeacherName: e.substituteTeacherName,
+        instrument: e.instrument,
       );
 
   /// Server revisions, SHARED across sessions. Each successful write bumps
@@ -88,6 +125,7 @@ class DemoApiClient extends ApiClient {
     'students': 1, 'teachers': 1, 'payments': 1, 'receipts': 1, 'expenses': 1,
     'invoices': 1, 'timetable': 1, 'attendance': 1, 'inquiries': 1,
     'approvals': 1, 'sessions': 1, 'dashboard': 1, 'tasks': 1, 'payouts': 1,
+    'feeRateCard': 1,
   };
 
   static void _bump(Iterable<String> entities) {
@@ -136,6 +174,8 @@ class DemoApiClient extends ApiClient {
     'api_timetableCreate': {'timetable'},
     'api_timetableUpdate': {'timetable'},
     'api_timetableDelete': {'timetable'},
+    'api_founder_upsertFeeRateCard': {'feeRateCard'},
+    'api_founder_deactivateFeeRateCard': {'feeRateCard'},
     'api_staff_submitPackageExtensionRequest': {'approvals'},
     'api_founder_packageExtensionApprove': {'approvals', 'students', 'dashboard'},
     'api_founder_packageExtensionReject': {'approvals'},
@@ -178,6 +218,7 @@ class DemoApiClient extends ApiClient {
     'api_addFeePayment',
     'api_staff_prepareReceiptDraft',
     'api_addTeacher',
+    'api_addInstrument',
     'api_addExpenseEntry',
     'api_staff_submitExpenseDraft',
     'api_founder_expenseDraftApprove',
@@ -206,6 +247,7 @@ class DemoApiClient extends ApiClient {
     'api_founder_studentDraftReject',
     'api_staff_sendWhatsApp',
     'api_staff_sendWhatsAppDocument',
+    'api_staff_shareDocumentViaWhatsApp',
     'api_staff_submitSchoolInvoiceDraft',
     'api_founder_finaliseSchoolInvoiceDraft',
     'api_founder_schoolInvoiceDraftReject',
@@ -218,6 +260,8 @@ class DemoApiClient extends ApiClient {
     'api_timetableCreate',
     'api_timetableUpdate',
     'api_timetableDelete',
+    'api_founder_upsertFeeRateCard',
+    'api_founder_deactivateFeeRateCard',
     'api_staff_submitPackageExtensionRequest',
     'api_founder_packageExtensionApprove',
     'api_founder_packageExtensionReject',
@@ -401,6 +445,21 @@ class DemoApiClient extends ApiClient {
         return _timetableUpdate(a);
       case 'api_timetableDelete':
         return _timetableDelete(a);
+      case 'api_listInstruments':
+        return {
+          'ok': true,
+          'instruments': [for (final n in _instruments) {'id': 'INS-DEMO-$n', 'name': n}],
+        };
+      case 'api_addInstrument':
+        return _addInstrument(a);
+      case 'api_listFeeRateCard':
+        return _listFeeRateCard(a);
+      case 'api_founder_upsertFeeRateCard':
+        return _upsertFeeRateCard(a);
+      case 'api_founder_deactivateFeeRateCard':
+        return _deactivateFeeRateCard(a);
+      case 'api_staff_shareDocumentViaWhatsApp':
+        return _demoWhatsApp(api, a);
       case 'api_syncChanges':
         return _syncChanges(a);
       case 'api_staff_listRecoveryCredits':
@@ -2291,6 +2350,7 @@ class DemoApiClient extends ApiClient {
       status: _s(a['status']).isEmpty ? 'ENABLED' : _s(a['status']).toUpperCase(),
       substituteTeacherId: _s(a['substituteTeacherId']),
       substituteTeacherName: _s(a['substituteTeacherName']),
+      instrument: _s(a['instrument']),
     );
     _tt.add(e);
     return {'ok': true, 'entry': e.toWrite(), 'note': 'demo timetable entry added'};
@@ -2322,6 +2382,7 @@ class DemoApiClient extends ApiClient {
       teacherId: _s(a['teacherId']),
       teacherName: _s(a['teacherName']),
       status: _s(a['status']).isEmpty ? cur.status : _s(a['status']).toUpperCase(),
+      instrument: _s(a['instrument']).isEmpty ? cur.instrument : _s(a['instrument']),
     );
     _tt[idx] = next;
     return {'ok': true, 'entry': next.toWrite(), 'note': 'demo timetable entry updated'};
@@ -2336,6 +2397,74 @@ class DemoApiClient extends ApiClient {
       'deleted': before != _tt.length,
       'note': 'demo timetable entry deleted',
     };
+  }
+
+  Map<String, dynamic> _addInstrument(Map<String, dynamic> a) {
+    final name = _s(a['name']).trim();
+    if (name.isEmpty) return {'ok': false, 'code': 'NO_NAME', 'error': 'Instrument name required'};
+    if (!_instruments.any((n) => n.toLowerCase() == name.toLowerCase())) {
+      _instruments.add(name);
+      _instruments.sort();
+    }
+    return {
+      'ok': true,
+      'instrument': {'id': 'INS-DEMO-$name', 'name': name},
+    };
+  }
+
+  Map<String, dynamic> _listFeeRateCard(Map<String, dynamic> a) {
+    final includeInactive = a['includeInactive'] == true || _s(a['includeInactive']).toLowerCase() == 'true';
+    final rows = includeInactive ? _feeRateCard : _feeRateCard.where((r) => r['active'] != false).toList();
+    final sorted = [...rows]
+      ..sort((x, y) {
+        final byInstrument = _s(x['instrument']).compareTo(_s(y['instrument']));
+        return byInstrument != 0 ? byInstrument : _s(x['name']).compareTo(_s(y['name']));
+      });
+    return {'ok': true, 'rows': sorted};
+  }
+
+  Map<String, dynamic> _upsertFeeRateCard(Map<String, dynamic> a) {
+    final instrument = _s(a['instrument']).trim();
+    final name = _s(a['name']).trim();
+    final feeAmount = a['feeAmount'] is num ? a['feeAmount'] as num : num.tryParse(_s(a['feeAmount'])) ?? 0;
+    if (instrument.isEmpty) return {'ok': false, 'code': 'INSTRUMENT_REQUIRED', 'error': 'Choose an instrument.'};
+    if (name.isEmpty) return {'ok': false, 'code': 'NAME_REQUIRED', 'error': 'Give this rate card row a name (e.g. Standard, 1-on-1).'};
+    if (!(feeAmount > 0)) return {'ok': false, 'code': 'FEE_REQUIRED', 'error': 'Enter a fee amount greater than zero.'};
+
+    final id = _s(a['id']).trim();
+    final billingPeriod = _s(a['billingPeriod']).trim().isEmpty ? 'Monthly' : _s(a['billingPeriod']).trim();
+    final notes = _s(a['notes']).trim();
+    final now = DateTime.now().toIso8601String();
+
+    if (id.isNotEmpty) {
+      final idx = _feeRateCard.indexWhere((r) => r['id'] == id);
+      if (idx < 0) return {'ok': false, 'code': 'NOT_FOUND', 'error': 'No rate card row $id'};
+      _feeRateCard[idx] = {
+        ..._feeRateCard[idx],
+        'instrument': instrument, 'name': name, 'feeAmount': feeAmount,
+        'billingPeriod': billingPeriod, 'notes': notes,
+        'updatedBy': 'demo', 'updatedAt': now,
+      };
+      return {'ok': true, 'row': _feeRateCard[idx], 'note': 'updated'};
+    }
+
+    final row = {
+      'id': 'FRC-DEMO-${DateTime.now().microsecondsSinceEpoch}',
+      'instrument': instrument, 'name': name, 'feeAmount': feeAmount,
+      'billingPeriod': billingPeriod, 'notes': notes, 'active': true,
+      'createdBy': 'demo', 'createdAt': now, 'updatedBy': '', 'updatedAt': '',
+    };
+    _feeRateCard.add(row);
+    return {'ok': true, 'row': row, 'note': 'created'};
+  }
+
+  Map<String, dynamic> _deactivateFeeRateCard(Map<String, dynamic> a) {
+    final id = _s(a['id']).trim();
+    if (id.isEmpty) return {'ok': false, 'code': 'ID_REQUIRED', 'error': 'Choose the rate card row to remove.'};
+    final idx = _feeRateCard.indexWhere((r) => r['id'] == id);
+    if (idx < 0) return {'ok': false, 'code': 'NOT_FOUND', 'error': 'No rate card row $id'};
+    _feeRateCard[idx] = {..._feeRateCard[idx], 'active': false, 'updatedBy': 'demo', 'updatedAt': DateTime.now().toIso8601String()};
+    return {'ok': true, 'row': _feeRateCard[idx], 'note': 'deactivated'};
   }
 
   Map<String, dynamic> _syncChanges(Map<String, dynamic> a) {

@@ -2044,6 +2044,7 @@ class TimetableEntry {
     this.status = 'ENABLED',
     this.substituteTeacherId = '',
     this.substituteTeacherName = '',
+    this.instrument = '',
   });
   factory TimetableEntry.fromApi(Map<String, dynamic> b) => TimetableEntry(
         id: _s(b['id']),
@@ -2057,6 +2058,7 @@ class TimetableEntry {
         status: _s(b['status']).toUpperCase().isEmpty ? 'ENABLED' : _s(b['status']).toUpperCase(),
         substituteTeacherId: _s(b['substituteTeacherId']),
         substituteTeacherName: _s(b['substituteTeacherName']),
+        instrument: _s(b['instrument']),
       );
   Map<String, dynamic> toWrite() => {
         'id': id,
@@ -2070,6 +2072,7 @@ class TimetableEntry {
         'status': status,
         'substituteTeacherId': substituteTeacherId,
         'substituteTeacherName': substituteTeacherName,
+        'instrument': instrument,
       };
   final String id;
   final String branch;
@@ -2080,6 +2083,9 @@ class TimetableEntry {
   final String teacherId;
   final String teacherName;
   final String status;
+  /// Real instrument tag on this slot (2026-10-05), sourced from the shared
+  /// instrument_options picklist — separate from the free-text [className].
+  final String instrument;
   /// Who covers this slot instead. The server validates it differs from the
   /// assigned teacher; the app only collects it.
   final String substituteTeacherId;
@@ -2119,6 +2125,7 @@ class TimetableWeekEntry extends TimetableEntry {
     super.status,
     super.substituteTeacherId,
     super.substituteTeacherName,
+    super.instrument,
     required this.weekStart,
     required this.date,
     this.overridden = false,
@@ -2135,6 +2142,7 @@ class TimetableWeekEntry extends TimetableEntry {
         status: _s(b['status']).toUpperCase().isEmpty ? 'ENABLED' : _s(b['status']).toUpperCase(),
         substituteTeacherId: _s(b['substituteTeacherId']),
         substituteTeacherName: _s(b['substituteTeacherName']),
+        instrument: _s(b['instrument']),
         weekStart: _s(b['weekStart']),
         date: _s(b['date']),
         overridden: b['overridden'] == true,
@@ -2216,6 +2224,50 @@ class TimetablePolicy {
   TimetablePolicy._();
 
   static bool canEdit({required bool staff}) => true;
+}
+
+/// Founder-maintained quotable price list per instrument (2026-10-05) —
+/// entirely separate from what any individual student actually pays. Rows
+/// are edited/deactivated directly (never effective-dated/append-only like
+/// the payout settings tables).
+class FeeRateCardRow {
+  const FeeRateCardRow({
+    required this.id,
+    required this.instrument,
+    required this.name,
+    required this.feeAmount,
+    this.billingPeriod = 'Monthly',
+    this.notes = '',
+    this.active = true,
+    this.createdBy = '',
+    this.createdAt = '',
+    this.updatedBy = '',
+    this.updatedAt = '',
+  });
+  factory FeeRateCardRow.fromApi(Map<String, dynamic> b) => FeeRateCardRow(
+        id: _s(b['id']),
+        instrument: _s(b['instrument']),
+        name: _s(b['name']),
+        feeAmount: _n(b['feeAmount']),
+        billingPeriod: _s(b['billingPeriod']).ifEmpty('Monthly'),
+        notes: _s(b['notes']),
+        active: b['active'] != false,
+        createdBy: _s(b['createdBy']),
+        createdAt: _s(b['createdAt']),
+        updatedBy: _s(b['updatedBy']),
+        updatedAt: _s(b['updatedAt']),
+      );
+  final String id;
+  final String instrument;
+  final String name;
+  final num feeAmount;
+  final String billingPeriod;
+  final String notes;
+  final bool active;
+  final String createdBy;
+  final String createdAt;
+  final String updatedBy;
+  final String updatedAt;
 }
 
 /// Academy fee-plan catalog: 4 plans (display + add/edit picker).
