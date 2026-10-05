@@ -531,8 +531,9 @@ async function listFeeRateCard(arg: Record<string, unknown>): Promise<Record<str
   return ok({ rows: rows.map(feeRateCardToRpc) });
 }
 
-/** Create (no id given) or update (id given) a rate-card row. Founder-only:
- *  this is the published price list, a business decision. */
+/** Create (no id given) or update (id given) a rate-card row. Either role may
+ *  call this — the published price list, unlike a receipt/payout, is
+ *  staff-editable (authorization.ts: api_founder_upsertFeeRateCard = STAFF). */
 async function upsertFeeRateCard(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
   const instrument = s(arg["instrument"]).trim();
   const name = s(arg["name"]).trim();
@@ -565,8 +566,9 @@ async function upsertFeeRateCard(arg: Record<string, unknown>, session?: RpcSess
   return ok({ row: feeRateCardToRpc(row ?? {}), note: "created" });
 }
 
-/** Never hard-deletes founder-entered price data — sets active=false, same as
- *  how a teacher/school is retired rather than removed. */
+/** Never hard-deletes rate card rows — sets active=false, same as how a
+ *  teacher/school is retired rather than removed. Either role may call this
+ *  (authorization.ts: api_founder_deactivateFeeRateCard = STAFF). */
 async function deactivateFeeRateCard(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
   const id = s(arg["id"]).trim();
   if (!id) return { ok: false, code: "ID_REQUIRED", error: "Choose the rate card row to remove." };
