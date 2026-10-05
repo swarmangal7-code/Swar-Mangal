@@ -160,6 +160,58 @@ void main() {
     });
   });
 
+  group('SchoolInvoice — void fields (never deleted or edited in place)', () {
+    test('defaults to empty status/void fields when the backend omits them', () {
+      final inv = SchoolInvoice.fromApi({
+        'invoiceId': 'SINV-1', 'invoiceNo': 'SMI-2026-00001', 'invoiceDate': '2026-09-12',
+        'branch': 'KANDIVALI', 'className': 'Keyboard', 'amount': 18000, 'tenure': '6 Months',
+      });
+      expect(inv.status, isEmpty);
+      expect(inv.voidReason, isEmpty);
+      expect(inv.voidedBy, isEmpty);
+      expect(inv.voidedAt, isEmpty);
+    });
+
+    test('parses status/voidReason/voidedBy/voidedAt from the backend exactly', () {
+      final inv = SchoolInvoice.fromApi({
+        'invoiceId': 'SINV-1', 'invoiceNo': 'SMI-2026-00001', 'invoiceDate': '2026-09-12',
+        'branch': 'KANDIVALI', 'className': 'Keyboard', 'amount': 18000, 'tenure': '6 Months',
+        'status': 'VOID', 'voidReason': 'wrong school', 'voidedBy': 'sharvil', 'voidedAt': '2026-10-05T00:00:00.000Z',
+      });
+      expect(inv.status, 'VOID');
+      expect(inv.voidReason, 'wrong school');
+      expect(inv.voidedBy, 'sharvil');
+      expect(inv.voidedAt, '2026-10-05T00:00:00.000Z');
+    });
+  });
+
+  group('Demo api_founder_voidSchoolInvoice', () {
+    test('returns a demo-stamped, non-persisted VOID result', () async {
+      final b = _map(await DemoApiClient().call('api_founder_voidSchoolInvoice', {
+        'invoiceId': 'SINV-DEMO-1',
+        'reason': 'wrong amount',
+      }));
+      expect(b['ok'], true);
+      expect(b['changed'], true);
+      expect(b['status'], 'VOID');
+      expect(b['demo'], true);
+      expect((b['demoNote'] ?? '').toString(), contains('Not persisted'));
+    });
+  });
+
+  group('PDF generation — VOID watermark', () {
+    test('a VOID invoice still produces a valid PDF (watermarked)', () async {
+      final inv = SchoolInvoice.fromApi({
+        'invoiceId': 'S', 'invoiceNo': 'INV-PDF-VOID', 'invoiceDate': '2026-09-12',
+        'branch': 'KANDIVALI', 'className': 'Keyboard', 'amount': 18000, 'tenure': '6 Months',
+        'status': 'VOID', 'voidReason': 'duplicate',
+      });
+      final bytes = await buildInvoicePdf(inv, demo: true);
+      expect(bytes.length, greaterThan(1000));
+      expect(latin1.decode(bytes.sublist(0, 5)), '%PDF-');
+    });
+  });
+
   group('Demo invoice behavior', () {
     late DemoApiClient d;
     setUp(() => d = DemoApiClient());

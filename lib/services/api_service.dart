@@ -274,6 +274,15 @@ class ApiService {
     return SchoolInvoice.fromApi((b as Map)['invoice'] as Map<String, dynamic>);
   }
 
+  /// Founder-only: a school invoice is never deleted or edited in place —
+  /// only voided (mirrors api_founder_voidReceipt exactly). Permanent, keeps
+  /// the invoice number (it's never reused). "Editing" an invoice means
+  /// voiding the wrong one and generating a fresh, correct one.
+  Future<Map<String, dynamic>> voidSchoolInvoice({required String invoiceId, required String reason}) async {
+    final b = await _api.call('api_founder_voidSchoolInvoice', {'invoiceId': invoiceId, 'reason': reason});
+    return b as Map<String, dynamic>;
+  }
+
   // -------------------------------------------------------------- timetable
   /// Branch timetable. Seed is backend-owned and applied only when the
   /// timetable has never been initialised — founder edits are never

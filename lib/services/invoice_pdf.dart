@@ -44,12 +44,30 @@ Future<Uint8List> buildInvoicePdf(SchoolInvoice inv, {bool demo = false}) async 
   final charges = inv.charges;
   final hasCharges = charges.isNotEmpty;
   final total = inv.total;
+  // Never deleted or edited in place — a voided invoice keeps its number and
+  // gets a rotated watermark so it's never mistaken for a live one, even if
+  // it was downloaded/shared before being voided. Mirrors ReceiptDocument's
+  // VOID stamp (receipt_pdf.dart) and the web InvoiceDocument's watermark.
+  final isVoid = inv.status.toUpperCase() == 'VOID';
 
   doc.addPage(
     pw.MultiPage(
-      theme: theme,
-      pageFormat: pdf.PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(40),
+      pageTheme: pw.PageTheme(
+        pageFormat: pdf.PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        theme: theme,
+        buildBackground: isVoid
+            ? (_) => pw.Center(
+                  child: pw.Transform.rotateBox(
+                    angle: -0.38,
+                    child: pw.Opacity(
+                      opacity: 0.5,
+                      child: pw.Text('VOID', style: pw.TextStyle(font: serifBold, fontSize: 64, color: _borderStrong, letterSpacing: 3)),
+                    ),
+                  ),
+                )
+            : null,
+      ),
       build: (_) => [
         // Header
         pw.Row(
