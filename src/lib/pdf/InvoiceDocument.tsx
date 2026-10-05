@@ -22,6 +22,11 @@ export interface InvoiceBeneficiary {
   upi: string;
 }
 
+export interface InvoiceCharge {
+  description: string;
+  amount: number;
+}
+
 export interface InvoicePdfData {
   invoiceNo: string;
   invoiceDate: string;
@@ -35,6 +40,10 @@ export interface InvoicePdfData {
   billingBasis: string;
   serviceDescription: string;
   amount: number;
+  /** Optional "Other charges" on top of `amount` (the fixed/base amount) —
+   *  e.g. "Diwali decoration — ₹500". Empty/undefined for every invoice
+   *  issued before this existed, which keeps printing exactly as before. */
+  charges?: InvoiceCharge[];
 }
 
 // The bundled Inter subset (assets/fonts/Inter-400.ttf, 230 glyphs — the
@@ -207,6 +216,9 @@ export function InvoiceDocument({ data, beneficiaries }: { data: InvoicePdfData;
   const billingPeriod = data.billingPeriodFrom && data.billingPeriodTo ? `${ddmmyyyy(data.billingPeriodFrom)} to ${ddmmyyyy(data.billingPeriodTo)}` : "";
   const split = beneficiaries.length > 1;
   const splitTotal = beneficiaries.reduce((sum, b) => sum + b.amount, 0);
+  const charges = data.charges ?? [];
+  const hasCharges = charges.length > 0;
+  const total = data.amount + charges.reduce((sum, c) => sum + c.amount, 0);
 
   return (
     <Document title={`Invoice ${data.invoiceNo}`}>
@@ -273,19 +285,27 @@ export function InvoiceDocument({ data, beneficiaries }: { data: InvoicePdfData;
           </View>
           <View style={st.tableRow}>
             <Text style={[{ fontSize: 9 }, st.colDesc]}>
-              Monthly Music Education Services — {data.serviceDescription || "Music education"}
+              {hasCharges ? "Fixed amount" : `Monthly Music Education Services — ${data.serviceDescription || "Music education"}`}
             </Text>
             <Text style={[{ fontSize: 9 }, st.colQty]}>1</Text>
             <Text style={[{ fontSize: 9 }, st.colRate]}>{rs(data.amount)}</Text>
             <Text style={[{ fontSize: 9, fontWeight: 700 }, st.colAmount]}>{rs(data.amount)}</Text>
           </View>
+          {charges.map((c, i) => (
+            <View key={i} style={st.tableRow}>
+              <Text style={[{ fontSize: 9 }, st.colDesc]}>{c.description}</Text>
+              <Text style={[{ fontSize: 9 }, st.colQty]}>1</Text>
+              <Text style={[{ fontSize: 9 }, st.colRate]}>{rs(c.amount)}</Text>
+              <Text style={[{ fontSize: 9, fontWeight: 700 }, st.colAmount]}>{rs(c.amount)}</Text>
+            </View>
+          ))}
           <View style={st.subtotalRow}>
             <Text style={{ fontSize: 9, color: C.gray, marginRight: 24 }}>Subtotal</Text>
-            <Text style={{ fontSize: 9, fontWeight: 700 }}>{rs(data.amount)}</Text>
+            <Text style={{ fontSize: 9, fontWeight: 700 }}>{rs(total)}</Text>
           </View>
           <View style={st.totalRow}>
             <Text style={st.totalLabel}>Total due</Text>
-            <Text style={st.totalValue}>{rs(data.amount)}</Text>
+            <Text style={st.totalValue}>{rs(total)}</Text>
           </View>
         </View>
 

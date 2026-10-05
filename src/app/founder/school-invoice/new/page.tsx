@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Download, FileText, Share2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, FileText, Plus, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useTokenAuth } from "@/lib/auth/token-auth";
@@ -24,6 +24,11 @@ interface PeekInvoiceNoResponse extends RpcEnvelope {
   invoiceNo: string;
 }
 
+interface ExtraChargeInput {
+  description: string;
+  amount: string;
+}
+
 interface GenerateInvoiceResponse extends RpcEnvelope {
   invoiceId: string;
   invoiceNo: string;
@@ -39,6 +44,8 @@ interface GenerateInvoiceResponse extends RpcEnvelope {
   className: string;
   amount: number;
   tenure: string;
+  charges?: { description: string; amount: number }[];
+  total?: number;
   owner1: InvoiceOwner;
   owner2: InvoiceOwner;
   pdfUrl: string;
@@ -100,6 +107,7 @@ export default function FounderNewSchoolInvoicePage() {
   const branches = session?.branches?.length ? [...session.branches] : [];
 
   const [amount, setAmount] = React.useState("");
+  const [extraCharges, setExtraCharges] = React.useState<ExtraChargeInput[]>([]);
   const [tenure, setTenure] = React.useState("");
   const [schoolId, setSchoolId] = React.useState("");
   const [branch, setBranch] = React.useState(branches[0] ?? "");
@@ -140,11 +148,30 @@ export default function FounderNewSchoolInvoicePage() {
   );
 
   const amountValue = Number(amount);
-  const valid = schoolId.length > 0 && Number.isFinite(amountValue) && amountValue > 0;
+
+  // Only rows with BOTH a description and an amount count — a blank "Add
+  // charge" row that was never filled in is just dropped, never sent.
+  const cleanedCharges = extraCharges
+    .map((c) => ({ description: c.description.trim(), amount: Number(c.amount) || 0 }))
+    .filter((c) => c.description.length > 0 && c.amount > 0);
+
+  const addCharge = () => setExtraCharges((prev) => [...prev, { description: "", amount: "" }]);
+  const removeCharge = (index: number) => setExtraCharges((prev) => prev.filter((_, i) => i !== index));
+  const updateCharge = (index: number, field: "description" | "amount", value: string) =>
+    setExtraCharges((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
+
+  const hasIncompleteCharge = extraCharges.some((c) => {
+    const hasDescription = c.description.trim().length > 0;
+    const hasAmount = c.amount.trim().length > 0 && Number(c.amount) > 0;
+    return hasDescription !== hasAmount;
+  });
+
+  const valid = schoolId.length > 0 && Number.isFinite(amountValue) && amountValue > 0 && !hasIncompleteCharge;
 
   const handleGenerate = async () => {
     if (!schoolId) return toast.error("Pick the school this invoice is for.");
     if (!(Number.isFinite(amountValue) && amountValue > 0)) return toast.error("Enter a valid amount.");
+    if (hasIncompleteCharge) return toast.error("Each other charge needs both a description and an amount.");
     try {
       const res = await generateMut.mutateAsync({
         schoolId,
@@ -155,6 +182,7 @@ export default function FounderNewSchoolInvoicePage() {
         billingMonth,
         schoolAddress: schoolAddress.trim(),
         invoiceSeq: invoiceSeq.trim(),
+        extraCharges: cleanedCharges,
       });
       setCreated(res);
       toast.success(`Invoice ${res.invoiceNo} generated.`);
@@ -311,7 +339,7 @@ export default function FounderNewSchoolInvoicePage() {
 
           <div>
             <label htmlFor="inv-amount" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
-              Amount (₹)
+              Fixed amount (₹)
             </label>
             <input
               id="inv-amount"
@@ -325,6 +353,57 @@ export default function FounderNewSchoolInvoicePage() {
               placeholder="e.g. 9000"
               className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
             />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-dash-fg/70">Other charges (optional)</span>
+              {!created && (
+                <button
+                  type="button"
+                  onClick={addCharge}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-dash-accent hover:underline"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Add charge
+                </button>
+              )}
+            </div>
+            {extraCharges.map((charge, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  value={charge.description}
+                  onChange={(e) => updateCharge(i, "description", e.target.value)}
+                  disabled={!!created}
+                  placeholder="e.g. Diwali decoration"
+                  className="h-10 flex-[2] rounded-xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  onWheel={(e) => e.currentTarget.blur()}
+                  value={charge.amount}
+                  onChange={(e) => updateCharge(i, "amount", e.target.value)}
+                  disabled={!!created}
+                  placeholder="₹"
+                  className="h-10 flex-1 rounded-xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60 disabled:opacity-60"
+                />
+                {!created && (
+                  <button
+                    type="button"
+                    onClick={() => removeCharge(i)}
+                    aria-label="Remove charge"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-dash-fg/40 hover:bg-dash-fg/[0.06] hover:text-dash-fg/70"
+                  >
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                )}
+              </div>
+            ))}
+            {hasIncompleteCharge && (
+              <p className="text-[11px] text-red-400">Each other charge needs both a description and an amount.</p>
+            )}
           </div>
 
           <div>
@@ -409,6 +488,7 @@ export default function FounderNewSchoolInvoicePage() {
               onClick={() => {
                 setCreated(null);
                 setAmount("");
+                setExtraCharges([]);
                 setTenure("");
                 setBillingMonth(defaultBillingMonth());
                 setInvoiceDate(todayIso());
@@ -437,6 +517,7 @@ export default function FounderNewSchoolInvoicePage() {
             schoolName={previewInvoice?.schoolName ?? ""}
             schoolAddress={previewInvoice?.schoolAddress ?? schoolAddress}
             schoolContact={previewInvoice?.schoolContact ?? ""}
+            charges={previewInvoice?.charges ?? cleanedCharges}
             owner1={previewInvoice?.owner1}
             owner2={previewInvoice?.owner2}
           />

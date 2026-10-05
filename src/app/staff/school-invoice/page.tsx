@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { CheckCircle2, FileText, Plus } from "lucide-react";
+import { CheckCircle2, FileText, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,11 @@ import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { formatDateOnly, formatINR } from "@/app/founder/_shared";
 
+interface ExtraChargeInput {
+  description: string;
+  amount: string;
+}
+
 interface DraftArg extends Record<string, unknown> {
   amount: number;
   tenure: string;
@@ -32,6 +37,7 @@ interface DraftArg extends Record<string, unknown> {
   notes: string;
   previewConfirmed: boolean;
   clientIntentKey: string;
+  extraCharges: { description: string; amount: number }[];
 }
 
 interface PeekInvoiceNoResponse extends RpcEnvelope {
@@ -102,6 +108,7 @@ export default function StaffSchoolInvoicePage() {
   const rows = invoices.data?.invoices ?? [];
 
   const [amount, setAmount] = React.useState("");
+  const [extraCharges, setExtraCharges] = React.useState<ExtraChargeInput[]>([]);
   const [tenure, setTenure] = React.useState("");
   const [schoolId, setSchoolId] = React.useState("");
   const [invoiceDate, setInvoiceDate] = React.useState(() => new Date().toISOString().slice(0, 10));
@@ -150,7 +157,25 @@ export default function StaffSchoolInvoicePage() {
   });
 
   const amountNum = Number(amount);
-  const valid = schoolId.length > 0 && Number.isFinite(amountNum) && amountNum > 0 && confirmed;
+
+  // Only rows with BOTH a description and an amount count — a blank "Add
+  // charge" row that was never filled in is just dropped, never sent.
+  const cleanedCharges = extraCharges
+    .map((c) => ({ description: c.description.trim(), amount: Number(c.amount) || 0 }))
+    .filter((c) => c.description.length > 0 && c.amount > 0);
+
+  const addCharge = () => setExtraCharges((prev) => [...prev, { description: "", amount: "" }]);
+  const removeCharge = (index: number) => setExtraCharges((prev) => prev.filter((_, i) => i !== index));
+  const updateCharge = (index: number, field: "description" | "amount", value: string) =>
+    setExtraCharges((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
+
+  const hasIncompleteCharge = extraCharges.some((c) => {
+    const hasDescription = c.description.trim().length > 0;
+    const hasAmount = c.amount.trim().length > 0 && Number(c.amount) > 0;
+    return hasDescription !== hasAmount;
+  });
+
+  const valid = schoolId.length > 0 && Number.isFinite(amountNum) && amountNum > 0 && confirmed && !hasIncompleteCharge;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,6 +192,7 @@ export default function StaffSchoolInvoicePage() {
       notes: notes.trim(),
       previewConfirmed: true,
       clientIntentKey: intentRef.current,
+      extraCharges: cleanedCharges,
     });
   };
 
@@ -254,7 +280,7 @@ export default function StaffSchoolInvoicePage() {
               )}
 
               <div className="space-y-2">
-                <Label className="text-dash-fg/70">Amount (₹) *</Label>
+                <Label className="text-dash-fg/70">Fixed amount (₹) *</Label>
                 <Input
                   type="number"
                   min="1"
@@ -264,6 +290,50 @@ export default function StaffSchoolInvoicePage() {
                   placeholder="e.g. 9000"
                   className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-dash-fg/70">Other charges (optional)</Label>
+                  <button
+                    type="button"
+                    onClick={addCharge}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-dash-accent hover:underline"
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden />
+                    Add charge
+                  </button>
+                </div>
+                {extraCharges.map((charge, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={charge.description}
+                      onChange={(e) => updateCharge(i, "description", e.target.value)}
+                      placeholder="e.g. Diwali decoration"
+                      className="flex-[2] border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      inputMode="decimal"
+                      value={charge.amount}
+                      onChange={(e) => updateCharge(i, "amount", e.target.value)}
+                      placeholder="₹"
+                      className="flex-1 border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCharge(i)}
+                      aria-label="Remove charge"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-dash-fg/40 hover:bg-dash-fg/[0.06] hover:text-dash-fg/70"
+                    >
+                      <X className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
+                ))}
+                {hasIncompleteCharge && (
+                  <p className="text-[11px] text-red-400">Each other charge needs both a description and an amount.</p>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -360,6 +430,7 @@ export default function StaffSchoolInvoicePage() {
             schoolName={selectedSchool.name}
             schoolAddress={schoolAddress}
             schoolContact={selectedSchool.contact}
+            charges={cleanedCharges}
           />
         </motion.div>
       )}
