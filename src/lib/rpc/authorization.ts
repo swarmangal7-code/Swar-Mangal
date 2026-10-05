@@ -133,6 +133,9 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   // A school invoice is never deleted or edited in place — only voided
   // (mirrors api_founder_voidReceipt exactly). Founder-only, money document.
   api_founder_voidSchoolInvoice: FOUNDER,
+  // Permanent removal — a free-standing alternative to voiding, for a
+  // wrong/duplicate invoice whose number needs to be reused. Founder-only.
+  api_founder_deleteSchoolInvoice: FOUNDER,
   api_peekNextSchoolInvoiceNo: STAFF,
   api_staff_submitSchoolInvoiceDraft: STAFF,
   api_founder_finaliseSchoolInvoiceDraft: FOUNDER,
@@ -369,7 +372,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_founder_sendOverdueLateFeeReminders",
   "api_addExpenseEntry", "api_staff_submitExpenseDraft",
   "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject",
-  "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject", "api_founder_voidSchoolInvoice",
+  "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject", "api_founder_voidSchoolInvoice", "api_founder_deleteSchoolInvoice",
   "api_addSchool", "api_updateSchool",
   "api_founder_closeMonth", "api_staff_requestReceiptCorrection", "api_founder_voidReceipt", "api_founder_correctionReject",
   "api_staff_submitPackageExtensionRequest", "api_founder_packageExtensionApprove", "api_founder_packageExtensionReject",

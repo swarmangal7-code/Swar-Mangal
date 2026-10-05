@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, FileText, Share2, TriangleAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Download, FileText, Share2, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,11 @@ import type { RpcEnvelope, SchoolInvoiceResponse } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 
 interface VoidInvoiceResponse extends RpcEnvelope {
+  invoiceNo?: string;
+  note?: string;
+}
+
+interface DeleteInvoiceResponse extends RpcEnvelope {
   invoiceNo?: string;
   note?: string;
 }
@@ -57,9 +63,12 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
   const { token, session } = useTokenAuth();
   const isFounder = session?.role === "FOUNDER_ADMIN";
   const isVoid = (invoice?.status ?? "").toUpperCase() === "VOID";
+  const router = useRouter();
 
   const [voidOpen, setVoidOpen] = React.useState(false);
   const [voidReason, setVoidReason] = React.useState("");
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteReason, setDeleteReason] = React.useState("");
 
   const voidInvoice = useMutationRpc<{ invoiceId: string; reason: string }, VoidInvoiceResponse>("api_founder_voidSchoolInvoice", {
     onSuccess: (res) => {
@@ -67,6 +76,14 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
       setVoidOpen(false);
       setVoidReason("");
       invoiceQ.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const deleteInvoice = useMutationRpc<{ invoiceId: string; reason: string }, DeleteInvoiceResponse>("api_founder_deleteSchoolInvoice", {
+    onSuccess: (res) => {
+      toast.success(res.note ?? `${res.invoiceNo ?? invoiceId} deleted.`);
+      router.push(backHref);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -174,6 +191,16 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
               {isVoid ? "Voided" : "Void"}
             </Button>
           )}
+          {isFounder && (
+            <Button
+              variant="outline"
+              className="border-red-500/40 text-red-400 hover:bg-red-500/10"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Delete permanently
+            </Button>
+          )}
         </div>
       </div>
 
@@ -230,8 +257,9 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
           <DialogHeader>
             <DialogTitle className="text-dash-fg">Void {invoice.invoiceNo}?</DialogTitle>
             <DialogDescription className="text-dash-fg/55">
-              An invoice is never edited in place or deleted — voiding keeps the number (it&apos;s never reused) and
-              excludes it from totals. To issue a corrected invoice, void this one and generate a fresh one.
+              Voiding keeps the invoice and its number on record but excludes it from every total — use this for an
+              invoice that was actually sent to the school. If it was never sent (a test or duplicate) and you need
+              its number free again, delete it permanently instead.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
@@ -254,6 +282,41 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
               onClick={() => voidInvoice.mutate({ invoiceId, reason: voidReason.trim() })}
             >
               Yes, void invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Delete {invoice.invoiceNo} permanently?</DialogTitle>
+            <DialogDescription className="text-dash-fg/55">
+              This removes the invoice and its charges from the database entirely — its number becomes free to use
+              again. There is no undo. Use this only for a test or duplicate invoice that was never actually sent to
+              the school; for a real invoice that needs correcting, void it instead and raise a fresh one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label className="text-dash-fg/70">Reason (required, kept in the audit log)</Label>
+            <Textarea
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder="e.g. test invoice, raised by mistake"
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!deleteReason.trim()}
+              loading={deleteInvoice.isPending}
+              onClick={() => deleteInvoice.mutate({ invoiceId, reason: deleteReason.trim() })}
+            >
+              Yes, delete permanently
             </Button>
           </DialogFooter>
         </DialogContent>

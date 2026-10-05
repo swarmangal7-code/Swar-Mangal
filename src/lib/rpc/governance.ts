@@ -33,6 +33,7 @@ export const GOVERNANCE_FUNCTIONS = new Set([
   "api_staff_requestReceiptCorrection",
   "api_founder_voidReceipt",
   "api_founder_voidSchoolInvoice",
+  "api_founder_deleteSchoolInvoice",
   "api_founder_correctionReject",
   "api_staff_submitSchoolInvoiceDraft",
   "api_founder_finaliseSchoolInvoiceDraft",
@@ -83,6 +84,8 @@ export async function dispatchGovernance(fn: string, arg: Record<string, unknown
       return voidReceipt(arg, session);
     case "api_founder_voidSchoolInvoice":
       return voidSchoolInvoice(arg, session);
+    case "api_founder_deleteSchoolInvoice":
+      return deleteSchoolInvoice(arg, session);
     case "api_founder_correctionReject":
       return correctionReject(arg, session);
     case "api_staff_submitSchoolInvoiceDraft":
@@ -420,6 +423,47 @@ async function voidSchoolInvoice(arg: Record<string, unknown>, session: RpcSessi
     await bumpRevisions(["invoices", "dashboard"]);
     const row = await queryOne<{ branch: string }>(`select branch from school_invoices_rpc where id = $1`, [invoiceId]);
     if (row?.branch) notifyBranch(recordBranch(row.branch), "School invoice voided", `${s(result["invoiceNo"])}`, invoiceId, "SCHOOL_INVOICE");
+  }
+  return result;
+}
+
+/** Founder request 2026-10-05: void alone wasn't enough — a wrong/duplicate
+ * invoice (e.g. a test row, or one raised with the wrong number) still burns
+ * its number forever when voided, which is sometimes exactly the problem
+ * (the number is needed again). This permanently removes the row and its
+ * charges. It does NOT touch doc_counters — the shared sequence only ever
+ * advances forward, so deleting a row never risks a future invoice reusing
+ * a number some OTHER still-live invoice already carries; it just means the
+ * now-free number can be assigned again via the existing manual
+ * invoiceSeq override on generateSchoolInvoice, same as backfilling any gap.
+ * Founder-only, and the reason is still captured — by the audit log, same
+ * as every other write, since there's no row left to carry it. */
+async function deleteSchoolInvoice(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
+  const invoiceId = s(arg["invoiceId"]).trim();
+  const reason = s(arg["reason"]).trim();
+  if (!invoiceId) return refuse("INVOICE_ID_REQUIRED", "Pick the invoice to delete.");
+  if (!reason) return refuse("REASON_REQUIRED", "Deleting an invoice needs a reason, kept in the audit log.");
+
+  const result: Result = await withTransaction(async (tx) => {
+    const inv = await tx.queryOne<Record<string, unknown>>(`select * from school_invoices_rpc where id = $1 for update`, [invoiceId]);
+    if (!inv) return ok({ invoiceId, changed: false, idempotent: true, note: "Already gone." });
+    const locked = await closedMonthRefusal(d(inv.invoice_date), tx);
+    if (locked) return locked;
+
+    await tx.query(`delete from school_invoice_charges where invoice_id = $1`, [invoiceId]);
+    await tx.query(`delete from school_invoices_rpc where id = $1`, [invoiceId]);
+    return ok({
+      invoiceId,
+      invoiceNo: s(inv.invoice_no),
+      branch: s(inv.branch),
+      changed: true,
+      note: `${s(inv.invoice_no)} permanently deleted. Its number is free to use again.`,
+    });
+  });
+  if (result["changed"] === true) {
+    await bumpRevisions(["invoices", "dashboard"]);
+    const branch = s(result["branch"]);
+    if (branch) notifyBranch(recordBranch(branch), "School invoice deleted", `${s(result["invoiceNo"])}`, invoiceId, "SCHOOL_INVOICE");
   }
   return result;
 }
