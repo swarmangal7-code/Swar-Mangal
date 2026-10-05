@@ -130,13 +130,15 @@ class AppRadius {
   static const pill = 999.0;
 }
 
-/// Shadows — barely there. Borders do the separating.
+/// Shadows — quiet, but with real depth rather than a hairline alone. Still
+/// restrained (this is an Operate-mode tool, not a marketing page) — just
+/// enough offset and blur that elevated surfaces actually read as lifted.
 class AppShadows {
   AppShadows._();
-  static const subtle = BoxShadow(color: Color(0x0A171A26), blurRadius: 4, offset: Offset(0, 1));
-  static const card = BoxShadow(color: Color(0x0D171A26), blurRadius: 16, offset: Offset(0, 4));
-  static const dialog = BoxShadow(color: Color(0x26171A26), blurRadius: 36, offset: Offset(0, 14));
-  static const hover = BoxShadow(color: Color(0x17171A26), blurRadius: 22, offset: Offset(0, 8));
+  static const subtle = BoxShadow(color: Color(0x12171A26), blurRadius: 6, offset: Offset(0, 2));
+  static const card = BoxShadow(color: Color(0x15171A26), blurRadius: 20, offset: Offset(0, 6));
+  static const dialog = BoxShadow(color: Color(0x2E171A26), blurRadius: 42, offset: Offset(0, 18));
+  static const hover = BoxShadow(color: Color(0x1F171A26), blurRadius: 26, offset: Offset(0, 10));
 }
 
 class AppGradients {
@@ -167,9 +169,9 @@ class AppFonts {
 class AppType {
   AppType._();
   static const eyebrow = TextStyle(fontFamily: AppFonts.body, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.4);
-  static const display = TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w600, height: 1.15);
-  static const h1 = TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w600, height: 1.2);
-  static const h2 = TextStyle(fontFamily: AppFonts.body, fontSize: 19, fontWeight: FontWeight.w600, height: 1.25);
+  static const display = TextStyle(fontFamily: AppFonts.display, fontSize: 28, fontWeight: FontWeight.w600, height: 1.15, letterSpacing: -.4);
+  static const h1 = TextStyle(fontFamily: AppFonts.display, fontSize: 26, fontWeight: FontWeight.w600, height: 1.2, letterSpacing: -.3);
+  static const h2 = TextStyle(fontFamily: AppFonts.body, fontSize: 19, fontWeight: FontWeight.w600, height: 1.25, letterSpacing: -.2);
   static const title = TextStyle(fontFamily: AppFonts.body, fontSize: 17, fontWeight: FontWeight.w600, letterSpacing: -.2);
   static const cardTitle = TextStyle(fontFamily: AppFonts.body, fontSize: 15, fontWeight: FontWeight.w600);
   static const body = TextStyle(fontFamily: AppFonts.body, fontSize: 14, height: 1.45);
@@ -257,7 +259,10 @@ class AppTheme {
         foregroundColor: ink,
         elevation: 0,
         centerTitle: false,
-        scrolledUnderElevation: 0,
+        // A faint lift once content scrolls under the bar — distinguishes
+        // "chrome" from "page" without a hard line sitting there at rest.
+        scrolledUnderElevation: 3,
+        shadowColor: line.withValues(alpha: .6),
         surfaceTintColor: Colors.transparent,
         titleTextStyle: AppType.title.copyWith(color: ink, fontSize: 18),
         iconTheme: IconThemeData(color: ink, size: 22),
@@ -265,7 +270,11 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: surface,
-        elevation: 0,
+        // A hairline border still does the primary separating (unchanged),
+        // but a whisper of elevation underneath keeps every card from
+        // reading as flat paper cut-outs against the page.
+        elevation: 1,
+        shadowColor: const Color(0xFF171A26).withValues(alpha: dark ? .5 : .08),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.card),
@@ -305,7 +314,12 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: AppSpace.s5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.button)),
           textStyle: const TextStyle(fontFamily: AppFonts.body, fontWeight: FontWeight.w600, fontSize: 15, letterSpacing: .1),
-          elevation: 0,
+          // A whisper of lift on the primary action — tactile rather than
+          // flat, without tipping into a loud drop shadow.
+          elevation: 1,
+          shadowColor: primary.withValues(alpha: .35),
+        ).copyWith(
+          overlayColor: WidgetStatePropertyAll(onPrimary.withValues(alpha: .08)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -348,7 +362,11 @@ class AppTheme {
         height: 68,
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        // A soft lift off the page beneath it, rather than sitting flush —
+        // the one piece of chrome that's always on screen earns a touch more
+        // presence than an inline card would.
+        elevation: 4,
+        shadowColor: line.withValues(alpha: .5),
         indicatorColor: dark ? AppColors.dPrimary.withValues(alpha: .18) : AppColors.brassSoft,
         indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.pill)),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -383,13 +401,16 @@ class AppTheme {
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.large)),
-        elevation: 0,
+        elevation: 6,
+        shadowColor: const Color(0xFF171A26).withValues(alpha: dark ? .6 : .18),
         titleTextStyle: AppType.title.copyWith(color: ink, fontSize: 19),
         contentTextStyle: AppType.body.copyWith(color: muted),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shadowColor: const Color(0xFF171A26).withValues(alpha: dark ? .6 : .14),
         showDragHandle: true,
         dragHandleColor: line,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.large))),
@@ -421,7 +442,10 @@ class AppTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primary,
         foregroundColor: onPrimary,
-        elevation: 1,
+        elevation: 3,
+        focusElevation: 4,
+        hoverElevation: 4,
+        highlightElevation: 5,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.card)),
       ),
       scrollbarTheme: ScrollbarThemeData(
