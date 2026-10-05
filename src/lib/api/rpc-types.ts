@@ -641,6 +641,11 @@ export interface SchoolInvoice {
   beneficiaries?: InvoiceBeneficiaryAmount[];
   owner1: InvoiceOwner;
   owner2: InvoiceOwner;
+  /** "FINAL" (default) or "VOID" — never edited in place, never deleted. */
+  status?: string;
+  voidReason?: string;
+  voidedBy?: string;
+  voidedAt?: string;
 }
 
 /** One payee on a school's invoice split — a percentage of each month's total. */
@@ -682,6 +687,9 @@ export interface InvoiceSummary {
   amount: number;
   tenure: string;
   status: string;
+  voidReason?: string;
+  voidedBy?: string;
+  voidedAt?: string;
   charges?: ExtraCharge[];
   total?: number;
 }

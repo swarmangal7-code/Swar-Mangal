@@ -2016,6 +2016,7 @@ async function listSchoolInvoices(arg: Record<string, unknown>, scope: BranchSco
   const requestedBranch = s(arg["branch"] ?? "ALL");
   const rows = (
     await query<Record<string, unknown>>(`select i.id, i.invoice_no, i.invoice_date, i.branch, i.class_name, i.amount, i.tenure, i.status,
+                                                 i.void_reason, i.voided_by, i.voided_at::text,
                                                  sc.code as school_code, sc.name as school_name,
                                                  coalesce((select json_agg(json_build_object('description', c.description, 'amount', c.amount) order by c.seq, c.id)
                                                            from school_invoice_charges c where c.invoice_id = i.id), '[]'::json) as charges
@@ -2040,6 +2041,9 @@ async function listSchoolInvoices(arg: Record<string, unknown>, scope: BranchSco
         amount,
         tenure: s(r.tenure),
         status: s(r.status),
+        voidReason: s(r.void_reason),
+        voidedBy: s(r.voided_by),
+        voidedAt: s(r.voided_at),
         charges,
         total: amount + charges.reduce((sum, c) => sum + c.amount, 0),
       };
@@ -2085,6 +2089,10 @@ async function getSchoolInvoice(arg: Record<string, unknown>, scope: BranchScope
       className: s(r.class_name),
       amount,
       tenure: s(r.tenure),
+      status: s(r.status),
+      voidReason: s(r.void_reason),
+      voidedBy: s(r.voided_by),
+      voidedAt: r.voided_at ? String(r.voided_at) : "",
       charges,
       total,
       beneficiaries,

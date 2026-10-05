@@ -78,7 +78,7 @@ test("authorizeRpc: staff cannot issue a school invoice, only propose one", () =
 // Pattern C and §11.7: voids and month closes are founder decisions.
 test("authorizeRpc: staff request corrections; only the founder voids or closes a month", () => {
   assert.equal(authorizeRpc(staff, "api_staff_requestReceiptCorrection").ok, true);
-  for (const fn of ["api_founder_voidReceipt", "api_founder_correctionReject", "api_founder_closeMonth", "api_founder_periodLocks"]) {
+  for (const fn of ["api_founder_voidReceipt", "api_founder_voidSchoolInvoice", "api_founder_correctionReject", "api_founder_closeMonth", "api_founder_periodLocks"]) {
     assert.equal(authorizeRpc(staff, fn).ok, false, fn);
     assert.equal(authorizeRpc(founder, fn).ok, true, fn);
   }
@@ -208,6 +208,7 @@ test("WRITE_FUNCTIONS covers every money-moving endpoint", () => {
     "api_generateSchoolInvoice",
     "api_founder_finaliseSchoolInvoiceDraft",
     "api_founder_voidReceipt",
+    "api_founder_voidSchoolInvoice",
     "api_founder_closeMonth",
     "api_updateTeacherCompensation",
   ]) {

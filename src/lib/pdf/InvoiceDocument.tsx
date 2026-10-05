@@ -44,6 +44,10 @@ export interface InvoicePdfData {
    *  e.g. "Diwali decoration — ₹500". Empty/undefined for every invoice
    *  issued before this existed, which keeps printing exactly as before. */
   charges?: InvoiceCharge[];
+  /** "FINAL" (default/omitted) prints exactly as before. "VOID" stamps a
+   *  watermark so a voided invoice is never mistaken for a live one if it's
+   *  already been downloaded/shared — mirrors ReceiptDocument's VOID stamp. */
+  status?: string;
 }
 
 // The bundled Inter subset (assets/fonts/Inter-400.ttf, 230 glyphs — the
@@ -194,6 +198,20 @@ const st = StyleSheet.create({
   footerLeft: { fontSize: 7.5, color: C.gray },
   footerLeftBrand: { fontSize: 8, fontWeight: 700, color: C.maroon, marginBottom: 1 },
   footerRight: { fontSize: 7.5, color: C.gray, textAlign: "right" },
+  watermark: {
+    position: "absolute",
+    top: "40%",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 64,
+    fontFamily: "Playfair Display",
+    fontWeight: 700,
+    color: C.borderStrong,
+    opacity: 0.7,
+    letterSpacing: 3,
+    transform: "rotate(-22deg)",
+  },
 });
 
 // Abbreviated month ("02 Oct 2026") — the invoice date sits in a narrow
@@ -390,6 +408,8 @@ export function InvoiceDocument({ data, beneficiaries }: { data: InvoicePdfData;
             <Text style={st.footerRight}>swarmangal.com | @Swarmangal</Text>
           </View>
         </View>
+
+        {(data.status ?? "").toUpperCase() === "VOID" && <Text style={st.watermark}>VOID</Text>}
       </Page>
     </Document>
   );

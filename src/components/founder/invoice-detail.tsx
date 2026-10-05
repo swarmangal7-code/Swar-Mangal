@@ -2,16 +2,32 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, FileText, Share2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, Share2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InvoicePreview } from "@/components/founder/invoice-preview";
 import { API_ORIGIN } from "@/lib/api/rpc-client";
-import { useRpc } from "@/lib/api/rpc-hooks";
-import type { SchoolInvoiceResponse } from "@/lib/api/rpc-types";
+import { useMutationRpc, useRpc } from "@/lib/api/rpc-hooks";
+import type { RpcEnvelope, SchoolInvoiceResponse } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
+
+interface VoidInvoiceResponse extends RpcEnvelope {
+  invoiceNo?: string;
+  note?: string;
+}
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -38,7 +54,22 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
   );
 
   const invoice = invoiceQ.data?.invoice;
-  const { token } = useTokenAuth();
+  const { token, session } = useTokenAuth();
+  const isFounder = session?.role === "FOUNDER_ADMIN";
+  const isVoid = (invoice?.status ?? "").toUpperCase() === "VOID";
+
+  const [voidOpen, setVoidOpen] = React.useState(false);
+  const [voidReason, setVoidReason] = React.useState("");
+
+  const voidInvoice = useMutationRpc<{ invoiceId: string; reason: string }, VoidInvoiceResponse>("api_founder_voidSchoolInvoice", {
+    onSuccess: (res) => {
+      toast.success(res.note ?? `${res.invoiceNo ?? invoiceId} voided.`);
+      setVoidOpen(false);
+      setVoidReason("");
+      invoiceQ.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const handleDownload = () => {
     if (!invoice) return;
@@ -112,13 +143,19 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-dash-fg/40">School invoice</p>
-          <h1 className="mt-1 font-mono text-2xl font-semibold tracking-tight text-dash-fg">{invoice.invoiceNo}</h1>
+          <div className="mt-1 flex items-center gap-2">
+            <h1 className="font-mono text-2xl font-semibold tracking-tight text-dash-fg">{invoice.invoiceNo}</h1>
+            {isVoid && <Badge variant="destructive">VOID</Badge>}
+          </div>
           <p className="mt-1 text-sm text-dash-fg/55">
             {invoice.schoolName || invoice.className || "—"} · {invoice.branch}
             {invoice.invoiceDate ? ` · ${fmtDate.format(new Date(invoice.invoiceDate))}` : ""}
           </p>
+          {isVoid && invoice.voidReason && (
+            <p className="mt-1 text-xs text-red-400/80">Void reason: {invoice.voidReason}</p>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             onClick={handleDownload}
@@ -131,6 +168,12 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
             <Share2 className="h-4 w-4" aria-hidden />
             Share
           </Button>
+          {isFounder && (
+            <Button variant="destructive" disabled={isVoid} onClick={() => setVoidOpen(true)}>
+              <TriangleAlert className="h-4 w-4" aria-hidden />
+              {isVoid ? "Voided" : "Void"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -182,6 +225,39 @@ export function InvoiceDetail({ invoiceId, backHref }: { invoiceId: string; back
           owner2={invoice.owner2}
         />
       </div>
+      <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
+        <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">Void {invoice.invoiceNo}?</DialogTitle>
+            <DialogDescription className="text-dash-fg/55">
+              An invoice is never edited in place or deleted — voiding keeps the number (it&apos;s never reused) and
+              excludes it from totals. To issue a corrected invoice, void this one and generate a fresh one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label className="text-dash-fg/70">Reason (required)</Label>
+            <Textarea
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="e.g. wrong amount, wrong school, duplicate"
+              className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setVoidOpen(false)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!voidReason.trim()}
+              loading={voidInvoice.isPending}
+              onClick={() => voidInvoice.mutate({ invoiceId, reason: voidReason.trim() })}
+            >
+              Yes, void invoice
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

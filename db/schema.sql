@@ -1875,3 +1875,14 @@ create table if not exists school_invoice_charges (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_school_invoice_charges_invoice on school_invoice_charges (invoice_id, seq);
+
+-- ============================================================
+-- Founder request 2026-10-05: a school invoice can be voided (never a true
+-- delete, and never edited in place) — same pattern as receipts'
+-- void_reason/voided_by/voided_at (receipt_corrections / voidReceipt in
+-- governance.ts). The invoice number is never reused; "editing" an invoice
+-- means voiding the wrong one and generating a fresh, correct one.
+-- ============================================================
+alter table school_invoices_rpc add column if not exists void_reason text;
+alter table school_invoices_rpc add column if not exists voided_by text;
+alter table school_invoices_rpc add column if not exists voided_at timestamptz;

@@ -20,7 +20,7 @@ import {
 } from "@/lib/rpc/rules";
 import { isServiceMonth } from "@/lib/rpc/payouts";
 import { branchForbidden, defaultBranch, inScope, moneyInScope, recordBranch, type BranchScope } from "@/lib/rpc/scope";
-import { notifyFounderApproval, notifyStaffDecision, notifyAllStaff } from "@/lib/push/notify";
+import { notifyFounderApproval, notifyStaffDecision, notifyAllStaff, notifyBranch } from "@/lib/push/notify";
 
 type Result = Record<string, unknown>;
 const ok = (extra: Result = {}): Result => ({ ok: true, ...extra });
@@ -32,6 +32,7 @@ export const GOVERNANCE_FUNCTIONS = new Set([
   "api_founder_closeMonth",
   "api_staff_requestReceiptCorrection",
   "api_founder_voidReceipt",
+  "api_founder_voidSchoolInvoice",
   "api_founder_correctionReject",
   "api_staff_submitSchoolInvoiceDraft",
   "api_founder_finaliseSchoolInvoiceDraft",
@@ -80,6 +81,8 @@ export async function dispatchGovernance(fn: string, arg: Record<string, unknown
       return requestReceiptCorrection(arg, scope, session);
     case "api_founder_voidReceipt":
       return voidReceipt(arg, session);
+    case "api_founder_voidSchoolInvoice":
+      return voidSchoolInvoice(arg, session);
     case "api_founder_correctionReject":
       return correctionReject(arg, session);
     case "api_staff_submitSchoolInvoiceDraft":
@@ -378,6 +381,45 @@ async function voidReceipt(arg: Record<string, unknown>, session: RpcSession): P
     await bumpRevisions(["receipts", "payments", "students", "dashboard", "approvals", "tasks"]);
     const voidedBranch = await queryOne<{ branch: string }>(`select branch from receipts where receipt_no = $1`, [receiptNo]);
     if (voidedBranch?.branch) notifyStaffDecision(recordBranch(voidedBranch.branch), "Receipt correction", `${receiptNo} was voided`, receiptNo);
+  }
+  return result;
+}
+
+/** A school invoice is never deleted or edited in place — mirrors voidReceipt
+ * exactly: founder-only, a mandatory reason that stays on the record forever,
+ * and the invoice number is never reused or reassigned. "Editing" an invoice
+ * means voiding the wrong one and generating a fresh, correct one. */
+async function voidSchoolInvoice(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
+  const invoiceId = s(arg["invoiceId"]).trim();
+  const reason = s(arg["reason"]).trim();
+  if (!invoiceId) return refuse("INVOICE_ID_REQUIRED", "Pick the invoice to void.");
+  if (!reason) return refuse("REASON_REQUIRED", "A void needs a reason; it stays on the invoice for good.");
+
+  const result: Result = await withTransaction(async (tx) => {
+    const inv = await tx.queryOne<Record<string, unknown>>(`select * from school_invoices_rpc where id = $1 for update`, [invoiceId]);
+    if (!inv) return refuse("NOT_FOUND", `No invoice ${invoiceId}`);
+    if (s(inv.status) === "VOID") {
+      return ok({ invoiceId, changed: false, idempotent: true, status: "VOID", note: `${s(inv.invoice_no)} is already void.` });
+    }
+    const locked = await closedMonthRefusal(d(inv.invoice_date), tx);
+    if (locked) return locked;
+
+    await tx.query(
+      `update school_invoices_rpc set status = 'VOID', void_reason = $2, voided_by = $3, voided_at = now() where id = $1`,
+      [invoiceId, reason, who(session)],
+    );
+    return ok({
+      invoiceId,
+      invoiceNo: s(inv.invoice_no),
+      changed: true,
+      status: "VOID",
+      note: `${s(inv.invoice_no)} voided. Generate a new invoice to issue a corrected one — the number is never reused.`,
+    });
+  });
+  if (result["changed"] === true) {
+    await bumpRevisions(["invoices", "dashboard"]);
+    const row = await queryOne<{ branch: string }>(`select branch from school_invoices_rpc where id = $1`, [invoiceId]);
+    if (row?.branch) notifyBranch(recordBranch(row.branch), "School invoice voided", `${s(result["invoiceNo"])}`, invoiceId, "SCHOOL_INVOICE");
   }
   return result;
 }

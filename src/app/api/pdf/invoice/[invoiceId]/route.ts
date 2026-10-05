@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
   const scope = makeScope(session.branches ?? (isFounder(session) ? ["GOREGAON", "KANDIVALI"] : []));
 
   const row = await query<Record<string, unknown>>(
-    `select i.id, i.invoice_no, i.invoice_date::text, i.branch, i.class_name, i.amount, i.tenure, i.school_id, i.billing_month, i.billed_address,
+    `select i.id, i.invoice_no, i.invoice_date::text, i.branch, i.class_name, i.amount, i.tenure, i.school_id, i.billing_month, i.billed_address, i.status,
             sc.code as school_code, sc.name as school_name, sc.address as school_address,
             sc.attn, sc.billing_basis, sc.service_description
      from school_invoices_rpc i left join schools sc on sc.id = i.school_id
@@ -81,6 +81,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
     serviceDescription: String(row.service_description ?? "") || String(row.class_name ?? ""),
     amount,
     charges,
+    status: String(row.status ?? ""),
   };
 
   const buffer = await renderToBuffer(InvoiceDocument({ data, beneficiaries }));
