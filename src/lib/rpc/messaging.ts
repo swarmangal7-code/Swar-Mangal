@@ -23,6 +23,7 @@ export const MESSAGING_FUNCTIONS = new Set([
   "api_staff_messageHistory",
   "api_whatsappStatus",
   "api_founder_whatsappOptOut",
+  "api_staff_shareDocumentViaWhatsApp",
 ]);
 
 const KINDS = new Set(["FEE_REMINDER", "RECEIPT", "RENEWAL", "FOLLOW_UP", "TERMS", "CUSTOM", "NOTIFY_TEACHER"]);
@@ -30,6 +31,16 @@ const NOT_CONTACTABLE = new Set(["LEFT", "TEST", "DUPLICATE", "ARCHIVED"]);
 const MAX_TEXT = 4000;
 const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
 const DUPLICATE_WINDOW_HOURS = 24;
+
+// Founder request 2026-10-05: a deliberate, explicit exception to the
+// student-registered-phone rule at the top of this file. A Timetable or Fee
+// Rate Card PDF is public-facing informational material with no
+// student-specific data in it, so it may be shared to a number typed in by
+// hand at send time — NOT a student's registered phone, and NOT looked up
+// from any record. This is a separate code path (shareDocumentViaWhatsApp,
+// below) from sendWhatsApp/sendWhatsAppDocument, which still read the
+// recipient only from the server-side student record as before.
+const SHARE_KINDS = new Set(["TIMETABLE_SHARE", "FEE_STRUCTURE_SHARE"]);
 
 type Result = Record<string, unknown>;
 const ok = (extra: Result = {}): Result => ({ ok: true, ...extra });
@@ -52,6 +63,8 @@ export async function dispatchMessaging(
       return whatsappStatus();
     case "api_founder_whatsappOptOut":
       return setOptOut(arg, session);
+    case "api_staff_shareDocumentViaWhatsApp":
+      return shareDocumentViaWhatsApp(arg, session);
     default:
       return refuse("UNKNOWN_API", `No messaging handler for ${fn}`);
   }
@@ -197,6 +210,109 @@ export async function sendWhatsApp(
   return refuse(
     "WHATSAPP_SEND_FAILED",
     `Not sent to ${recipientLabel}: ${result.error}. Nothing was delivered; you can copy the message and send it by hand.`,
+    { messageId: id, message: view(row ?? {}) },
+  );
+}
+
+/**
+ * Shares an arbitrary PDF (Timetable or Fee Rate Card export) to a phone
+ * number typed in by hand at send time — never a student's registered phone,
+ * never looked up from any record. See the file-level comment and the
+ * SHARE_KINDS comment above for why this is allowed to deviate from the
+ * sendWhatsApp rule. Still respects sendingEnabled(), the wa_optout list and
+ * WA_ALLOWED_NUMBERS exactly like every other send in this file; the only
+ * difference is where the phone number comes from.
+ */
+async function shareDocumentViaWhatsApp(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
+  const cfg = gatewayConfigFromEnv();
+  if (!cfg || !sendingEnabled()) {
+    return refuse("WHATSAPP_DISABLED", "WhatsApp sending is switched off. Download the PDF and send it by hand.");
+  }
+
+  const kind = s(arg["kind"]).toUpperCase();
+  if (!SHARE_KINDS.has(kind)) return refuse("BAD_KIND", `Unknown share kind ${kind}`);
+
+  const intentKey = s(arg["clientIntentKey"]).trim() || null;
+  if (intentKey) {
+    const earlier = await queryOne<Record<string, unknown>>(`select * from wa_messages where client_intent_key = $1`, [intentKey]);
+    if (earlier) {
+      const sentOk = ["SENT", "DELIVERED", "READ"].includes(s(earlier.status));
+      return sentOk
+        ? ok({ idempotent: true, message: view(earlier), note: "already sent" })
+        : refuse("WHATSAPP_SEND_FAILED", s(earlier.error) || "This message did not send.", {
+            idempotent: true,
+            message: view(earlier),
+          });
+    }
+  }
+
+  const phone = normalizeIndianMobile(arg["phone"]);
+  if (!phone.ok) {
+    return refuse(
+      phone.code === "NO_PHONE" ? "PHONE_REQUIRED" : "INVALID_PHONE",
+      phone.code === "NO_PHONE" ? "Enter the phone number to send to." : `${phone.masked} is not a valid Indian mobile number.`,
+    );
+  }
+
+  const optedOut = await queryOne(`select phone from wa_optout where phone = $1`, [phone.e164]);
+  if (optedOut) return refuse("OPTED_OUT", `${phone.masked} has opted out of WhatsApp messages.`);
+
+  const allow = parseAllowList(process.env.WA_ALLOWED_NUMBERS);
+  if (allow.size && !allow.has(phone.e164)) {
+    return refuse("NOT_WHITELISTED", `Sending is limited to test numbers right now; ${phone.masked} is not one of them.`);
+  }
+
+  const b64 = s(arg["fileBase64"]).replace(/^data:[^;]+;base64,/, "");
+  const fileName = s(arg["fileName"]).trim() || "document.pdf";
+  if (!b64) return refuse("FILE_REQUIRED", "Attach the document to send.");
+  const bytes = Buffer.from(b64, "base64");
+  if (!bytes.length) return refuse("FILE_REQUIRED", "The attached document is empty.");
+  if (bytes.length > MAX_DOCUMENT_BYTES) return refuse("FILE_TOO_LARGE", "Documents must be under 3 MB.");
+  const document = { bytes, fileName, mimeType: s(arg["mimeType"]) || "application/pdf" };
+  const caption = s(arg["caption"] ?? arg["body"]).trim();
+
+  // Same number, same kind of document, already sent recently: don't send again.
+  const dup = await queryOne<{ sent_at: string }>(
+    `select sent_at::text from wa_messages
+     where to_phone = $1 and kind = $2 and status in ('SENT','DELIVERED','READ')
+       and sent_at > now() - ($3::int * interval '1 hour')
+     order by sent_at desc limit 1`,
+    [phone.e164, kind, DUPLICATE_WINDOW_HOURS],
+  );
+  if (dup) {
+    return refuse("DUPLICATE_MESSAGE", `This was already shared with ${phone.masked} at ${dup.sent_at.slice(0, 16)}.`);
+  }
+
+  const id = `WAM-${Date.now()}-${randomBytes(3).toString("hex").toUpperCase()}`;
+  try {
+    // student_id is deliberately null — this send is not tied to any student record.
+    await query(
+      `insert into wa_messages (id, client_intent_key, student_id, branch, kind, to_phone, body, file_name, status, requested_by)
+       values ($1,$2,null,null,$3,$4,$5,$6,'SENDING',$7)`,
+      [id, intentKey, kind, phone.e164, caption || null, document.fileName, session.deviceLabel || session.email],
+    );
+  } catch {
+    const winner = intentKey ? await queryOne<Record<string, unknown>>(`select * from wa_messages where client_intent_key = $1`, [intentKey]) : null;
+    return winner ? ok({ idempotent: true, message: view(winner) }) : refuse("SERVER_ERROR", "Could not record the message.");
+  }
+
+  const result = await sendDocument(cfg, phone.jid, document, caption);
+
+  if (result.ok) {
+    const row = await queryOne<Record<string, unknown>>(
+      `update wa_messages set status = 'SENT', provider_message_id = $2, sent_at = now() where id = $1 returning *`,
+      [id, result.providerMessageId],
+    );
+    return ok({ messageId: id, message: view(row ?? {}), note: `Sent to ${phone.masked}.` });
+  }
+
+  const row = await queryOne<Record<string, unknown>>(
+    `update wa_messages set status = 'FAILED', error = $2 where id = $1 returning *`,
+    [id, result.error.slice(0, 500)],
+  );
+  return refuse(
+    "WHATSAPP_SEND_FAILED",
+    `Not sent to ${phone.masked}: ${result.error}.`,
     { messageId: id, message: view(row ?? {}) },
   );
 }

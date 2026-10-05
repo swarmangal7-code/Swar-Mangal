@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClosuresPanel } from "@/components/dashboard/closures-panel";
+import { ExportShareDialog } from "@/components/dashboard/export-share-dialog";
 import { rpcKeys, useMutationRpc, useTeachers, useTimetableWeek } from "@/lib/api/rpc-hooks";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
@@ -68,6 +69,7 @@ export default function StaffTimetablePage() {
   const [editingEntry, setEditingEntry] = React.useState<TimetableWeekEntry | null>(null);
   const [deleting, setDeleting] = React.useState<TimetableWeekEntry | null>(null);
   const [viewing, setViewing] = React.useState<TimetableWeekEntry | null>(null);
+  const [exportOpen, setExportOpen] = React.useState(false);
 
   const timetable = useTimetableWeek(branch, weekStart);
   const teachersQ = useTeachers();
@@ -187,6 +189,14 @@ export default function StaffTimetablePage() {
             </select>
           )}
           <ClosuresPanel branch={singleBranch ?? (branch !== "ALL" ? branch : undefined)} isFounder={false} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setExportOpen(true)}
+            className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]"
+          >
+            <Share2 className="h-4 w-4" aria-hidden /> Export / Share
+          </Button>
         </div>
       </motion.div>
 
@@ -378,6 +388,13 @@ export default function StaffTimetablePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ExportShareDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        docKind="timetable"
+        documentLabel="Timetable"
+        extraParams={{ branch }}
+      />
     </motion.div>
   );
 }

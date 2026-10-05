@@ -14,6 +14,7 @@ import {
   MessageSquareText,
   ReceiptText,
   SlidersHorizontal,
+  Tag,
   UserCheck,
   UserPlus,
   Users,
@@ -53,6 +54,7 @@ export const founderNav: WebNavSection[] = [
       { title: "Receipts", href: "/founder/receipts", icon: ReceiptText },
       { title: "Teacher Payouts", href: "/founder/payouts", icon: Wallet },
       { title: "Payroll Rules", href: "/founder/payouts/rules", icon: SlidersHorizontal },
+      { title: "Fee Rate Card", href: "/founder/fee-rate-card", icon: Tag },
       { title: "Expenses", href: "/founder/expenses", icon: CircleDollarSign },
     ],
   },
@@ -100,6 +102,7 @@ export const staffNav: WebNavSection[] = [
     items: [
       { title: "Fee Collection", href: "/staff/fees", icon: HandCoins },
       { title: "Receipts", href: "/staff/receipts", icon: ReceiptText },
+      { title: "Fee Rate Card", href: "/staff/fee-rate-card", icon: Tag },
       { title: "Expenses", href: "/staff/expenses", icon: CircleDollarSign },
     ],
   },

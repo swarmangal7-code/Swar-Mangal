@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTimetableSessionDetail } from "@/lib/api/rpc-hooks";
+import { useInstruments, useTimetableSessionDetail } from "@/lib/api/rpc-hooks";
 import type { TimetableEntry, TimetableWeekEntry } from "@/lib/api/rpc-types";
 
 export const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
@@ -36,6 +36,7 @@ function toTime12(time: string) {
 
 export interface TimetableWriteArg {
   className: string;
+  instrument: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
@@ -78,7 +79,11 @@ export function TimetableDialog({
   saving,
   onSubmit,
 }: TimetableDialogProps) {
+  const instrumentsQ = useInstruments();
+  const instruments = instrumentsQ.data?.instruments ?? [];
+
   const [className, setClassName] = React.useState("");
+  const [instrument, setInstrument] = React.useState("");
   const [dayOfWeek, setDayOfWeek] = React.useState(defaultDay);
   const [startTime, setStartTime] = React.useState("18:00");
   const [endTime, setEndTime] = React.useState("19:00");
@@ -91,6 +96,7 @@ export function TimetableDialog({
   React.useEffect(() => {
     if (!open) return;
     setClassName(entry?.className ?? "");
+    setInstrument(entry?.instrument ?? "");
     setDayOfWeek(entry?.dayOfWeek ?? defaultDay);
     setStartTime(entry?.startTime ? toTime12(entry.startTime) : "18:00");
     setEndTime(entry?.endTime ? toTime12(entry.endTime) : "19:00");
@@ -112,6 +118,7 @@ export function TimetableDialog({
       return toast.error("Substitute must be a different teacher.");
     onSubmit({
       className: className.trim(),
+      instrument,
       dayOfWeek,
       startTime,
       endTime,
@@ -151,6 +158,25 @@ export function TimetableDialog({
               placeholder="e.g. Keyboard"
               className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-4 text-sm text-dash-fg placeholder:text-dash-fg/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
             />
+          </div>
+
+          <div>
+            <label htmlFor="tt-instrument" className="mb-1.5 block text-xs font-medium text-dash-fg/70">
+              Instrument
+            </label>
+            <select
+              id="tt-instrument"
+              value={instrument}
+              onChange={(e) => setInstrument(e.target.value)}
+              className="h-11 w-full rounded-2xl border border-dash-fg/15 bg-dash-bg px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60"
+            >
+              <option value="">Not set</option>
+              {instruments.map((i) => (
+                <option key={i.id} value={i.name}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -367,6 +393,7 @@ export function TimeSlotCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm font-semibold text-dash-fg">{entry.className}</p>
+          {entry.instrument && <Badge variant="outline" className="border-dash-fg/20 text-dash-fg/60">{entry.instrument}</Badge>}
           {entry.status !== "ENABLED" && (
             <Badge variant="outline" className="border-dash-fg/20 text-dash-fg/50">
               Disabled

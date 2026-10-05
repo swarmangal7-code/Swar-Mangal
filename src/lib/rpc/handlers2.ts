@@ -70,6 +70,12 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return listInstruments();
     case "api_addInstrument":
       return addInstrument(arg);
+    case "api_listFeeRateCard":
+      return listFeeRateCard(arg);
+    case "api_founder_upsertFeeRateCard":
+      return upsertFeeRateCard(arg, session);
+    case "api_founder_deactivateFeeRateCard":
+      return deactivateFeeRateCard(arg, session);
     case "api_listTeachers":
       return listTeachers();
     case "api_addTeacher":
@@ -489,6 +495,87 @@ async function addInstrument(arg: Record<string, unknown>): Promise<Record<strin
     [name],
   );
   return ok({ instrument: row });
+}
+
+// ------------------------------------------------------------ fee rate card
+// Founder request 2026-10-05: a simple, founder-maintained quotable price
+// list per instrument (e.g. "Guitar — Standard — Rs. 2500/Monthly"), entirely
+// separate from what any individual student actually pays
+// (students_acad.monthly_fee). Unlike the effective-dated payout settings
+// tables, rows here are edited or deactivated directly — same pattern as
+// `schools`/`teachers_acad` — because this is just today's published list,
+// not a record that must reconstruct a past month's figures.
+function feeRateCardToRpc(r: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: s(r.id),
+    instrument: s(r.instrument),
+    name: s(r.name),
+    feeAmount: Number(r.fee_amount) || 0,
+    billingPeriod: s(r.billing_period) || "Monthly",
+    notes: s(r.notes),
+    active: r.active !== false,
+    createdBy: s(r.created_by),
+    createdAt: s(r.created_at),
+    updatedBy: s(r.updated_by),
+    updatedAt: s(r.updated_at),
+  };
+}
+
+async function listFeeRateCard(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const includeInactive = arg["includeInactive"] === true || s(arg["includeInactive"]).toLowerCase() === "true";
+  const rows = await query<Record<string, unknown>>(
+    includeInactive
+      ? `select * from fee_rate_card order by instrument asc, name asc`
+      : `select * from fee_rate_card where active = true order by instrument asc, name asc`,
+  );
+  return ok({ rows: rows.map(feeRateCardToRpc) });
+}
+
+/** Create (no id given) or update (id given) a rate-card row. Founder-only:
+ *  this is the published price list, a business decision. */
+async function upsertFeeRateCard(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const instrument = s(arg["instrument"]).trim();
+  const name = s(arg["name"]).trim();
+  const feeAmount = n(arg["feeAmount"]);
+  if (!instrument) return { ok: false, code: "INSTRUMENT_REQUIRED", error: "Choose an instrument." };
+  if (!name) return { ok: false, code: "NAME_REQUIRED", error: "Give this rate card row a name (e.g. Standard, 1-on-1)." };
+  if (!(feeAmount > 0)) return { ok: false, code: "FEE_REQUIRED", error: "Enter a fee amount greater than zero." };
+
+  const id = s(arg["id"]).trim();
+  const billingPeriod = s(arg["billingPeriod"]).trim() || "Monthly";
+  const notes = s(arg["notes"]).trim() || null;
+  const actor = session?.email ?? "";
+
+  if (id) {
+    const row = await queryOne<Record<string, unknown>>(
+      `update fee_rate_card set instrument=$2, name=$3, fee_amount=$4, billing_period=$5, notes=$6, updated_by=$7, updated_at=now()
+       where id=$1 returning *`,
+      [id, instrument, name, feeAmount, billingPeriod, notes, actor],
+    );
+    if (!row) return { ok: false, code: "NOT_FOUND", error: `No rate card row ${id}` };
+    return ok({ row: feeRateCardToRpc(row), note: "updated" });
+  }
+
+  const newRowId = newId("FRC");
+  const row = await queryOne<Record<string, unknown>>(
+    `insert into fee_rate_card (id, instrument, name, fee_amount, billing_period, notes, created_by)
+     values ($1,$2,$3,$4,$5,$6,$7) returning *`,
+    [newRowId, instrument, name, feeAmount, billingPeriod, notes, actor],
+  );
+  return ok({ row: feeRateCardToRpc(row ?? {}), note: "created" });
+}
+
+/** Never hard-deletes founder-entered price data — sets active=false, same as
+ *  how a teacher/school is retired rather than removed. */
+async function deactivateFeeRateCard(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
+  const id = s(arg["id"]).trim();
+  if (!id) return { ok: false, code: "ID_REQUIRED", error: "Choose the rate card row to remove." };
+  const row = await queryOne<Record<string, unknown>>(
+    `update fee_rate_card set active = false, updated_by = $2, updated_at = now() where id = $1 returning *`,
+    [id, session?.email ?? ""],
+  );
+  if (!row) return { ok: false, code: "NOT_FOUND", error: `No rate card row ${id}` };
+  return ok({ row: feeRateCardToRpc(row), note: "deactivated" });
 }
 
 // ---------------------------------------------------------------- teachers
@@ -1988,7 +2075,7 @@ async function timetableList(arg: Record<string, unknown>, scope: BranchScope): 
   // by a migration (db/apply.mjs).
   const rows = (
     await query<Record<string, unknown>>(
-      `select id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name from timetable order by day_of_week, start_time`,
+      `select id, branch, day_of_week, start_time, end_time, class_name, instrument, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name from timetable order by day_of_week, start_time`,
     )
   ).filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(branch, r.branch));
   return ok({
@@ -1999,6 +2086,7 @@ async function timetableList(arg: Record<string, unknown>, scope: BranchScope): 
       startTime: s(r.start_time),
       endTime: s(r.end_time),
       className: s(r.class_name),
+      instrument: s(r.instrument),
       teacherId: s(r.teacher_id),
       teacherName: s(r.teacher_name),
       status: s(r.status),
@@ -2014,15 +2102,16 @@ async function timetableCreate(arg: Record<string, unknown>, scope: BranchScope)
   if (!inScope(scope, branch)) return branchForbidden(branch);
   const id = newId("TT");
   await query(
-    `insert into timetable (id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) on conflict (id) do nothing`,
-    [id, branch, n(arg["dayOfWeek"]), s(arg["startTime"]), s(arg["endTime"]), s(arg["className"]), s(arg["teacherId"]), s(arg["teacherName"]), s(arg["status"]).toUpperCase() || "ENABLED", s(arg["substituteTeacherId"]) || null, s(arg["substituteTeacherName"]) || null],
+    `insert into timetable (id, branch, day_of_week, start_time, end_time, class_name, instrument, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict (id) do nothing`,
+    [id, branch, n(arg["dayOfWeek"]), s(arg["startTime"]), s(arg["endTime"]), s(arg["className"]), s(arg["instrument"]) || null, s(arg["teacherId"]), s(arg["teacherName"]), s(arg["status"]).toUpperCase() || "ENABLED", s(arg["substituteTeacherId"]) || null, s(arg["substituteTeacherName"]) || null],
   );
   await bumpRevisions(["timetable", "sessions"]);
   notifyFounderGeneric("Timetable updated", `New class: ${s(arg["className"])} added at ${branch}`, id, "TIMETABLE");
   return ok({
     entry: {
       id, branch, dayOfWeek: n(arg["dayOfWeek"]), startTime: s(arg["startTime"]), endTime: s(arg["endTime"]), className: s(arg["className"]),
+      instrument: s(arg["instrument"]),
       teacherId: s(arg["teacherId"]), teacherName: s(arg["teacherName"]), status: s(arg["status"]).toUpperCase() || "ENABLED",
       substituteTeacherId: s(arg["substituteTeacherId"]), substituteTeacherName: s(arg["substituteTeacherName"]),
     },
@@ -2066,9 +2155,10 @@ async function timetableUpdate(arg: Record<string, unknown>, scope: BranchScope)
   }
 
   await query(
-    `update timetable set branch=$2, day_of_week=$3, start_time=$4, end_time=$5, class_name=$6, teacher_id=$7, teacher_name=$8, status=$9, substitute_teacher_id=$10, substitute_teacher_name=$11 where id=$1`,
+    `update timetable set branch=$2, day_of_week=$3, start_time=$4, end_time=$5, class_name=$6, instrument=$7, teacher_id=$8, teacher_name=$9, status=$10, substitute_teacher_id=$11, substitute_teacher_name=$12 where id=$1`,
     [
       id, nextBranch, n(arg["dayOfWeek"] ?? cur.day_of_week), s(arg["startTime"] ?? cur.start_time), s(arg["endTime"] ?? cur.end_time), s(arg["className"] ?? cur.class_name),
+      s(arg["instrument"] ?? cur.instrument) || null,
       s(arg["teacherId"] ?? cur.teacher_id), s(arg["teacherName"] ?? cur.teacher_name), s(arg["status"] ?? cur.status).toUpperCase(),
       s(arg["substituteTeacherId"] ?? cur.substitute_teacher_id) || null, s(arg["substituteTeacherName"] ?? cur.substitute_teacher_name) || null,
     ],
@@ -2123,7 +2213,7 @@ async function timetableWeek(arg: Record<string, unknown>, scope: BranchScope): 
   const weekStart = isoDate(arg["weekStart"]) || mondayOf(todayIso());
   const [base, overrides] = await Promise.all([
     query<Record<string, unknown>>(
-      `select id, branch, day_of_week, start_time, end_time, class_name, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name from timetable`,
+      `select id, branch, day_of_week, start_time, end_time, class_name, instrument, teacher_id, teacher_name, status, substitute_teacher_id, substitute_teacher_name from timetable`,
     ),
     query<Record<string, unknown>>(`select * from timetable_overrides where week_start = $1`, [weekStart]),
   ]);
@@ -2143,6 +2233,7 @@ async function timetableWeek(arg: Record<string, unknown>, scope: BranchScope): 
         startTime: s(merged.start_time),
         endTime: s(merged.end_time),
         className: s(merged.class_name),
+        instrument: s(merged.instrument),
         teacherId: s(merged.teacher_id),
         teacherName: s(merged.teacher_name),
         status: s(merged.status),
