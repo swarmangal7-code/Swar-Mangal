@@ -1870,6 +1870,10 @@ class SchoolInvoice {
     this.beneficiaries = const [],
     this.pdfUrl = '',
     this.demo = false,
+    this.status = '',
+    this.voidReason = '',
+    this.voidedBy = '',
+    this.voidedAt = '',
   }) : total = total ?? (amount + charges.fold<num>(0, (sum, c) => sum + c.amount));
   factory SchoolInvoice.fromApi(Map<String, dynamic> b) {
     final o1 = b['owner1'] is Map<String, dynamic>
@@ -1908,6 +1912,10 @@ class SchoolInvoice {
       demo: b['demo'] == true,
       owner1: o1,
       owner2: o2,
+      status: _s(b['status']),
+      voidReason: _s(b['voidReason']),
+      voidedBy: _s(b['voidedBy']),
+      voidedAt: _s(b['voidedAt']),
     );
   }
   final String invoiceId;
@@ -1938,6 +1946,12 @@ class SchoolInvoice {
   final bool demo;
   final InvoiceOwner owner1;
   final InvoiceOwner owner2;
+  /// "" or "FINAL" (default) prints normally. "VOID" — never deleted or
+  /// edited in place, only voided; the invoice number is never reused.
+  final String status;
+  final String voidReason;
+  final String voidedBy;
+  final String voidedAt;
 }
 
 /// One payee on a school's invoice split — a percentage of each month's total.
