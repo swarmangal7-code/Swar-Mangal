@@ -6,10 +6,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Warm ivory canvas, white cards on hairline borders, and a single gold/brass
 /// accent for primary actions and the few things that deserve the eye (a
-/// selected tab, a headline figure) — matching the website dashboard's
-/// --dash-* palette exactly, light and dark. Inter for everything you read;
-/// Playfair Display only for display headings and hero numbers.
-/// Premium here means restraint: one accent, quiet borders, generous space.
+/// selected tab, a headline figure). Canvas, ink and surfaces still match the
+/// website dashboard's --dash-* tokens exactly — only the accent itself is
+/// deliberately richer/deeper here than the website's lighter --dash-accent
+/// (founder request 2026-10-05: a more premium gold in the app specifically,
+/// web dashboard left as-is). Inter for everything you read; Playfair
+/// Display only for display headings and hero numbers. Premium here means
+/// restraint: one accent, quiet borders, generous space.
 /// ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
 class AppColors {
   AppColors._();
@@ -29,16 +32,17 @@ class AppColors {
   static const muted = Color(0xFF6B675F);
   static const textSecondary = muted; // alias
 
-  // Brand accent — the website's single gold/brass accent (--dash-accent),
-  // used as both primary and secondary here instead of a separate indigo.
-  static const primary = Color(0xFFB47A22); // --dash-accent (light)
+  // Brand accent — richer and deeper than the website's --dash-accent on
+  // purpose (app-only premium pass), used as both primary and secondary here
+  // instead of a separate indigo.
+  static const primary = Color(0xFFA06A12); // was 0xFFB47A22 — deeper, more saturated antique gold
   static const primaryLight = Color(0xFF2E3864);
-  static const brass = Color(0xFF956318); // --dash-accent-hover (light)
-  static const brassSoft = Color(0xFFF3ECDF);
+  static const brass = Color(0xFF7D500C); // was 0xFF956318 — darker still, for hover/pressed
+  static const brassSoft = Color(0xFFF1E4C7); // was 0xFFF3ECDF — warmer parchment tint
   static const secondaryAccent = brass;
   static const lavenderSoft = brassSoft; // alias: soft accent tint
   static const gold = brass;
-  static const focus = Color(0xFF956318); // --dash-accent-hover (light)
+  static const focus = Color(0xFF7D500C); // was 0xFF956318
 
   // Deep surfaces (brand panel, dark chrome).
   static const navy = Color(0xFF151B31);
@@ -66,8 +70,8 @@ class AppColors {
   static const dLine = Color(0xFF2B303B);
   static const dInk = Color(0xFFF7F2E8); // --dash-fg (dark)
   static const dMuted = Color(0xFFA39E94);
-  static const dPrimary = Color(0xFFD6A84F); // --dash-accent (dark)
-  static const dFocus = Color(0xFFE2BD68); // --dash-accent-hover (dark)
+  static const dPrimary = Color(0xFFCDA043); // was 0xFFD6A84F — deeper, richer gold on dark
+  static const dFocus = Color(0xFFDCB45C); // was 0xFFE2BD68
   static const dOkFg = Color(0xFF72C79E);
   static const dOkBg = Color(0xFF15291F);
   static const dWarnFg = Color(0xFFE4B266);
@@ -153,7 +157,7 @@ class AppGradients {
   static const primaryStrong = primary;
 
   /// Thin brass rule used under hero headings.
-  static const brass = LinearGradient(colors: [Color(0xFFC9A46A), Color(0xFFA9824A)]);
+  static const brass = LinearGradient(colors: [Color(0xFFBD9452), Color(0xFF8F6A2C)]);
 
   // Kept for callers; the canvas no longer uses moving blobs.
   static const blobLavender = RadialGradient(colors: [Color(0x00000000), Color(0x00000000)]);
