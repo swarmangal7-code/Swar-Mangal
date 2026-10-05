@@ -160,7 +160,7 @@ export default function FounderSchoolInvoicePage() {
                 </div>
               </div>
               <p className="shrink-0 text-sm font-semibold tabular-nums text-dash-fg">
-                {inr.format(Number(inv.amount) || 0)}
+                {inr.format(Number(inv.total ?? inv.amount) || 0)}
               </p>
               <ChevronRight className="h-4 w-4 shrink-0 text-dash-fg/30" aria-hidden />
             </Link>

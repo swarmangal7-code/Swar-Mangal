@@ -474,7 +474,7 @@ export default function StaffSchoolInvoicePage() {
                       .join(" · ")}
                   </p>
                 </div>
-                <p className="shrink-0 text-sm font-semibold tabular-nums text-dash-fg">{formatINR(inv.amount)}</p>
+                <p className="shrink-0 text-sm font-semibold tabular-nums text-dash-fg">{formatINR(inv.total ?? inv.amount)}</p>
               </Link>
             ))}
           </div>
