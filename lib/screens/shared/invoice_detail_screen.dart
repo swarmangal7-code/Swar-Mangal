@@ -107,7 +107,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               Padding(
                 padding: const EdgeInsets.all(AppSpace.s4),
                 child: Column(children: [
-                  AmountText(inv.amount),
+                  AmountText(inv.total),
                   const SizedBox(height: AppSpace.s2),
                   StatusBadge(inv.demo ? 'DEMO' : 'ISSUED'),
                 ]),
@@ -132,7 +132,13 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               child: Column(children: [
                 InfoRow('Description', 'Music Classes'),
                 InfoRow('Tenure', inv.tenure),
-                InfoRow('Amount', inr(inv.amount), money: true),
+                InfoRow(inv.charges.isEmpty ? 'Amount' : 'Fixed amount', inr(inv.amount), money: true),
+                if (inv.charges.isNotEmpty) ...[
+                  for (final c in inv.charges)
+                    InfoRow(c.description.isNotEmpty ? c.description : '—', inr(c.amount), money: true),
+                  const Divider(),
+                  InfoRow('Total', inr(inv.total), money: true),
+                ],
               ]),
             ),
           ),

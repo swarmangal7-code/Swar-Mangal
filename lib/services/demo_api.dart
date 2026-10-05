@@ -621,6 +621,8 @@ class DemoApiClient extends ApiClient {
           'changed': true,
           'invoiceId': 'SINV-DEMO-${DateTime.now().millisecondsSinceEpoch}',
           'invoiceNo': 'SMI-26-27-DEMO',
+          'charges': const [],
+          'total': 0,
           'note': 'demo — no real invoice issued',
         };
       case 'api_founder_schoolInvoiceDraftReject':
@@ -2199,6 +2201,15 @@ class DemoApiClient extends ApiClient {
 
   String _s(dynamic v) => v == null ? '' : v.toString();
 
+  /// Loose numeric coercion for request args that may arrive as a num or a
+  /// string (or blank) — mirrors the backend's `n()` coercion in
+  /// src/lib/rpc/extraCharges.ts, never throwing on an unexpected shape.
+  num _numOf(dynamic v) {
+    if (v is num) return v;
+    if (v is String) return num.tryParse(v.trim().replaceAll(',', '')) ?? 0;
+    return 0;
+  }
+
   Map<String, dynamic> _teacherProfile(Map<String, dynamic> a) {
     final tid = _s(a['teacherId'] ?? 'T-001');
     final allT = (_teachers()['teachers'] as List).cast<Map<String, dynamic>>();
@@ -2264,15 +2275,26 @@ class DemoApiClient extends ApiClient {
     final id = 'SINV-DEMO-${DateTime.now().microsecondsSinceEpoch}';
     final billingMonth = _s(a['billingMonth'] ?? '');
     final bounds = _billingMonthBounds(billingMonth);
+    final amount = (a['amount'] as num?) ?? 0;
+    // Same shape the real backend validates (src/lib/rpc/extraCharges.ts):
+    // only rows with both a description and amount > 0 are kept.
+    final charges = ((a['extraCharges'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((c) => {'description': _s(c['description']), 'amount': _numOf(c['amount'])})
+        .where((c) => (c['description'] as String).isNotEmpty && (c['amount'] as num) > 0)
+        .toList();
+    final total = amount + charges.fold<num>(0, (sum, c) => sum + (c['amount'] as num));
     // Keep it in the shared store so api_listSchoolInvoices shows it.
     _invoices.insert(0, {
       'invoiceNo': no,
       'invoiceDate': a['invoiceDate'] ?? '2026-09-12',
       'tenure': a['tenure'] ?? '6 Months',
-      'amount': a['amount'] ?? 0,
+      'amount': amount,
       'invoiceId': id,
       'className': a['className'] ?? '',
       'branch': a['branch'] ?? 'KANDIVALI',
+      'charges': charges,
+      'total': total,
     });
     return {
       'ok': true,
@@ -2284,8 +2306,10 @@ class DemoApiClient extends ApiClient {
       'branch': a['branch'] ?? 'KANDIVALI',
       'schoolAddress': a['schoolAddress'] ?? '',
       'className': a['className'] ?? '',
-      'amount': a['amount'] ?? 0,
+      'amount': amount,
       'tenure': a['tenure'] ?? '6 Months',
+      'charges': charges,
+      'total': total,
       'owner1': {'name': 'Sharvil Vaidya', 'id': 'OWNER-1', 'signatureUrl': '', 'title': 'Owner 1'},
       'owner2': {'name': 'Piyush Kashyap', 'id': 'OWNER-2', 'signatureUrl': '', 'title': 'Owner 2'},
       'pdfUrl': '',

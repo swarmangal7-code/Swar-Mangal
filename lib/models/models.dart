@@ -1799,6 +1799,23 @@ class InvoiceOwner {
   final String title;
 }
 
+/// One optional "Other charges" line on a school invoice, on top of the
+/// fixed `amount` — e.g. "Diwali decoration" / 500. Matches the backend's
+/// ExtraCharge shape exactly (src/lib/api/rpc-types.ts, src/lib/rpc/extraCharges.ts):
+/// a row must carry BOTH a non-empty description and an amount > 0, or it's
+/// not sent — the backend rejects a half-filled row (EXTRA_CHARGE_INCOMPLETE).
+class ExtraCharge {
+  const ExtraCharge({required this.description, required this.amount});
+  factory ExtraCharge.fromApi(Map<String, dynamic> b) => ExtraCharge(
+        description: _s(b['description']),
+        amount: _n(b['amount']),
+      );
+  final String description;
+  final num amount;
+
+  Map<String, dynamic> toApi() => {'description': description, 'amount': amount};
+}
+
 /// One payee on a school invoice's payment split, already resolved to a
 /// rupee amount for this specific invoice (handover template redesign).
 class InvoiceBeneficiaryAmount {
@@ -1848,10 +1865,12 @@ class SchoolInvoice {
     this.attn = 'The Principal',
     this.billingBasis = 'Fixed Monthly',
     this.serviceDescription = '',
+    this.charges = const [],
+    num? total,
     this.beneficiaries = const [],
     this.pdfUrl = '',
     this.demo = false,
-  });
+  }) : total = total ?? (amount + charges.fold<num>(0, (sum, c) => sum + c.amount));
   factory SchoolInvoice.fromApi(Map<String, dynamic> b) {
     final o1 = b['owner1'] is Map<String, dynamic>
         ? InvoiceOwner.fromApi(b['owner1'] as Map<String, dynamic>)
@@ -1876,6 +1895,11 @@ class SchoolInvoice {
       attn: _s(b['attn']).isEmpty ? 'The Principal' : _s(b['attn']),
       billingBasis: _s(b['billingBasis']).isEmpty ? 'Fixed Monthly' : _s(b['billingBasis']),
       serviceDescription: _s(b['serviceDescription']),
+      charges: ((b['charges'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(ExtraCharge.fromApi)
+          .toList(),
+      total: b['total'] is num ? b['total'] as num : null,
       beneficiaries: ((b['beneficiaries'] as List?) ?? const [])
           .whereType<Map<String, dynamic>>()
           .map(InvoiceBeneficiaryAmount.fromApi)
@@ -1904,6 +1928,11 @@ class SchoolInvoice {
   final String attn;
   final String billingBasis;
   final String serviceDescription;
+  /// Optional "Other charges" on top of `amount` (the fixed amount).
+  final List<ExtraCharge> charges;
+  /// amount + sum(charges) — computed client-side when the backend omits it
+  /// (e.g. a legacy snapshot with no charges column).
+  final num total;
   final List<InvoiceBeneficiaryAmount> beneficiaries;
   final String pdfUrl;
   final bool demo;
@@ -1991,7 +2020,9 @@ class InvoiceSummary {
     required this.className,
     this.schoolName = '',
     this.schoolCode = '',
-  });
+    this.charges = const [],
+    num? total,
+  }) : total = total ?? (amount + charges.fold<num>(0, (sum, c) => sum + c.amount));
   factory InvoiceSummary.fromApi(Map<String, dynamic> b) => InvoiceSummary(
         invoiceNo: _s(b['invoiceNo']),
         invoiceDate: _s(b['invoiceDate']),
@@ -2001,6 +2032,11 @@ class InvoiceSummary {
         className: _s(b['className']),
         schoolName: _s(b['schoolName']),
         schoolCode: _s(b['schoolCode']),
+        charges: ((b['charges'] as List?) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(ExtraCharge.fromApi)
+            .toList(),
+        total: b['total'] is num ? b['total'] as num : null,
       );
   final String invoiceNo;
   final String invoiceDate;
@@ -2011,6 +2047,10 @@ class InvoiceSummary {
   /// Who the invoice was billed to. The code is already inside invoiceNo.
   final String schoolName;
   final String schoolCode;
+  /// Optional "Other charges" on top of `amount`.
+  final List<ExtraCharge> charges;
+  /// amount + sum(charges).
+  final num total;
 }
 
 /// Invoice input validation — amount numeric > 0, tenure required.
@@ -2025,6 +2065,32 @@ class InvoiceValidator {
   }
 
   static String? tenure(String raw) => raw.trim().isEmpty ? 'Pick a tenure.' : null;
+
+  /// Same rule as the backend's parseExtraCharges (src/lib/rpc/extraCharges.ts):
+  /// a charge row needs BOTH a description and an amount > 0, or neither — a
+  /// fully-blank row (an unused "Add charge" slot) is fine, a half-filled one
+  /// is not. Returns true if every row is fully filled or fully blank.
+  static bool chargesValid(List<(String, String)> rows) {
+    for (final (description, amountRaw) in rows) {
+      final hasDescription = description.trim().isNotEmpty;
+      final amount = num.tryParse(amountRaw.trim().replaceAll(',', '')) ?? 0;
+      final hasAmount = amountRaw.trim().isNotEmpty && amount > 0;
+      if (hasDescription != hasAmount) return false;
+    }
+    return true;
+  }
+
+  /// Only rows with BOTH a description and a positive amount count — a blank
+  /// "Add charge" row that was never filled in is dropped, never sent.
+  static List<ExtraCharge> cleanCharges(List<(String, String)> rows) {
+    final out = <ExtraCharge>[];
+    for (final (description, amountRaw) in rows) {
+      final d = description.trim();
+      final amount = num.tryParse(amountRaw.trim().replaceAll(',', '')) ?? 0;
+      if (d.isNotEmpty && amount > 0) out.add(ExtraCharge(description: d, amount: amount));
+    }
+    return out;
+  }
 }
 
 /// Day-of-week for the timetable (0 = Monday … 6 = Sunday, ISO).

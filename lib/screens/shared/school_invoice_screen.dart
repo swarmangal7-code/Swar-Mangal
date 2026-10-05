@@ -117,7 +117,7 @@ class _SchoolInvoiceScreenState extends State<SchoolInvoiceScreen> with SyncAwar
               Text(s.invoiceDate, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
             ]),
           ),
-          AmountText(s.amount),
+          AmountText(s.total),
           const SizedBox(width: AppSpace.s2),
           const Icon(Icons.chevron_right, color: AppColors.muted),
         ]),
