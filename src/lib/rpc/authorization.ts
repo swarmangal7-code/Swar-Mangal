@@ -207,6 +207,14 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_timetableWeek: STAFF,
   api_timetableSessionDetail: STAFF,
 
+  // Founder request 2026-10-05: a founder-maintained fee rate card (quotable
+  // price list per instrument). Either role reads it; only the founder
+  // writes it — it's the published price list, a business decision, matching
+  // api_addSchool/api_updateSchool above.
+  api_listFeeRateCard: STAFF,
+  api_founder_upsertFeeRateCard: FOUNDER,
+  api_founder_deactivateFeeRateCard: FOUNDER,
+
   // ------------------------------------------------- periods / corrections
   // Brief §11.7, P6.7: closing a service month is founder-only.
   api_founder_periodLocks: FOUNDER,
@@ -253,6 +261,12 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_staff_messageHistory: STAFF,
   api_whatsappStatus: STAFF,
   api_founder_whatsappOptOut: FOUNDER,
+  // Founder request 2026-10-05: a deliberate, explicit exception to the
+  // student-registered-phone rule above — a Timetable/Fee Rate Card PDF is
+  // public-facing informational material with no student-specific data, so a
+  // hand-typed number is allowed here (and only here). Staff-only, same role
+  // as the existing document-send path.
+  api_staff_shareDocumentViaWhatsApp: STAFF,
 
   // -------------------------------------------------------------- sync
   // Revision sync is used by both shells on their own entity sets.
@@ -367,6 +381,8 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_staff_grantRecoveryCredit", "api_staff_scheduleRecoveryCredit", "api_staff_resolveRecoveryCredit",
   "api_staff_inquiryQuickAdd", "api_staff_inquiryTransition",
   "api_staff_sendWhatsApp", "api_staff_sendWhatsAppDocument", "api_founder_whatsappOptOut",
+  "api_founder_upsertFeeRateCard", "api_founder_deactivateFeeRateCard",
+  "api_staff_shareDocumentViaWhatsApp",
 ]);
 
 /**

@@ -325,6 +325,27 @@ test("admission terms: staff mint tokens or request manual acceptance, founder d
   }
 });
 
+test("fee rate card: staff read, founder writes (it's the published price list)", () => {
+  assert.equal(RPC_POLICY["api_listFeeRateCard"], "STAFF");
+  assert.equal(RPC_POLICY["api_founder_upsertFeeRateCard"], "FOUNDER");
+  assert.equal(RPC_POLICY["api_founder_deactivateFeeRateCard"], "FOUNDER");
+  assert.equal(authorizeRpc(staff, "api_listFeeRateCard").ok, true);
+  assert.equal(authorizeRpc(staff, "api_founder_upsertFeeRateCard").ok, false);
+  assert.equal(authorizeRpc(staff, "api_founder_deactivateFeeRateCard").ok, false);
+  assert.equal(authorizeRpc(founder, "api_founder_upsertFeeRateCard").ok, true);
+  for (const fn of ["api_founder_upsertFeeRateCard", "api_founder_deactivateFeeRateCard"]) {
+    assert.ok(WRITE_FUNCTIONS.has(fn), `${fn} must be audited`);
+  }
+  assert.ok(!WRITE_FUNCTIONS.has("api_listFeeRateCard"), "reading is not itself an audited write");
+});
+
+test("sharing a Timetable/Fee Rate Card PDF to a hand-typed number is staff-level, same as the existing document send", () => {
+  assert.equal(RPC_POLICY["api_staff_shareDocumentViaWhatsApp"], "STAFF");
+  assert.equal(authorizeRpc(staff, "api_staff_shareDocumentViaWhatsApp").ok, true);
+  assert.equal(authorizeRpc(founder, "api_staff_shareDocumentViaWhatsApp").ok, true);
+  assert.ok(WRITE_FUNCTIONS.has("api_staff_shareDocumentViaWhatsApp"), "must be audited like every other WhatsApp send");
+});
+
 test("staff access management (email allow-list + issued device tokens): founder only", () => {
   assert.equal(RPC_POLICY["api_founder_listAuthorizedEmails"], "FOUNDER");
   assert.equal(RPC_POLICY["api_founder_addAuthorizedEmail"], "FOUNDER");

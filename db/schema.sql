@@ -1791,4 +1791,58 @@ create table if not exists rate_change_history (
   changed_by text,
   changed_at timestamptz not null default now()
 );
+
+-- ============================================================
+-- Founder request 2026-10-05: timetable instrument tagging, a founder-
+-- maintained fee rate card (price list), PDF export of the Timetable/Fee
+-- Rate Card filtered by instrument, and sharing that PDF on WhatsApp to a
+-- hand-typed number (not tied to any student record).
+-- ============================================================
+
+-- A. A real instrument on each timetable slot, sourced from the same
+-- instrument_options picklist the teacher dropdown already uses. Additive and
+-- nullable: existing rows get a one-time best-guess backfill below (matching
+-- class_name against the instrument list), anything that doesn't match stays
+-- null for staff to fix by hand — never guessed wrong on purpose.
+alter table timetable add column if not exists instrument text;
+
+-- One-time best-guess backfill: case-insensitive substring match of
+-- class_name against instrument_options.name (e.g. a class_name containing
+-- "guitar" gets instrument 'Guitar'). Longest instrument name first, so a
+-- more specific name (e.g. "Piano / Keyboard") is preferred over a shorter
+-- coincidental match. Only ever fills rows that are still null — safe to
+-- re-run, and never overwrites a value staff already set.
+do $$
+declare
+  opt record;
+begin
+  for opt in select name from instrument_options order by length(name) desc loop
+    update timetable
+    set instrument = opt.name
+    where instrument is null
+      and class_name ilike '%' || opt.name || '%';
+  end loop;
+end $$;
+
+-- B. Founder-maintained fee rate card: a simple quotable price list per
+-- instrument (e.g. "Guitar — Standard — Rs. 2500/Monthly"), entirely separate
+-- from what individual students actually pay (students_acad.monthly_fee).
+-- Unlike the effective-dated payout settings tables above, this is NOT a
+-- history table — rows are edited or deactivated directly, the same way
+-- `schools` or `teachers_acad` rows are, because it is just today's published
+-- price list, not a record that must reconstruct a past month's figures.
+create table if not exists fee_rate_card (
+  id text primary key,
+  instrument text not null,
+  name text not null,
+  fee_amount numeric(10,2) not null,
+  billing_period text not null default 'Monthly',
+  notes text,
+  active boolean not null default true,
+  created_by text,
+  created_at timestamptz not null default now(),
+  updated_by text,
+  updated_at timestamptz
+);
+create index if not exists idx_fee_rate_card_instrument on fee_rate_card (instrument, active);
 create index if not exists idx_rate_change_history_entity on rate_change_history (entity_type, entity_id, changed_at desc);

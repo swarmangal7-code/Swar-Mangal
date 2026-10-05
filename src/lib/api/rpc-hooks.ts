@@ -23,6 +23,7 @@ import type {
   DueRemindersResponse,
   DemoStudentListResponse,
   RecoveryCreditListResponse,
+  FeeRateCardListResponse,
   InquiryQueueResponse,
   InstrumentListResponse,
   PaymentDraftsResponse,
@@ -66,6 +67,10 @@ export const rpcKeys = {
   auditLog: (branch?: string, month?: string) => ["rpc", "api_founder_auditLog", branch ?? "ALL", month ?? ""] as const,
   payoutPreview: (month?: string) => ["rpc", "api_teacherPayoutPreview", month ?? ""] as const,
   payoutSettings: () => ["rpc", "api_founder_listPayoutSettings"] as const,
+  // Prefix-only (like payoutSettings above): matches every useFeeRateCard
+  // query key regardless of its includeInactive argument, so one invalidate
+  // refreshes both the admin screen (includeInactive) and any read-only list.
+  feeRateCard: () => ["rpc", "api_listFeeRateCard"] as const,
   todaysClasses: (date?: string, branch?: string) =>
     ["rpc", "api_staff_todaysClasses", date ?? "", branch ?? "ALL"] as const,
   attendanceRoster: (classId?: string, date?: string) =>
@@ -202,6 +207,16 @@ export function useTeacherAttendanceReport(
 
 export function useInstruments(options?: QueryOptions<InstrumentListResponse>) {
   return useRpc<InstrumentListResponse>("api_listInstruments", undefined, { staleTime: 5 * 60_000, ...options });
+}
+
+// ------------------------------------------------------------ fee rate card
+
+export function useFeeRateCard(includeInactive?: boolean, options?: QueryOptions<FeeRateCardListResponse>) {
+  return useRpc<FeeRateCardListResponse>(
+    "api_listFeeRateCard",
+    includeInactive ? { includeInactive: true } : undefined,
+    options,
+  );
 }
 
 export function useTeacherProfile(teacherId: string, branch = "ALL", options?: QueryOptions<TeacherProfileResponse>) {

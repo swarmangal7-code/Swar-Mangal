@@ -428,11 +428,40 @@ export interface TimetableEntry {
   startTime: string;
   endTime: string;
   className: string;
+  instrument: string;
   teacherId: string;
   teacherName: string;
   status: string;
   substituteTeacherId: string;
   substituteTeacherName: string;
+}
+
+// ---------------------------------------------------------- fee rate card
+
+/** Founder-maintained quotable price list per instrument — separate from
+ *  what any individual student actually pays. Edited/deactivated directly,
+ *  not effective-dated/append-only like the payout settings tables. */
+export interface FeeRateCardRow {
+  id: string;
+  instrument: string;
+  name: string;
+  feeAmount: number;
+  billingPeriod: string;
+  notes: string;
+  active: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface FeeRateCardListResponse extends RpcEnvelope {
+  rows: FeeRateCardRow[];
+}
+
+export interface FeeRateCardWriteResponse extends RpcEnvelope {
+  row?: FeeRateCardRow;
+  note?: string;
 }
 
 export interface TimetableResponse extends RpcEnvelope {
