@@ -293,6 +293,14 @@ class ApiService {
     return b as Map<String, dynamic>;
   }
 
+  /// Pages every device (founder + staff) that a new build is published.
+  /// Founder-only, a manual broadcast — publishing a build never pages
+  /// anyone by itself.
+  Future<Map<String, dynamic>> notifyAppUpdate({required String versionName, String notes = ''}) async {
+    final b = await _api.call('api_founder_notifyAppUpdate', {'versionName': versionName, 'notes': notes});
+    return b as Map<String, dynamic>;
+  }
+
   // -------------------------------------------------------------- timetable
   /// Branch timetable. Seed is backend-owned and applied only when the
   /// timetable has never been initialised — founder edits are never

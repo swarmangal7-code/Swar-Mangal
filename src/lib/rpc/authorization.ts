@@ -286,6 +286,9 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_registerPushToken: STAFF,
   api_unregisterPushToken: STAFF,
   api_pushStatus: STAFF,
+  // Pages every device (founder + staff) that a new build is published —
+  // deliberately founder-only, a manual broadcast, not automatic.
+  api_founder_notifyAppUpdate: FOUNDER,
   // Founder-only: this is the endpoint an external cron calls once a day
   // (with the founder token) to fire the fees due/overdue reminder.
   api_founder_sendDailyDigest: FOUNDER,
@@ -372,7 +375,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_founder_sendOverdueLateFeeReminders",
   "api_addExpenseEntry", "api_staff_submitExpenseDraft",
   "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject",
-  "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject", "api_founder_voidSchoolInvoice", "api_founder_deleteSchoolInvoice",
+  "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject", "api_founder_voidSchoolInvoice", "api_founder_deleteSchoolInvoice", "api_founder_notifyAppUpdate",
   "api_addSchool", "api_updateSchool",
   "api_founder_closeMonth", "api_staff_requestReceiptCorrection", "api_founder_voidReceipt", "api_founder_correctionReject",
   "api_staff_submitPackageExtensionRequest", "api_founder_packageExtensionApprove", "api_founder_packageExtensionReject",

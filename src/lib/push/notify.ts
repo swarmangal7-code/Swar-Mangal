@@ -47,7 +47,8 @@ export type NotifyScreen =
   | "SCHOOL_INVOICE"
   | "INQUIRIES"
   | "EXPENSES"
-  | "RECEIPTS";
+  | "RECEIPTS"
+  | "UPDATE_AVAILABLE";
 
 async function log(
   audience: string,
@@ -104,6 +105,17 @@ export function notifyFounderGeneric(title: string, body: string, ref = "", scre
  *  books for the month). */
 export function notifyAllStaff(title: string, body: string, ref = "", screen: NotifyScreen = "HOME") {
   void fire("ALL_STAFF", title, body, "DIGEST", ref, screen);
+}
+
+/** Every device, founder and staff alike — the one audience that spans both
+ *  roles, used only for "a new build is published, please update" so it
+ *  deliberately isn't scoped by role or branch. Tapping it (screen
+ *  UPDATE_AVAILABLE) runs the same check-and-install flow as the About
+ *  screen's "Check for updates" button, not a navigation. */
+export function notifyEveryoneUpdateAvailable(versionName: string, notes: string) {
+  const body = notes.trim() ? `v${versionName} — ${notes.trim()}` : `v${versionName} is ready to install.`;
+  void fire("FOUNDER", "Update available", body, "APP_UPDATE", versionName, "UPDATE_AVAILABLE");
+  void fire("ALL_STAFF", "Update available", body, "APP_UPDATE", versionName, "UPDATE_AVAILABLE");
 }
 
 /** Register/replace a device's push token. Upsert on the token itself. */

@@ -5,7 +5,7 @@
 import type { RpcSession } from "@/lib/rpc/auth";
 import { s } from "@/lib/rpc/shared";
 import { scopeForSession } from "@/lib/rpc/authorization";
-import { registerPushToken, unregisterPushToken } from "@/lib/push/notify";
+import { registerPushToken, unregisterPushToken, notifyEveryoneUpdateAvailable } from "@/lib/push/notify";
 import { pushEnabled } from "@/lib/push/fcm";
 import { ALL_BRANCHES, type BranchScope } from "@/lib/rpc/scope";
 
@@ -13,7 +13,7 @@ type Result = Record<string, unknown>;
 const ok = (extra: Result = {}): Result => ({ ok: true, ...extra });
 const refuse = (code: string, error: string): Result => ({ ok: false, code, error });
 
-export const PUSH_FUNCTIONS = new Set(["api_registerPushToken", "api_unregisterPushToken", "api_pushStatus"]);
+export const PUSH_FUNCTIONS = new Set(["api_registerPushToken", "api_unregisterPushToken", "api_pushStatus", "api_founder_notifyAppUpdate"]);
 
 export async function dispatchPush(fn: string, arg: Record<string, unknown>, _scope: BranchScope, session: RpcSession): Promise<Result> {
   switch (fn) {
@@ -23,9 +23,23 @@ export async function dispatchPush(fn: string, arg: Record<string, unknown>, _sc
       return unregister(arg);
     case "api_pushStatus":
       return ok({ enabled: await pushEnabled() });
+    case "api_founder_notifyAppUpdate":
+      return notifyAppUpdate(arg);
     default:
       return refuse("UNKNOWN_API", `No push handler for ${fn}`);
   }
+}
+
+/** Founder-triggered broadcast: "a new build is published, please update."
+ * Deliberately a manual control, not automatic — a published version.json
+ * alone never pages anyone; the founder (or whoever is publishing the build
+ * on their behalf) decides when it's worth interrupting every device for. */
+async function notifyAppUpdate(arg: Record<string, unknown>): Promise<Result> {
+  const versionName = s(arg["versionName"]).trim();
+  const notes = s(arg["notes"]).trim();
+  if (!versionName) return refuse("VERSION_REQUIRED", "Say which version this is.");
+  notifyEveryoneUpdateAvailable(versionName, notes);
+  return ok({ note: `Notified everyone about v${versionName}.` });
 }
 
 async function register(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {

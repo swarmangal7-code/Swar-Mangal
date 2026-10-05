@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api.dart';
 import '../../core/theme.dart';
 import '../../services/update_service.dart';
 import '../../state/auth_provider.dart';
@@ -356,6 +357,8 @@ class _AboutScreenState extends State<AboutScreen> {
   String _version = '';
   bool _checking = false;
   String? _checkResult;
+  bool _notifying = false;
+  String? _notifyResult;
 
   @override
   void initState() {
@@ -377,6 +380,62 @@ class _AboutScreenState extends State<AboutScreen> {
       _checkResult = info == null ? "You're up to date." : null;
     });
     if (info != null) await showUpdateDialog(context, info);
+  }
+
+  Future<void> _notifyEveryoneToUpdate() async {
+    final notesCtl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Notify everyone to update?'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            _version.isEmpty
+                ? 'Sends a push notification to every founder and staff device, telling them a new version is ready.'
+                : 'Sends a push notification to every founder and staff device, telling them v$_version is ready.',
+          ),
+          const SizedBox(height: AppSpace.s3),
+          TextField(
+            controller: notesCtl,
+            maxLines: 2,
+            decoration: const InputDecoration(labelText: "What's new (optional)"),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Notify everyone')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    setState(() {
+      _notifying = true;
+      _notifyResult = null;
+    });
+    try {
+      final versionName = _version.split('+').first;
+      final r = await auth.service!.notifyAppUpdate(versionName: versionName, notes: notesCtl.text.trim());
+      if (!mounted) return;
+      final demo = auth.isDemo || r['demo'] == true;
+      setState(() {
+        _notifying = false;
+        _notifyResult = '${(r['note'] ?? 'Sent.').toString()}${demo ? ' (DEMO — nobody was actually notified)' : ''}';
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _notifying = false;
+        _notifyResult = e.message;
+      });
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _notifying = false;
+        _notifyResult = e.message;
+      });
+    }
   }
 
   @override
@@ -415,6 +474,20 @@ class _AboutScreenState extends State<AboutScreen> {
         if (_checkResult != null) ...[
           const SizedBox(height: AppSpace.s2),
           Text(_checkResult!, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+        ],
+        if (!staff) ...[
+          const SizedBox(height: AppSpace.s2),
+          OutlinedButton.icon(
+            onPressed: _notifying ? null : _notifyEveryoneToUpdate,
+            icon: _notifying
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.campaign_outlined, size: 18),
+            label: Text(_notifying ? 'Notifying…' : 'Notify everyone to update'),
+          ),
+          if (_notifyResult != null) ...[
+            const SizedBox(height: AppSpace.s2),
+            Text(_notifyResult!, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+          ],
         ],
         const SectionTitle('Session'),
         Card(

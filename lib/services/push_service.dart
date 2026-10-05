@@ -19,7 +19,9 @@ import '../screens/shared/students_screen.dart';
 import '../screens/shared/teacher_profile_screen.dart';
 import '../screens/shared/timetable_screen.dart';
 import '../state/auth_provider.dart';
+import '../widgets/update_dialog.dart';
 import 'api_service.dart';
+import 'update_service.dart';
 
 /// Must be a top-level (or static) function, marked with this pragma, so
 /// Android can call it in a fresh background isolate when a message arrives
@@ -161,6 +163,18 @@ class PushService {
     final navigator = navigatorKey.currentState;
     if (context == null || navigator == null) return;
     final isStaff = context.read<AuthProvider>().isStaff;
+
+    if (screen == 'UPDATE_AVAILABLE') {
+      // Not a navigation — runs the same check-and-install flow as the About
+      // screen's "Check for updates" button. Fetches fresh rather than
+      // trusting the notification's own payload, so a stale/delayed tap
+      // never offers an already-superseded build.
+      UpdateService.instance.checkForUpdate().then((info) {
+        final ctx = navigatorKey.currentContext;
+        if (info != null && ctx != null && ctx.mounted) showUpdateDialog(ctx, info);
+      });
+      return;
+    }
 
     Widget? target;
     switch (screen) {
