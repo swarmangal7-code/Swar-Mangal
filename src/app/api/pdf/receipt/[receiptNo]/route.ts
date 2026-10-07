@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { query } from "@/lib/db";
 import { authenticateToken, isFounder, isStaff } from "@/lib/rpc/auth";
-import { makeScope, moneyInScope } from "@/lib/rpc/scope";
+import { moneyInScope } from "@/lib/rpc/scope";
+import { scopeForSession } from "@/lib/rpc/authorization";
 import { ReceiptDocument, type ReceiptPdfData } from "@/lib/pdf/ReceiptDocument";
 
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ rece
   if (!session || !(isFounder(session) || isStaff(session))) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const scope = makeScope(session.branches ?? (isFounder(session) ? ["GOREGAON", "KANDIVALI"] : []));
+  const scope = scopeForSession(session);
 
   const row = await query<Record<string, unknown>>(
     `select receipt_no, party_name, student_id, amount, status, payment_mode, branch, txn_id,

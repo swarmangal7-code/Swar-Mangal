@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { query } from "@/lib/db";
 import { authenticateToken, isFounder, isStaff } from "@/lib/rpc/auth";
-import { makeScope, inScope } from "@/lib/rpc/scope";
+import { inScope } from "@/lib/rpc/scope";
+import { scopeForSession } from "@/lib/rpc/authorization";
 import { TimetableDocument, type TimetablePdfData } from "@/lib/pdf/TimetableDocument";
 
 export const runtime = "nodejs";
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
   if (!session || !(isFounder(session) || isStaff(session))) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const scope = makeScope(session.branches ?? (isFounder(session) ? ["GOREGAON", "KANDIVALI"] : []));
+  const scope = scopeForSession(session);
 
   const branch = (req.nextUrl.searchParams.get("branch") || "ALL").toUpperCase();
   const instruments = Array.from(

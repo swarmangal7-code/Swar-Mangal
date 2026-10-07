@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { query } from "@/lib/db";
 import { authenticateToken, isFounder, isStaff } from "@/lib/rpc/auth";
-import { makeScope, inScope } from "@/lib/rpc/scope";
+import { inScope } from "@/lib/rpc/scope";
+import { scopeForSession } from "@/lib/rpc/authorization";
 import { schoolBeneficiaries, computeBeneficiaryAmounts } from "@/lib/rpc/shared";
 import { billingMonthRange } from "@/lib/rpc/numbering";
 import { InvoiceDocument, type InvoicePdfData } from "@/lib/pdf/InvoiceDocument";
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ invo
   if (!session || !(isFounder(session) || isStaff(session))) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const scope = makeScope(session.branches ?? (isFounder(session) ? ["GOREGAON", "KANDIVALI"] : []));
+  const scope = scopeForSession(session);
 
   const row = await query<Record<string, unknown>>(
     `select i.id, i.invoice_no, i.invoice_date::text, i.branch, i.class_name, i.amount, i.tenure, i.school_id, i.billing_month, i.billed_address, i.status,
