@@ -824,12 +824,12 @@ async function receiptPreflight(arg: Record<string, unknown>, role: RpcRole): Pr
  */
 async function advanceStudentCycle(tx: Tx, studentId: string, paidOn: string, receiptNo = ""): Promise<string | null> {
   if (!studentId) return null;
-  const st = await tx.queryOne<{ next_due_date: string | null; fee_cycle_months: number | null }>(
-    `select next_due_date::text, fee_cycle_months from students_acad where id = $1`,
+  const st = await tx.queryOne<{ next_due_date: string | null; fee_cycle_months: number | null; fee_due_day: number | null }>(
+    `select next_due_date::text, fee_cycle_months, fee_due_day from students_acad where id = $1`,
     [studentId],
   );
   if (!st) return null;
-  const c = advanceCycle(st.next_due_date, paidOn, st.fee_cycle_months);
+  const c = advanceCycle(st.next_due_date, paidOn, st.fee_cycle_months, st.fee_due_day);
   await tx.query(
     `update students_acad
      set next_due_date = $2::date, cycle_start = $3::date, cycle_end = $4::date, last_payment_date = $5::date

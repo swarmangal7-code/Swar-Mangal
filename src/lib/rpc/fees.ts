@@ -78,21 +78,49 @@ export interface CycleAdvance {
   nextDueDate: string;
 }
 
+/** Fee due date lands on this day of the month when a student has no
+ *  per-student fee_due_day of their own (founder request 2026-10-07). */
+export const DEFAULT_FEE_DUE_DAY = 5;
+
+/** Add whole months, then pin the result to `dueDay` of that month (clamped
+ *  to the month's last day) — unlike addMonths, which keeps the original
+ *  day-of-month. Every renewal lands on the student's fixed due day
+ *  regardless of which day within the month the triggering payment fell on. */
+function monthsFromPinnedToDueDay(date: string, months: number, dueDay: number): string {
+  const ms = parseIso(date);
+  if (ms == null) return date;
+  const d = new Date(ms);
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(dueDay, lastDay));
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Move a student's fee cycle on after a payment. The new cycle starts at the
  * old due date when that is still current, otherwise at the payment date —
  * so a late payment does not keep the student permanently overdue, and an
- * early payment does not shorten the cycle they already paid for.
+ * early payment does not shorten the cycle they already paid for. The cycle
+ * length (`cycleMonths`) is read fresh from the student's current plan at
+ * the time of each payment, so a plan change (e.g. monthly -> 3-month)
+ * takes effect on the very next payment with no separate migration.
+ *
+ * The due date itself always lands on `dueDay` of its target month (the
+ * student's own fee_due_day, or the academy default of the 5th) rather than
+ * drifting to whatever day the payment happened to be made on.
  */
 export function advanceCycle(
   currentDueDate: string | null | undefined,
   paidOn: string,
   cycleMonths: number | null | undefined,
+  dueDay?: number | null,
 ): CycleAdvance {
   const months = cycleMonths && cycleMonths > 0 && cycleMonths <= 36 ? cycleMonths : 1;
+  const day = dueDay && dueDay >= 1 && dueDay <= 31 ? dueDay : DEFAULT_FEE_DUE_DAY;
   const due = currentDueDate && parseIso(currentDueDate) != null ? currentDueDate : null;
   const start = due && (daysUntil(due, paidOn) ?? -1) >= 0 ? due : paidOn;
-  const end = addMonths(start, months);
+  const end = monthsFromPinnedToDueDay(start, months, day);
   return { cycleStart: start, cycleEnd: end, nextDueDate: end };
 }
 

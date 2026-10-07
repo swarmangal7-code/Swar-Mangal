@@ -48,34 +48,53 @@ test("addMonths clamps to the end of a shorter month", () => {
   assert.equal(addMonths("2026-11-30", 3), "2027-02-28");
 });
 
-test("paying on time extends from the due date, so cycles do not drift", () => {
+test("paying on time extends from the due date, so cycles do not drift — and always lands on the 5th by default", () => {
   const c = advanceCycle("2026-09-20", "2026-09-16", 1);
   assert.equal(c.cycleStart, "2026-09-20");
-  assert.equal(c.nextDueDate, "2026-10-20");
+  assert.equal(c.nextDueDate, "2026-10-05");
 });
 
 test("paying late restarts from the payment date, not the missed due date", () => {
   const c = advanceCycle("2026-07-01", "2026-09-16", 1);
   assert.equal(c.cycleStart, "2026-09-16");
-  assert.equal(c.nextDueDate, "2026-10-16");
+  assert.equal(c.nextDueDate, "2026-10-05");
   // and the student is no longer overdue afterwards
   assert.equal(feeState(c.nextDueDate, "2026-09-16"), "PAID");
 });
 
-test("a 3-month plan advances by three months", () => {
-  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 3).nextDueDate, "2026-12-16");
+test("a 3-month plan advances by three months, still landing on the 5th", () => {
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 3).nextDueDate, "2026-12-05");
 });
 
 test("a missing or silly cycle length falls back to one month", () => {
-  assert.equal(advanceCycle("2026-09-16", "2026-09-16", null).nextDueDate, "2026-10-16");
-  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 0).nextDueDate, "2026-10-16");
-  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 999).nextDueDate, "2026-10-16");
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", null).nextDueDate, "2026-10-05");
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 0).nextDueDate, "2026-10-05");
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 999).nextDueDate, "2026-10-05");
 });
 
 test("a first payment with no prior due date starts the cycle today", () => {
   const c = advanceCycle(null, "2026-09-16", 1);
   assert.equal(c.cycleStart, "2026-09-16");
-  assert.equal(c.nextDueDate, "2026-10-16");
+  assert.equal(c.nextDueDate, "2026-10-05");
+});
+
+test("a student's own fee_due_day overrides the academy default of the 5th", () => {
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 1, 18).nextDueDate, "2026-10-18");
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 3, 1).nextDueDate, "2026-12-01");
+  // an out-of-range value falls back to the default rather than erroring
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 1, 0).nextDueDate, "2026-10-05");
+  assert.equal(advanceCycle("2026-09-16", "2026-09-16", 1, 32).nextDueDate, "2026-10-05");
+});
+
+test("a flexible plan change (monthly then 3-month) takes effect on the very next payment", () => {
+  // Student was on a monthly plan, due 2026-09-05; they then switch to a
+  // 3-month plan before their next payment. advanceCycle reads whatever
+  // cycleMonths is passed in "now" -- the caller already re-reads it fresh
+  // from students_acad before each call, so no separate migration is needed.
+  const monthly = advanceCycle(null, "2026-08-05", 1);
+  assert.equal(monthly.nextDueDate, "2026-09-05");
+  const switchedToQuarterly = advanceCycle(monthly.nextDueDate, "2026-09-05", 3);
+  assert.equal(switchedToQuarterly.nextDueDate, "2026-12-05");
 });
 
 test("today is measured in IST, not UTC", () => {
