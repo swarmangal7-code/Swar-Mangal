@@ -445,6 +445,36 @@ class WaMessage {
   }
 }
 
+/// A WhatsApp group the gateway's account is a member of (api_listWhatsAppGroups).
+/// A jid can't be phone-masked for display, so [subject] is the only
+/// human-readable label the picker has to show.
+class WhatsAppGroup {
+  WhatsAppGroup({required this.jid, required this.subject});
+  factory WhatsAppGroup.fromApi(Map<String, dynamic> b) => WhatsAppGroup(
+        jid: _s(b['jid']),
+        subject: _s(b['subject']),
+      );
+  final String jid;
+  final String subject;
+}
+
+/// WA-AKG gateway connection status (api_whatsappStatus): whether sending is
+/// switched on at all (WA_SEND_ENABLED) and whether the account is currently
+/// connected to WhatsApp.
+class WhatsAppStatus {
+  WhatsAppStatus({required this.enabled, required this.connected, required this.status, required this.error});
+  factory WhatsAppStatus.fromApi(Map<String, dynamic> b) => WhatsAppStatus(
+        enabled: b['enabled'] == true,
+        connected: b['connected'] == true,
+        status: _s(b['status']),
+        error: _s(b['error']),
+      );
+  final bool enabled;
+  final bool connected;
+  final String status;
+  final String error;
+}
+
 class Teacher {
   Teacher({
     required this.teacherId,

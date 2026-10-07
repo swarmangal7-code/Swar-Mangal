@@ -251,6 +251,8 @@ class DemoApiClient extends ApiClient {
     'api_staff_sendWhatsApp',
     'api_staff_sendWhatsAppDocument',
     'api_staff_shareDocumentViaWhatsApp',
+    'api_staff_sendWhatsAppGroupMessage',
+    'api_staff_sendWhatsAppGroupPoll',
     'api_staff_submitSchoolInvoiceDraft',
     'api_founder_finaliseSchoolInvoiceDraft',
     'api_founder_schoolInvoiceDraftReject',
@@ -623,6 +625,11 @@ class DemoApiClient extends ApiClient {
       case 'api_staff_sendWhatsApp':
       case 'api_staff_sendWhatsAppDocument':
         return _demoWhatsApp(api, a);
+      case 'api_listWhatsAppGroups':
+        return {'ok': true, 'groups': _demoGroups};
+      case 'api_staff_sendWhatsAppGroupMessage':
+      case 'api_staff_sendWhatsAppGroupPoll':
+        return _demoWhatsAppGroup(api, a);
       case 'api_staff_messageHistory':
         final mine = _demoMessages.where((m) => m['studentId'] == a['studentId']).toList();
         return {'ok': true, 'rows': mine, 'count': mine.length};
@@ -1997,6 +2004,60 @@ class DemoApiClient extends ApiClient {
     };
     _demoMessages.insert(0, msg);
     return {'ok': true, 'messageId': msg['messageId'], 'message': msg};
+  }
+
+  /// Canned groups the demo gateway "account" is pretending to be a member
+  /// of — just enough for the picker to have something to show.
+  static const _demoGroups = [
+    {'jid': 'demo-goregaon-parents@g.us', 'subject': 'Goregaon Parents Group'},
+    {'jid': 'demo-kandivali-parents@g.us', 'subject': 'Kandivali Parents Group'},
+    {'jid': 'demo-staff-announcements@g.us', 'subject': 'Staff Announcements'},
+  ];
+
+  /// Same DEMO-provenance shape as [_demoWhatsApp], but for a group message
+  /// or poll — 'to' is the group's subject (a jid can't be phone-masked),
+  /// and a poll's body mirrors how the backend records it (question | options).
+  Map<String, dynamic> _demoWhatsAppGroup(String api, Map<String, dynamic> a) {
+    final key = (a['clientIntentKey'] ?? '').toString();
+    final existing = _demoMessages.where((m) => m['intent'] == key && key.isNotEmpty);
+    if (existing.isNotEmpty) {
+      return {
+        'ok': true,
+        'idempotent': true,
+        'messageId': existing.first['messageId'],
+        'message': existing.first,
+        'note': 'already sent',
+      };
+    }
+    final isPoll = api == 'api_staff_sendWhatsAppGroupPoll';
+    final subject = (a['subject'] ?? '').toString();
+    final jid = (a['jid'] ?? '').toString();
+    final to = subject.isNotEmpty ? subject : jid;
+    final options = (a['options'] as List? ?? const []).map((o) => o.toString()).toList();
+    final body = isPoll ? '${a['question'] ?? ''} | ${options.join(', ')}' : (a['body'] ?? a['text'] ?? '').toString();
+    final now = DateTime.now().toIso8601String();
+    final msg = <String, dynamic>{
+      'messageId': 'WAM-DEMO-${DateTime.now().millisecondsSinceEpoch}',
+      'intent': key,
+      'studentId': '',
+      'kind': isPoll ? 'GROUP_POLL' : 'GROUP_MESSAGE',
+      'status': 'DEMO',
+      'to': to,
+      'body': body,
+      'fileName': '',
+      'error': '',
+      'createdAt': now,
+      'sentAt': now,
+      'deliveredAt': '',
+      'readAt': '',
+    };
+    _demoMessages.insert(0, msg);
+    return {
+      'ok': true,
+      'messageId': msg['messageId'],
+      'message': msg,
+      'note': isPoll ? 'DEMO — poll not actually sent to $to.' : 'DEMO — message not actually sent to $to.',
+    };
   }
 
   Map<String, dynamic> _commGenerate(Map<String, dynamic> a) {
