@@ -51,11 +51,14 @@ function outcomeLabel(value?: string) {
     .join(" ");
 }
 
+const OUTCOMES_REQUIRING_REASON = new Set(["TEACHER_ABSENT", "SCHOOL_HOLIDAY", "STUDENT_ABSENT"]);
+
 interface ResolveArg extends Record<string, unknown> {
   eventId: string;
   outcome: string;
   deliveredBy: string;
   lateReason: string;
+  reason: string;
 }
 
 export default function StaffClassesPage() {
@@ -67,6 +70,7 @@ export default function StaffClassesPage() {
   const [outcome, setOutcome] = React.useState("HELD");
   const [deliveredBy, setDeliveredBy] = React.useState("");
   const [lateReason, setLateReason] = React.useState("");
+  const [reason, setReason] = React.useState("");
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
 
   const classes = useTodaysClasses(date, branch);
@@ -83,6 +87,7 @@ export default function StaffClassesPage() {
   const rows = classes.data?.rows ?? [];
   const outcomes = classes.data?.outcomes?.length ? classes.data.outcomes : FALLBACK_OUTCOMES;
   const isSubstitute = outcome === "SUBSTITUTE_DELIVERED";
+  const needsReason = OUTCOMES_REQUIRING_REASON.has(outcome);
   const teacherOptions = (teachers.data?.teachers ?? []).filter(
     (t) => !["INACTIVE", "LEFT"].includes((t.status ?? "").toUpperCase()),
   );
@@ -92,6 +97,7 @@ export default function StaffClassesPage() {
     setOutcome("HELD");
     setDeliveredBy("");
     setLateReason("");
+    setReason("");
   };
 
   const submit = () => {
@@ -100,11 +106,16 @@ export default function StaffClassesPage() {
       toast.error("Pick the teacher who actually took the class.");
       return;
     }
+    if (needsReason && !reason.trim()) {
+      toast.error(`Say why this class is being recorded as ${outcomeLabel(outcome)}.`);
+      return;
+    }
     resolve.mutate({
       eventId: active.eventId,
       outcome,
       deliveredBy: isSubstitute ? deliveredBy : "",
       lateReason: lateReason.trim(),
+      reason: needsReason ? reason.trim() : "",
     });
   };
 
@@ -298,6 +309,18 @@ export default function StaffClassesPage() {
               </div>
             )}
 
+            {needsReason && (
+              <div className="space-y-1.5">
+                <Label className="text-[13px] text-dash-fg/70">Reason *</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={`Why is this being recorded as ${outcomeLabel(outcome)}?`}
+                  className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+                />
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label className="text-[13px] text-dash-fg/70">Note (optional)</Label>
               <Textarea
@@ -316,7 +339,7 @@ export default function StaffClassesPage() {
             <Button
               className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
               loading={resolve.isPending}
-              disabled={isSubstitute && !deliveredBy}
+              disabled={(isSubstitute && !deliveredBy) || (needsReason && !reason.trim())}
               onClick={submit}
             >
               Save

@@ -260,6 +260,7 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
         'outcome': res['outcome'] ?? '',
         if ((res['deliveredBy'] ?? '').isNotEmpty) 'deliveredBy': res['deliveredBy'],
         if ((res['lateReason'] ?? '').isNotEmpty) 'lateReason': res['lateReason'],
+        if ((res['reason'] ?? '').isNotEmpty) 'reason': res['reason'],
       });
       final m = r as Map<String, dynamic>;
       if (!mounted) return;
@@ -364,20 +365,25 @@ class _OutcomeDialog extends StatefulWidget {
 }
 
 class _OutcomeDialogState extends State<_OutcomeDialog> {
+  static const _outcomesRequiringReason = {'TEACHER_ABSENT', 'SCHOOL_HOLIDAY', 'STUDENT_ABSENT'};
+
   String _outcome = 'HELD';
   final _deliveredBy = TextEditingController();
   final _lateReason = TextEditingController();
+  final _reason = TextEditingController();
 
   @override
   void dispose() {
     _deliveredBy.dispose();
     _lateReason.dispose();
+    _reason.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final late = widget.classDate != widget.today;
+    final needsReason = _outcomesRequiringReason.contains(_outcome);
     final options = [
       ...widget.outcomes.where((o) => o != 'UNRESOLVED'),
     ];
@@ -400,6 +406,14 @@ class _OutcomeDialogState extends State<_OutcomeDialog> {
               decoration: const InputDecoration(labelText: 'Who actually delivered (teacher id) *'),
             ),
           ],
+          if (needsReason) ...[
+            const SizedBox(height: AppSpace.s3),
+            TextField(
+              controller: _reason,
+              maxLines: 2,
+              decoration: InputDecoration(labelText: 'Why is this being recorded as ${_outcome.replaceAll('_', ' ')}? *'),
+            ),
+          ],
           if (late) ...[
             const SizedBox(height: AppSpace.s3),
             TextField(
@@ -415,10 +429,12 @@ class _OutcomeDialogState extends State<_OutcomeDialog> {
         FilledButton(
           onPressed: () {
             if (_outcome == 'SUBSTITUTE_DELIVERED' && _deliveredBy.text.trim().isEmpty) return;
+            if (needsReason && _reason.text.trim().isEmpty) return;
             Navigator.pop(context, {
               'outcome': _outcome,
               'deliveredBy': _deliveredBy.text.trim(),
               'lateReason': _lateReason.text.trim(),
+              'reason': _reason.text.trim(),
             });
           },
           child: const Text('Record'),
