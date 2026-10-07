@@ -12,6 +12,7 @@ import {
   Inbox,
   Info,
   MessageSquareText,
+  MessagesSquare,
   ReceiptText,
   SlidersHorizontal,
   Tag,
@@ -70,7 +71,10 @@ export const founderNav: WebNavSection[] = [
   // roles see the identical Inquiries feature set.
   {
     label: "Connect",
-    items: [{ title: "Inquiries", href: "/founder/inquiries", icon: MessageSquareText }],
+    items: [
+      { title: "Inquiries", href: "/founder/inquiries", icon: MessageSquareText },
+      { title: "WhatsApp Groups", href: "/founder/whatsapp-groups", icon: MessagesSquare },
+    ],
   },
   {
     label: "Academy",
@@ -117,6 +121,7 @@ export const staffNav: WebNavSection[] = [
     label: "Connect",
     items: [
       { title: "Inquiries", href: "/staff/inquiries", icon: MessageSquareText },
+      { title: "WhatsApp Groups", href: "/staff/whatsapp-groups", icon: MessagesSquare },
       { title: "My Requests", href: "/staff/requests", icon: Inbox },
     ],
   },
