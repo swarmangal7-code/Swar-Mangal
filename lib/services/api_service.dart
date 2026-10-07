@@ -1019,6 +1019,73 @@ class ApiService {
     return WaMessage.fromApi((b as Map)['message'] as Map<String, dynamic>);
   }
 
+  // ------------------------------------------------------ whatsapp groups
+  /// Current WA-AKG gateway status: whether sending is switched on at all
+  /// and whether the account is actually connected right now.
+  Future<WhatsAppStatus> whatsappStatus() async {
+    final b = await _api.call('api_whatsappStatus', {});
+    return WhatsAppStatus.fromApi(b as Map<String, dynamic>);
+  }
+
+  /// Every group the gateway's WhatsApp account is currently a member of —
+  /// read-only, no args. Empty (not an error) when none are visible yet; the
+  /// account needs to already be a member of a group for it to show up here.
+  Future<List<WhatsAppGroup>> listWhatsAppGroups() async {
+    final b = await _api.call('api_listWhatsAppGroups', {});
+    return ((b as Map)['groups'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(WhatsAppGroup.fromApi)
+        .toList();
+  }
+
+  /// Sends a plain text message to a WhatsApp GROUP — not a student, not a
+  /// hand-typed number. [subject] is only the group's display name for the
+  /// audit log; pass it through from the picker when available.
+  Future<({WaMessage message, String note})> sendWhatsAppGroupMessage({
+    required String jid,
+    String subject = '',
+    required String body,
+    required String clientIntentKey,
+  }) async {
+    final b = await _api.call('api_staff_sendWhatsAppGroupMessage', {
+      'jid': jid,
+      if (subject.isNotEmpty) 'subject': subject,
+      'body': body,
+      'clientIntentKey': clientIntentKey,
+    });
+    final m = b as Map;
+    return (
+      message: WaMessage.fromApi(m['message'] as Map<String, dynamic>),
+      note: (m['note'] ?? '').toString(),
+    );
+  }
+
+  /// Sends a poll (2-12 distinct options) to a WhatsApp GROUP.
+  /// [selectableCount] defaults to 1 (single-choice); the server clamps it
+  /// between 1 and the option count for a multi-select poll.
+  Future<({WaMessage message, String note})> sendWhatsAppGroupPoll({
+    required String jid,
+    String subject = '',
+    required String question,
+    required List<String> options,
+    int selectableCount = 1,
+    required String clientIntentKey,
+  }) async {
+    final b = await _api.call('api_staff_sendWhatsAppGroupPoll', {
+      'jid': jid,
+      if (subject.isNotEmpty) 'subject': subject,
+      'question': question,
+      'options': options,
+      'selectableCount': selectableCount,
+      'clientIntentKey': clientIntentKey,
+    });
+    final m = b as Map;
+    return (
+      message: WaMessage.fromApi(m['message'] as Map<String, dynamic>),
+      note: (m['note'] ?? '').toString(),
+    );
+  }
+
   // ---------------------------------------------------------------- misc
   Future<dynamic> raw(String api, [Object? arg]) => _api.call(api, arg);
 }
