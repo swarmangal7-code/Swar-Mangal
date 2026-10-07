@@ -124,6 +124,14 @@ Setup:
 4. `pm2 restart swarmangal-app`
 5. Sign in on phone → allow notification permission
 
+Note: the examples below use `swarmangal.in` as the placeholder domain from
+step 1. On the current live VPS, DNS for `swarmangal.in`/`swarmangal.com`
+does not actually point at this box (they resolve to unrelated sites), so
+the real reachable base URL there is `https://148.113.52.88.nip.io`
+instead — set up as a cron job via aaPanel's own Cron UI (not raw
+crontab), since that's where the only other cron job on that box lives.
+Swap in whatever your own `APP_DOMAIN` actually resolves to.
+
 Daily fees digest cron:
 ```
 0 9 * * * curl -s -X POST https://swarmangal.in/api/rpc -d function=api_founder_sendDailyDigest -d token=$RPC_FOUNDER_TOKEN >/dev/null
