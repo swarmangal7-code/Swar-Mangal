@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api.dart';
 import '../../core/theme.dart';
 import '../../state/auth_provider.dart';
+import '../../state/sync_manager.dart';
 import '../../widgets/atoms.dart';
 import 'message_compose_screen.dart';
 
@@ -46,7 +47,13 @@ class AttendanceRosterRow {
 
 String _sv(dynamic v) => v == null ? '' : v.toString();
 
-class _AttendanceScreenState extends State<AttendanceScreen> {
+class _AttendanceScreenState extends State<AttendanceScreen> with SyncAware {
+  @override
+  Set<String> get syncEntities => const {'attendance'};
+
+  @override
+  Future<void> reloadFromSync() => _load();
+
   List<AttendanceRosterRow> _roster = [];
   List<String> _instruments = [];
   String? _instrument;

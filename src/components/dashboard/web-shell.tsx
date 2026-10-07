@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useTokenAuth, type TokenRole } from "@/lib/auth/token-auth";
+import { useLiveSync } from "@/lib/api/rpc-hooks";
 import { cn } from "@/lib/utils/cn";
 import { founderNav, staffNav, type WebNavSection } from "@/lib/config/web-nav";
 
@@ -152,6 +153,10 @@ export function WebShell({ role, children }: WebShellProps) {
   const [signingOut, setSigningOut] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const sections = role === "FOUNDER_ADMIN" ? founderNav : staffNav;
+
+  // One poll loop for the whole shell, not per-screen — every open tab/
+  // device sees another device's write without anyone refreshing.
+  useLiveSync(!isLoading && !!session);
 
   // A route change (tapping a nav link) should close the mobile drawer —
   // same effect as NavList's onNavigate, but also catches back/forward nav.

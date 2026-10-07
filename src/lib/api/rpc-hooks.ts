@@ -4,6 +4,7 @@
 // write goes through useMutationRpc and invalidates the RPC cache so the next
 // read refetches from the server (the server stays the single source of truth).
 
+import * as React from "react";
 import {
   useMutation,
   useQuery,
@@ -378,6 +379,58 @@ export function useWhatsAppStatus(options?: QueryOptions<WhatsAppStatusResponse>
 /** Every group the gateway's WhatsApp account is a member of, for a picker. */
 export function useWhatsAppGroups(options?: QueryOptions<WhatsAppGroupListResponse>) {
   return useRpc<WhatsAppGroupListResponse>("api_listWhatsAppGroups", undefined, options);
+}
+
+// ---------------------------------------------------------------- live sync
+
+/**
+ * Near-real-time sync for the web dashboard — mirrors Flutter's SyncManager
+ * (lib/state/sync_manager.dart): poll api_syncChanges with the revision
+ * counters we already know, and when any entity's counter has moved (bumped
+ * server-side by bumpRevisions() on every write — see src/lib/rpc/shared.ts),
+ * invalidate the whole RPC cache so every mounted query refetches on its own.
+ * One poll call, not a websocket: the VPS has no push channel, and this is
+ * cheap (one indexed counter lookup) regardless of how much data changed.
+ *
+ * Call this once from a shell every founder/staff page renders through
+ * (WebShell) — never per-screen, so there is exactly one poll loop.
+ */
+export function useLiveSync(enabled: boolean, intervalMs = 15_000) {
+  const queryClient = useQueryClient();
+  const known = React.useRef<Record<string, number>>({});
+
+  React.useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    let inFlight = false;
+
+    const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const res = await rpc<{ revisions: Record<string, number> }>("api_syncChanges", {
+          knownRevisions: known.current,
+        });
+        if (cancelled) return;
+        const server = res.revisions ?? {};
+        const changed = Object.keys(server).some((k) => known.current[k] !== server[k]);
+        known.current = server;
+        if (changed) await queryClient.invalidateQueries({ queryKey: rpcKeys.root });
+      } catch {
+        // Offline or unreachable — next tick tries again. Never surfaced to
+        // the user; the existing per-query error states already cover that.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void tick();
+    const id = setInterval(tick, intervalMs);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [enabled, intervalMs, queryClient]);
 }
 
 // ------------------------------------------------------------------ helpers

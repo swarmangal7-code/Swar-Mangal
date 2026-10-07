@@ -207,7 +207,12 @@ class PushService {
         target = TimetableScreen(staff: isStaff);
         break;
       case 'TODAYS_CLASSES':
-        target = const TodaysClassesScreen();
+        // Unlike the shell-embedded screens above, this one has no Scaffold
+        // of its own (it expects the bottom-nav shell to supply the AppBar
+        // and chrome) -- pushed bare, it renders with no app bar and no way
+        // back to the rest of the app. Same wrapper dashboard_screen.dart
+        // already uses when it pushes this screen outside the shell.
+        target = Scaffold(appBar: AppBar(title: const Text("Today's Classes")), body: const TodaysClassesScreen());
         break;
       case 'SCHOOL_INVOICE':
         target = SchoolInvoiceScreen(staff: isStaff);

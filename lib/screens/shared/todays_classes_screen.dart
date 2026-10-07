@@ -5,6 +5,7 @@ import '../../core/api.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/auth_provider.dart';
+import '../../state/sync_manager.dart';
 import '../../widgets/atoms.dart';
 
 /// Today's Classes — the staff end-of-evening surface. Records what actually
@@ -16,7 +17,13 @@ class TodaysClassesScreen extends StatefulWidget {
   State<TodaysClassesScreen> createState() => _TodaysClassesScreenState();
 }
 
-class _TodaysClassesScreenState extends State<TodaysClassesScreen> {
+class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAware {
+  @override
+  Set<String> get syncEntities => const {'sessions', 'attendance'};
+
+  @override
+  Future<void> reloadFromSync() => _load();
+
   TodaysClassOptions? _opts;
   String? _error;
   bool _busy = true;
