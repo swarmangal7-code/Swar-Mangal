@@ -298,6 +298,9 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   // Founder-only: this is the endpoint an external cron calls once a day
   // (with the founder token) to fire the fees due/overdue reminder.
   api_founder_sendDailyDigest: FOUNDER,
+  // Founder-only: this is the endpoint an external cron calls every 15
+  // minutes (with the founder token) to nudge staff about unmarked classes.
+  api_founder_sendAttendanceReminders: FOUNDER,
 };
 
 export interface AuthzResult {

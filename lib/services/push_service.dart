@@ -18,6 +18,7 @@ import '../screens/shared/school_invoice_screen.dart';
 import '../screens/shared/students_screen.dart';
 import '../screens/shared/teacher_profile_screen.dart';
 import '../screens/shared/timetable_screen.dart';
+import '../screens/shared/todays_classes_screen.dart';
 import '../state/auth_provider.dart';
 import '../widgets/update_dialog.dart';
 import 'api_service.dart';
@@ -204,6 +205,9 @@ class PushService {
         break;
       case 'TIMETABLE':
         target = TimetableScreen(staff: isStaff);
+        break;
+      case 'TODAYS_CLASSES':
+        target = const TodaysClassesScreen();
         break;
       case 'SCHOOL_INVOICE':
         target = SchoolInvoiceScreen(staff: isStaff);

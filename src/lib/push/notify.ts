@@ -44,6 +44,7 @@ export type NotifyScreen =
   | "PAYOUTS"
   | "TEACHERS"
   | "TIMETABLE"
+  | "TODAYS_CLASSES"
   | "SCHOOL_INVOICE"
   | "INQUIRIES"
   | "EXPENSES"
@@ -94,6 +95,14 @@ export function notifyStaffDecision(branch: string, kind: string, summary: strin
 /** Generic branch-scoped notice (used by the daily digest script). */
 export function notifyBranch(branch: string, title: string, body: string, ref = "", screen: NotifyScreen = "HOME") {
   void fire({ branch }, title, body, "DIGEST", ref, screen);
+}
+
+/** A branch still has an unmarked class near/past its end time (session
+ *  outcome and/or per-student attendance). Distinct data_type from
+ *  notifyBranch's "DIGEST" so the sender can throttle on its own schedule
+ *  without being confused by other branch pushes. */
+export function notifyAttendanceReminder(branch: string, title: string, body: string, ref = "") {
+  void fire({ branch }, title, body, "ATTENDANCE_REMINDER", ref, "TODAYS_CLASSES");
 }
 
 export function notifyFounderGeneric(title: string, body: string, ref = "", screen: NotifyScreen = "HOME") {

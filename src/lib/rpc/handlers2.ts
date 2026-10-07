@@ -18,7 +18,7 @@ import {
   recordBranch,
   type BranchScope,
 } from "@/lib/rpc/scope";
-import { notifyBranch, notifyFounderGeneric, notifyAllStaff } from "@/lib/push/notify";
+import { notifyBranch, notifyFounderGeneric, notifyAllStaff, notifyAttendanceReminder } from "@/lib/push/notify";
 import {
   CUSTOM_KINDS,
   DORMANT_RECALL_DAYS,
@@ -193,6 +193,8 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return syncChanges(arg);
     case "api_founder_sendDailyDigest":
       return sendDailyDigest();
+    case "api_founder_sendAttendanceReminders":
+      return sendAttendanceReminders();
     default:
       return { ok: false, code: "UNKNOWN_API", error: `No gateway handler for ${fn}` };
   }
@@ -228,6 +230,76 @@ async function sendDailyDigest(): Promise<Record<string, unknown>> {
     );
   }
   return ok({ sent: true, totalDueToday, totalOverdue });
+}
+
+const ATTENDANCE_REMINDER_LEAD_MINUTES = 15;
+const ATTENDANCE_REMINDER_THROTTLE_MINUTES = 20;
+const ATTENDANCE_IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function hmToMinutes(hm: string): number {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hm);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+}
+
+/**
+ * Nudge a branch's staff to mark attendance (class outcome + per-student) for
+ * today's classes once a class is within ATTENDANCE_REMINDER_LEAD_MINUTES of
+ * its end time and is still missing either piece. Meant to run every 15
+ * minutes via an external cron hitting this RPC with the founder token (see
+ * deploy/README.md) — nothing in this app schedules anything itself (brief
+ * §2.4: no triggers). Throttled to at most one push per branch every
+ * ATTENDANCE_REMINDER_THROTTLE_MINUTES so a still-pending class doesn't nag
+ * on every tick; re-checked (and re-sent) after the throttle window if the
+ * class is still unmarked.
+ */
+async function sendAttendanceReminders(): Promise<Record<string, unknown>> {
+  const date = todayIso();
+  const nowMinutes = Math.floor((Date.now() + ATTENDANCE_IST_OFFSET_MS) / 60000) % 1440;
+
+  const [tt, sessions, marked, recentPushes] = await Promise.all([
+    query<Record<string, unknown>>(`select * from timetable where status = 'ENABLED' and day_of_week = $1`, [mondayIndex(date)]),
+    query<{ id: string; resolved: boolean }>(`select id, resolved from scheduled_sessions where session_date = $1`, [date]),
+    query<{ timetable_id: string }>(
+      `select distinct timetable_id from attendance_acad where session_date = $1 and timetable_id is not null`,
+      [date],
+    ),
+    query<{ branch: string }>(
+      `select branch from push_log where data_type = 'ATTENDANCE_REMINDER' and sent_at > now() - interval '${ATTENDANCE_REMINDER_THROTTLE_MINUTES} minutes'`,
+    ),
+  ]);
+  const resolvedById = new Map(sessions.map((r) => [s(r.id), r.resolved === true]));
+  const markedTimetableIds = new Set(marked.map((r) => s(r.timetable_id)));
+  const throttledBranches = new Set(recentPushes.map((r) => recordBranch(r.branch)));
+
+  const pendingByBranch = new Map<string, { course: string; startTime: string; endTime: string }[]>();
+  for (const r of tt) {
+    const endTime = s(r.end_time);
+    const endMinutes = hmToMinutes(endTime);
+    if (!Number.isFinite(endMinutes)) continue;
+    // Window: from ATTENDANCE_REMINDER_LEAD_MINUTES before the class ends,
+    // through the rest of the day — a class doesn't stop needing attendance
+    // just because it's now very late (brief 2026-10-07: late marking is
+    // allowed, not blocked).
+    if (nowMinutes < endMinutes - ATTENDANCE_REMINDER_LEAD_MINUTES) continue;
+    const eventId = `E-${date}-${s(r.id)}`;
+    const resolved = resolvedById.get(eventId) === true;
+    const attendanceMarked = markedTimetableIds.has(s(r.id));
+    if (resolved && attendanceMarked) continue;
+    const branch = recordBranch(s(r.branch));
+    if (!branch) continue;
+    const list = pendingByBranch.get(branch) ?? [];
+    list.push({ course: s(r.class_name), startTime: s(r.start_time), endTime });
+    pendingByBranch.set(branch, list);
+  }
+
+  let branchesNotified = 0;
+  for (const [branch, items] of pendingByBranch) {
+    if (throttledBranches.has(branch)) continue;
+    const label = items.length === 1 ? `${items[0].course} (${items[0].startTime}–${items[0].endTime})` : `${items.length} classes`;
+    notifyAttendanceReminder(branch, "Mark attendance", `${label} still needs attendance marked.`, date);
+    branchesNotified++;
+  }
+  return ok({ pendingBranches: [...pendingByBranch.keys()], branchesNotified });
 }
 
 // -------------------------------------------------------------- dashboard

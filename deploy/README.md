@@ -129,6 +129,13 @@ Daily fees digest cron:
 0 9 * * * curl -s -X POST https://swarmangal.in/api/rpc -d function=api_founder_sendDailyDigest -d token=$RPC_FOUNDER_TOKEN >/dev/null
 ```
 
+Attendance reminder cron (nudges branch staff when a class is within 15
+minutes of its end time and still missing an outcome or student attendance;
+throttled server-side to at most one push per branch every 20 minutes):
+```
+*/15 * * * * curl -s -X POST https://swarmangal.in/api/rpc -d function=api_founder_sendAttendanceReminders -d token=$RPC_FOUNDER_TOKEN >/dev/null
+```
+
 ## 9. Self-service token registration (optional)
 
 Founder and staff can register their own device tokens via email OTP.
