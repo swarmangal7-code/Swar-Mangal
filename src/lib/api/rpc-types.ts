@@ -888,6 +888,33 @@ export interface PayoutPreviewResponse extends RpcEnvelope {
   closedBy: string;
 }
 
+// ------------------------------------------------------------- whatsapp
+
+export interface WhatsAppStatusResponse extends RpcEnvelope {
+  enabled: boolean;
+  connected: boolean;
+  status: string;
+  error?: string;
+}
+
+export interface WhatsAppGroup {
+  jid: string;
+  subject: string;
+}
+
+export interface WhatsAppGroupListResponse extends RpcEnvelope {
+  groups: WhatsAppGroup[];
+}
+
+/** Shared by api_staff_sendWhatsAppGroupMessage and api_staff_sendWhatsAppGroupPoll —
+ *  both record to wa_messages and return the same envelope shape. */
+export interface WhatsAppGroupSendResponse extends RpcEnvelope {
+  messageId?: string;
+  message?: { status?: string; to?: string };
+  note?: string;
+  idempotent?: boolean;
+}
+
 // --------------------------------------------------------------- sync
 
 export interface SyncSnapshotResponse extends RpcEnvelope {

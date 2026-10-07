@@ -42,6 +42,8 @@ import type {
   TimetableWeekResponse,
   TimetableSessionDetailResponse,
   TodaysClassesResponse,
+  WhatsAppGroupListResponse,
+  WhatsAppStatusResponse,
 } from "./rpc-types";
 
 // --------------------------------------------------------------------- keys
@@ -75,6 +77,8 @@ export const rpcKeys = {
     ["rpc", "api_staff_todaysClasses", date ?? "", branch ?? "ALL"] as const,
   attendanceRoster: (classId?: string, date?: string) =>
     ["rpc", "api_staff_attendanceRoster", classId ?? "", date ?? ""] as const,
+  whatsappStatus: () => ["rpc", "api_whatsappStatus"] as const,
+  whatsappGroups: () => ["rpc", "api_listWhatsAppGroups"] as const,
 };
 
 // ------------------------------------------------------------------ generic
@@ -361,6 +365,19 @@ export function useAttendanceRoster(classId?: string, date?: string, options?: Q
     payload.instrument = classId;
   }
   return useRpc<AttendanceRosterResponse>("api_staff_attendanceRoster", payload, options);
+}
+
+// ----------------------------------------------------------------- whatsapp
+
+/** Connection status of the WA-AKG gateway — same read every WhatsApp send
+ *  surface uses to decide whether to let someone try sending at all. */
+export function useWhatsAppStatus(options?: QueryOptions<WhatsAppStatusResponse>) {
+  return useRpc<WhatsAppStatusResponse>("api_whatsappStatus", undefined, { staleTime: 15_000, ...options });
+}
+
+/** Every group the gateway's WhatsApp account is a member of, for a picker. */
+export function useWhatsAppGroups(options?: QueryOptions<WhatsAppGroupListResponse>) {
+  return useRpc<WhatsAppGroupListResponse>("api_listWhatsAppGroups", undefined, options);
 }
 
 // ------------------------------------------------------------------ helpers
