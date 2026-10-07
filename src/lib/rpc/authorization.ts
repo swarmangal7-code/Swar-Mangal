@@ -275,6 +275,12 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   // hand-typed number is allowed here (and only here). Staff-only, same role
   // as the existing document-send path.
   api_staff_shareDocumentViaWhatsApp: STAFF,
+  // Founder request 2026-10-07: send a plain message or a poll to a WhatsApp
+  // GROUP (not a student, not a number) — same staff-routine level as the
+  // rest of WhatsApp sending above.
+  api_listWhatsAppGroups: STAFF,
+  api_staff_sendWhatsAppGroupMessage: STAFF,
+  api_staff_sendWhatsAppGroupPoll: STAFF,
 
   // -------------------------------------------------------------- sync
   // Revision sync is used by both shells on their own entity sets.
@@ -394,6 +400,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_staff_sendWhatsApp", "api_staff_sendWhatsAppDocument", "api_founder_whatsappOptOut",
   "api_founder_upsertFeeRateCard", "api_founder_deactivateFeeRateCard",
   "api_staff_shareDocumentViaWhatsApp",
+  "api_staff_sendWhatsAppGroupMessage", "api_staff_sendWhatsAppGroupPoll",
 ]);
 
 /**

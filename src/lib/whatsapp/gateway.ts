@@ -1,9 +1,17 @@
 // Client for a self-hosted WA-AKG gateway (github.com/mrifqidaffaaditya/WA-AKG).
-// Contract read from its source at commit c7dd01a:
+// Contract read from its source (actual_routes.txt + the route handlers
+// themselves, confirmed 2026-10-07):
 //   POST /api/messages/{sessionId}/{jid}/send   { message: { text } }
 //   POST /api/messages/{sessionId}/{jid}/media  multipart: file, type, caption
-//   GET  /api/sessions/{sessionId}              data.status === "CONNECTED"
-//   auth: X-API-Key; success { status: true, data }, failure { status: false, message }
+//   POST /api/messages/{sessionId}/{jid}/poll   { question, options, selectableCount }
+//        — options: 2..12 entries; success has no message id (no data.key),
+//        just { status: true }, unlike every other send endpoint.
+//   GET  /api/groups/{sessionId}                data: Group[] (jid, subject, ...)
+//   GET  /api/sessions/{sessionId}               data.status === "CONNECTED"
+//   auth: X-API-Key (checked case-insensitively, `x-api-key`, by the gateway
+//   itself); success { status: true, data }, failure { status: false, message }
+// A group jid (ends "@g.us") works through sendText/sendDocument exactly like
+// a personal one — the gateway's send/media endpoints are jid-agnostic.
 import { createHmac, timingSafeEqual } from "crypto";
 
 export interface GatewayConfig {
@@ -95,6 +103,52 @@ export async function sendDocument(
     );
     const id = providerId(r.body);
     if (r.ok && id) return { ok: true, providerMessageId: id };
+    return failure(null, r.status, r.body);
+  } catch (err) {
+    return failure(err);
+  }
+}
+
+export interface GroupInfo {
+  jid: string;
+  subject: string;
+}
+
+/** Every group this session's WhatsApp account is a member of. Empty (not an
+ *  error) when the gateway call fails, so a UI picker degrades to "no groups
+ *  found" rather than a hard error. */
+export async function listGroups(cfg: GatewayConfig): Promise<GroupInfo[]> {
+  try {
+    const r = await call(cfg, `/api/groups/${encodeURIComponent(cfg.sessionId)}`, { method: "GET" });
+    if (!r.ok) return [];
+    const rows = Array.isArray(r.body.data) ? (r.body.data as Record<string, unknown>[]) : [];
+    return rows
+      .map((g) => ({ jid: String(g.jid ?? "").trim(), subject: String(g.subject ?? "").trim() }))
+      .filter((g) => g.jid)
+      .map((g) => ({ ...g, subject: g.subject || g.jid }));
+  } catch {
+    return [];
+  }
+}
+
+/** A WhatsApp poll (2-12 options). Unlike sendText/sendDocument, a successful
+ *  poll send never returns a message id to confirm against — `{status:true}`
+ *  alone is the gateway's whole success response for this endpoint, read
+ *  directly from its route handler source rather than guessed. */
+export async function sendPoll(
+  cfg: GatewayConfig,
+  jid: string,
+  question: string,
+  options: string[],
+  selectableCount = 1,
+): Promise<GatewayResult> {
+  try {
+    const r = await call(
+      cfg,
+      `/api/messages/${encodeURIComponent(cfg.sessionId)}/${encodeURIComponent(jid)}/poll`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, options, selectableCount }) },
+    );
+    if (r.ok) return { ok: true, providerMessageId: "" };
     return failure(null, r.status, r.body);
   } catch (err) {
     return failure(err);

@@ -1886,3 +1886,10 @@ create index if not exists idx_school_invoice_charges_invoice on school_invoice_
 alter table school_invoices_rpc add column if not exists void_reason text;
 alter table school_invoices_rpc add column if not exists voided_by text;
 alter table school_invoices_rpc add column if not exists voided_at timestamptz;
+
+-- Founder request 2026-10-07: send plain messages and polls to a WhatsApp
+-- GROUP (not a student, not a hand-typed number) via WA-AKG. wa_messages.
+-- to_phone already holds a group jid fine as free text; this one column adds
+-- a human-readable name for it, since a group jid means nothing in a list —
+-- normalizeIndianMobile() can't mask it like a real phone number.
+alter table wa_messages add column if not exists to_group_subject text;

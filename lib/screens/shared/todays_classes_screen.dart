@@ -405,7 +405,7 @@ class _OutcomeDialogState extends State<_OutcomeDialog> {
             TextField(
               controller: _lateReason,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Why recorded after the day? (required, late entry)'),
+              decoration: const InputDecoration(labelText: 'Why recorded after the day? (optional)'),
             ),
           ],
         ]),
@@ -415,7 +415,6 @@ class _OutcomeDialogState extends State<_OutcomeDialog> {
         FilledButton(
           onPressed: () {
             if (_outcome == 'SUBSTITUTE_DELIVERED' && _deliveredBy.text.trim().isEmpty) return;
-            if (late && _lateReason.text.trim().isEmpty) return;
             Navigator.pop(context, {
               'outcome': _outcome,
               'deliveredBy': _deliveredBy.text.trim(),

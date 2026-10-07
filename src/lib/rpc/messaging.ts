@@ -15,7 +15,7 @@ import type { RpcSession } from "@/lib/rpc/auth";
 import { acadStudentById, acadTeacherById, s } from "@/lib/rpc/shared";
 import { branchForbidden, inScope, recordBranch, type BranchScope } from "@/lib/rpc/scope";
 import { normalizeIndianMobile, parseAllowList } from "@/lib/whatsapp/phone";
-import { gatewayConfigFromEnv, sendDocument, sendText, sessionStatus } from "@/lib/whatsapp/gateway";
+import { gatewayConfigFromEnv, listGroups, sendDocument, sendPoll, sendText, sessionStatus } from "@/lib/whatsapp/gateway";
 
 export const MESSAGING_FUNCTIONS = new Set([
   "api_staff_sendWhatsApp",
@@ -24,6 +24,9 @@ export const MESSAGING_FUNCTIONS = new Set([
   "api_whatsappStatus",
   "api_founder_whatsappOptOut",
   "api_staff_shareDocumentViaWhatsApp",
+  "api_listWhatsAppGroups",
+  "api_staff_sendWhatsAppGroupMessage",
+  "api_staff_sendWhatsAppGroupPoll",
 ]);
 
 const KINDS = new Set(["FEE_REMINDER", "RECEIPT", "RENEWAL", "FOLLOW_UP", "TERMS", "CUSTOM", "NOTIFY_TEACHER"]);
@@ -65,6 +68,12 @@ export async function dispatchMessaging(
       return setOptOut(arg, session);
     case "api_staff_shareDocumentViaWhatsApp":
       return shareDocumentViaWhatsApp(arg, session);
+    case "api_listWhatsAppGroups":
+      return listWhatsAppGroups();
+    case "api_staff_sendWhatsAppGroupMessage":
+      return sendWhatsAppGroupMessage(arg, session);
+    case "api_staff_sendWhatsAppGroupPoll":
+      return sendWhatsAppGroupPoll(arg, session);
     default:
       return refuse("UNKNOWN_API", `No messaging handler for ${fn}`);
   }
@@ -317,6 +326,127 @@ async function shareDocumentViaWhatsApp(arg: Record<string, unknown>, session: R
   );
 }
 
+/** Every group the gateway's WhatsApp account is in, for a picker — not
+ *  scoped to a student or a branch, same spirit as shareDocumentViaWhatsApp. */
+async function listWhatsAppGroups(): Promise<Result> {
+  const cfg = gatewayConfigFromEnv();
+  if (!cfg) return ok({ groups: [] });
+  const groups = await listGroups(cfg);
+  return ok({ groups: groups.map((g) => ({ jid: g.jid, subject: g.subject })) });
+}
+
+function isGroupJid(jid: string): boolean {
+  return /@g\.us$/.test(jid);
+}
+
+async function sendWhatsAppGroupMessage(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
+  const cfg = gatewayConfigFromEnv();
+  if (!cfg || !sendingEnabled()) {
+    return refuse("WHATSAPP_DISABLED", "WhatsApp sending is switched off.");
+  }
+  const jid = s(arg["jid"]).trim();
+  if (!jid || !isGroupJid(jid)) return refuse("GROUP_REQUIRED", "Pick a group to send to.");
+  const subject = s(arg["subject"]).trim();
+  const text = s(arg["body"] ?? arg["text"]).trim();
+  if (!text) return refuse("MESSAGE_REQUIRED", "The message is empty.");
+  if (text.length > MAX_TEXT) return refuse("MESSAGE_TOO_LONG", `Keep the message under ${MAX_TEXT} characters.`);
+
+  const intentKey = s(arg["clientIntentKey"]).trim() || null;
+  if (intentKey) {
+    const earlier = await queryOne<Record<string, unknown>>(`select * from wa_messages where client_intent_key = $1`, [intentKey]);
+    if (earlier) {
+      const sentOk = ["SENT", "DELIVERED", "READ"].includes(s(earlier.status));
+      return sentOk
+        ? ok({ idempotent: true, message: view(earlier), note: "already sent" })
+        : refuse("WHATSAPP_SEND_FAILED", s(earlier.error) || "This message did not send.", { idempotent: true, message: view(earlier) });
+    }
+  }
+
+  // Same exact text to the same group already went out recently: don't resend.
+  const dup = await queryOne<{ sent_at: string }>(
+    `select sent_at::text from wa_messages
+     where to_phone = $1 and body = $2 and status in ('SENT','DELIVERED','READ')
+       and sent_at > now() - ($3::int * interval '1 hour')
+     order by sent_at desc limit 1`,
+    [jid, text, DUPLICATE_WINDOW_HOURS],
+  );
+  if (dup) return refuse("DUPLICATE_MESSAGE", `This exact message was already sent to this group at ${dup.sent_at.slice(0, 16)}.`);
+
+  const id = `WAM-${Date.now()}-${randomBytes(3).toString("hex").toUpperCase()}`;
+  try {
+    await query(
+      `insert into wa_messages (id, client_intent_key, student_id, branch, kind, to_phone, to_group_subject, body, status, requested_by)
+       values ($1,$2,null,null,'GROUP_MESSAGE',$3,$4,$5,'SENDING',$6)`,
+      [id, intentKey, jid, subject || null, text, session.deviceLabel || session.email],
+    );
+  } catch {
+    const winner = intentKey ? await queryOne<Record<string, unknown>>(`select * from wa_messages where client_intent_key = $1`, [intentKey]) : null;
+    return winner ? ok({ idempotent: true, message: view(winner) }) : refuse("SERVER_ERROR", "Could not record the message.");
+  }
+
+  const result = await sendText(cfg, jid, text);
+  if (result.ok) {
+    const row = await queryOne<Record<string, unknown>>(
+      `update wa_messages set status = 'SENT', provider_message_id = $2, sent_at = now() where id = $1 returning *`,
+      [id, result.providerMessageId],
+    );
+    return ok({ messageId: id, message: view(row ?? {}), note: `Sent to ${subject || jid}.` });
+  }
+  const row = await queryOne<Record<string, unknown>>(`update wa_messages set status = 'FAILED', error = $2 where id = $1 returning *`, [id, result.error.slice(0, 500)]);
+  return refuse("WHATSAPP_SEND_FAILED", `Not sent to ${subject || jid}: ${result.error}.`, { messageId: id, message: view(row ?? {}) });
+}
+
+async function sendWhatsAppGroupPoll(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
+  const cfg = gatewayConfigFromEnv();
+  if (!cfg || !sendingEnabled()) {
+    return refuse("WHATSAPP_DISABLED", "WhatsApp sending is switched off.");
+  }
+  const jid = s(arg["jid"]).trim();
+  if (!jid || !isGroupJid(jid)) return refuse("GROUP_REQUIRED", "Pick a group to send to.");
+  const subject = s(arg["subject"]).trim();
+  const question = s(arg["question"]).trim();
+  if (!question) return refuse("QUESTION_REQUIRED", "Enter the poll question.");
+  const rawOptions = Array.isArray(arg["options"]) ? (arg["options"] as unknown[]).map((o) => s(o).trim()).filter(Boolean) : [];
+  const options = [...new Set(rawOptions)];
+  if (options.length < 2 || options.length > 12) return refuse("BAD_OPTIONS", "A poll needs between 2 and 12 distinct options.");
+  const selectableCount = Math.min(Math.max(Number(arg["selectableCount"]) || 1, 1), options.length);
+
+  const intentKey = s(arg["clientIntentKey"]).trim() || null;
+  if (intentKey) {
+    const earlier = await queryOne<Record<string, unknown>>(`select * from wa_messages where client_intent_key = $1`, [intentKey]);
+    if (earlier) {
+      const sentOk = ["SENT", "DELIVERED", "READ"].includes(s(earlier.status));
+      return sentOk
+        ? ok({ idempotent: true, message: view(earlier), note: "already sent" })
+        : refuse("WHATSAPP_SEND_FAILED", s(earlier.error) || "This poll did not send.", { idempotent: true, message: view(earlier) });
+    }
+  }
+
+  const body = `${question} | ${options.join(", ")}`;
+  const id = `WAM-${Date.now()}-${randomBytes(3).toString("hex").toUpperCase()}`;
+  try {
+    await query(
+      `insert into wa_messages (id, client_intent_key, student_id, branch, kind, to_phone, to_group_subject, body, status, requested_by)
+       values ($1,$2,null,null,'GROUP_POLL',$3,$4,$5,'SENDING',$6)`,
+      [id, intentKey, jid, subject || null, body, session.deviceLabel || session.email],
+    );
+  } catch {
+    const winner = intentKey ? await queryOne<Record<string, unknown>>(`select * from wa_messages where client_intent_key = $1`, [intentKey]) : null;
+    return winner ? ok({ idempotent: true, message: view(winner) }) : refuse("SERVER_ERROR", "Could not record the poll.");
+  }
+
+  // Polls never return a provider message id (see gateway.ts) — SENT here
+  // means the gateway accepted it, not that a specific message id exists to
+  // track delivery/read receipts against (there's nothing to compare).
+  const result = await sendPoll(cfg, jid, question, options, selectableCount);
+  if (result.ok) {
+    const row = await queryOne<Record<string, unknown>>(`update wa_messages set status = 'SENT', sent_at = now() where id = $1 returning *`, [id]);
+    return ok({ messageId: id, message: view(row ?? {}), note: `Poll sent to ${subject || jid}.` });
+  }
+  const row = await queryOne<Record<string, unknown>>(`update wa_messages set status = 'FAILED', error = $2 where id = $1 returning *`, [id, result.error.slice(0, 500)]);
+  return refuse("WHATSAPP_SEND_FAILED", `Poll not sent to ${subject || jid}: ${result.error}.`, { messageId: id, message: view(row ?? {}) });
+}
+
 async function messageHistory(arg: Record<string, unknown>, scope: BranchScope): Promise<Result> {
   const studentId = s(arg["studentId"]);
   const limit = Math.min(Math.max(Number(arg["limit"]) || 50, 1), 200);
@@ -347,13 +477,14 @@ async function setOptOut(arg: Record<string, unknown>, session: RpcSession): Pro
 
 /** What the app sees: never the full number. */
 function view(r: Record<string, unknown>): Result {
+  const groupSubject = s(r.to_group_subject);
   const masked = normalizeIndianMobile(s(r.to_phone));
   return {
     messageId: s(r.id),
     studentId: s(r.student_id),
     kind: s(r.kind),
     status: s(r.status),
-    to: masked.ok ? masked.masked : "",
+    to: groupSubject || (masked.ok ? masked.masked : ""),
     body: s(r.body),
     fileName: s(r.file_name),
     error: s(r.error),

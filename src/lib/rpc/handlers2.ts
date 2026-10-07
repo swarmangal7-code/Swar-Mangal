@@ -2598,8 +2598,9 @@ async function todaysClasses(arg: Record<string, unknown>, scope: BranchScope): 
 /**
  * Record whether a class was taught. Answered ONCE (brief §P6.4): a second
  * answer is refused, naming who answered and when. Evidence is derived, never
- * typed: within 48 hours it is VERIFIED; later it must say why and is
- * RECONSTRUCTED.
+ * typed: within 48 hours it is VERIFIED; later it is RECONSTRUCTED — an
+ * optional reason can be noted either way, but it was never required to
+ * submit (founder request 2026-10-07: the old hard block is gone).
  */
 async function resolveTodaysClass(arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession): Promise<Record<string, unknown>> {
   const eventId = s(arg["eventId"]);
@@ -2654,9 +2655,11 @@ async function resolveTodaysClass(arg: Record<string, unknown>, scope: BranchSco
 
   const hoursLate = -((daysUntil(date, todayIso()) ?? 0) * 24);
   const late = hoursLate > LATE_HOURS;
-  if (late && !lateReason) {
-    return { ok: false, code: "LATE_REASON_REQUIRED", error: `This class was more than ${LATE_HOURS} hours ago. Say why it is being recorded late.` };
-  }
+  // Founder request 2026-10-07: a reason is welcome but never required — this
+  // used to hard-block recording a class past LATE_HOURS without typing one.
+  // The VERIFIED/RECONSTRUCTED distinction below is unchanged and still
+  // gates payout settlement (unsettleableClasses in rules.ts); only the
+  // UI-facing stop is removed.
   const evidence = late ? "RECONSTRUCTED" : "VERIFIED";
   const payee = outcome === "SUBSTITUTE_DELIVERED" ? deliveredBy : outcome === "HELD" ? s(base.teacher_id) : "";
   // Brief: substitute assignment must be traceable — record who approved it
