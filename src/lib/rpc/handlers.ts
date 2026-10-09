@@ -829,7 +829,7 @@ async function advanceStudentCycle(tx: Tx, studentId: string, paidOn: string, re
     [studentId],
   );
   if (!st) return null;
-  const c = advanceCycle(st.next_due_date, paidOn, st.fee_cycle_months, st.fee_due_day);
+  const c = advanceCycle(paidOn, st.fee_cycle_months, st.fee_due_day);
   await tx.query(
     `update students_acad
      set next_due_date = $2::date, cycle_start = $3::date, cycle_end = $4::date, last_payment_date = $5::date
