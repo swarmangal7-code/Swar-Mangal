@@ -109,7 +109,7 @@ export function StarField({ count = 110 }: { count?: number }) {
   const frameWidth = useHorizontalSpreadAt(midDepth);
 
   const data = React.useMemo(
-    () => buildStars(count, { width: frameWidth * 1.15, minY: 0.6, maxY: 5.5, minZ, maxZ }),
+    () => buildStars(count, { width: frameWidth * 1.15, minY: -5.5, maxY: 5.5, minZ, maxZ }),
     [count, frameWidth, minZ, maxZ],
   );
 

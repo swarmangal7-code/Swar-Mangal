@@ -68,6 +68,16 @@ a static 1px gradient line under reduced motion or when WebGL is
 unavailable — same visual position, zero animated frames, so there is never
 a blank gap, only a quieter version of the same object.
 
+The hero's canvas wrapper spans the full hero section (`absolute inset-0`),
+not a fixed-height band centered on the string — an earlier version used a
+`h-[36rem]` band so the star field only lit a horizontal strip with plain
+black above and below it, which read as broken rather than atmospheric.
+The string stays visually centered regardless, since its world position
+sits near y=0 and the camera always looks at the origin. The star field's
+own vertical spread (`star-field.tsx`) runs both above and below that
+plane so stars fill the whole frame rather than clustering in the upper
+half.
+
 **Performance**: `three` + `@react-three/fiber` (+ `@react-three/postprocessing`
 + `postprocessing` for bloom) are lazy-loaded (`next/dynamic`, `ssr: false`,
 via `src/components/3d/string-field-lazy.tsx` and `particle-accent-lazy.tsx`
@@ -96,6 +106,18 @@ wide desktop window at the same vertical FOV; deriving it from the real
 frustum means the field actually fills whatever frame it is drawn in, on
 any device. Homepage First Load JS: ~170kB (was ~163kB; the shader source
 for the star field is the only addition, no new dependency).
+
+## Layout width
+
+Section/CTA/footer shells use `max-w-[88rem]` (1408px), not Tailwind's
+`max-w-6xl` (1152px) the incumbent page shipped with — on a standard
+1920px-wide monitor, 6xl left ~384px of dead margin on each side, which
+read as unfinished rather than deliberately editorial. 88rem keeps the
+same centered, breathing-room composition at normal desktop widths while
+using noticeably more of a wide monitor. The narrower prose caps inside
+sections (`max-w-2xl`/`max-w-xl`/`max-w-md` on individual paragraphs, the
+craft-floor's 65-75ch body measure) are unchanged — only the outer shell
+widened, not the text column itself.
 
 ## Composition rules (this surface)
 

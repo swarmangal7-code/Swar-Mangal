@@ -131,7 +131,7 @@ function Section({ id, tint, children }: { id: string; tint: string; children: R
   return (
     <section id={id} className="relative">
       <StringDivider />
-      <SectionTransition className={cn("mx-auto w-full max-w-6xl px-6 py-20 md:py-28", tint)}>
+      <SectionTransition className={cn("mx-auto w-full max-w-[88rem] px-6 py-20 md:py-28", tint)}>
         {children}
       </SectionTransition>
     </section>
@@ -168,8 +168,14 @@ function Hero() {
           (see below) wherever it isn't literally a link, so the string stays
           interactive through all the "empty" space around the text.
           `loading`'s placeholder has no className of its own, so this
-          wrapper carries the position/size both it and the real canvas fill. */}
-      <div className="absolute inset-x-0 top-1/2 z-0 h-[36rem] -translate-y-1/2">
+          wrapper carries the position/size both it and the real canvas fill.
+          Spans the full hero (inset-0), not a fixed-height centered band —
+          the star field behind the string needs the whole viewport to read
+          as a night sky rather than a lit strip with plain black above and
+          below it. The string itself stays visually centered regardless,
+          since its world position sits near y=0 and the camera always
+          looks at the origin. */}
+      <div className="absolute inset-0 z-0">
         <StringField className="h-full w-full" />
       </div>
 
@@ -363,7 +369,7 @@ function Cta() {
   return (
     <section className="relative bg-[#0E0C12]">
       <StringDivider />
-      <div className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28">
+      <div className="mx-auto w-full max-w-[88rem] px-6 py-20 md:py-28">
         <div className="relative overflow-hidden rounded-3xl border border-[#D6A84F]/20 bg-[radial-gradient(120%_150%_at_50%_-20%,hsla(42,62%,55%,0.14),transparent_55%)] px-6 py-16 text-center md:px-16 md:py-24">
           {/* The page's closing 3D moment — see particle-accent.tsx. Desktop
               only and behind everything (z-0, pointer-events-none via its
@@ -400,7 +406,7 @@ function Cta() {
 function Footer() {
   return (
     <footer className="border-t border-white/5 bg-[#08070B]">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 md:flex-row md:items-center md:justify-between">
+      <div className="mx-auto flex w-full max-w-[88rem] flex-col gap-6 px-6 py-10 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D6A84F]/40 font-display text-sm text-[#E2BD68]">
             S
