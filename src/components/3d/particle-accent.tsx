@@ -4,6 +4,7 @@ import * as React from "react";
 import { Canvas } from "@react-three/fiber";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { ParticleField } from "@/components/3d/particle-field";
+import { StarField } from "@/components/3d/star-field";
 import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 
 /**
@@ -38,6 +39,9 @@ export function ParticleAccent({ className }: { className?: string }) {
         camera={{ position: [0, 0, 5.2], fov: 42 }}
       >
         <ParticleField spread={{ x: 10, y: 6, z: 5 }} />
+        {/* Same stars the hero opened under — the page's bookend, not a
+            second effect (see DESIGN.md's "closes inside the same light"). */}
+        <StarField count={90} />
         <EffectComposer>
           <Bloom mipmapBlur intensity={0.6} luminanceThreshold={0.15} luminanceSmoothing={0.3} />
         </EffectComposer>

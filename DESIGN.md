@@ -33,6 +33,19 @@ Near-black, stage-lit ground — a recital hall at night, not a SaaS dashboard.
   opens inside this light; the CTA closes the page inside the same light
   (particles alone, no string) — a deliberate bookend, not a repeated
   effect.
+- **Night sky** (added after a third reference, the founder's own
+  `D:\Zeya` — a fully immersive walk-through 3D experience; pinned as mood
+  only, not a literal scene to copy, resolved to "amplify the existing
+  cinematic world" rather than build a second product). A sparse field of
+  real, shader-lit stars (`src/components/3d/star-field.tsx`) sits behind
+  the string in the hero and behind the dust cloud in the CTA — same
+  bookend, deeper atmosphere. Each star is its own GPU point (core + soft
+  glow in the fragment shader, warm cream/brass tint only — no blue, this
+  sky stays inside the page's own palette), not a texture sprite: no
+  canvas-2d texture to build on mount, one draw call for the whole field.
+  That makes it cheaper than the existing dust/note field, not just
+  quieter, which is why — unlike that field — it runs on every device,
+  phones included, rather than being gated to desktop.
 
 ## Signature interaction
 
@@ -71,6 +84,18 @@ toward mid/low-end Android, and running an EffectComposer pass plus ~150
 points on top of the string roughly doubles frame cost. The string itself
 (the actual signature interaction) still plays at every size; only the
 cinematic dressing scales back.
+
+The star field is the one exception to that desktop gate — shader points
+with no texture and no post-processing dependency of their own cost little
+enough to run everywhere, at a lower count on narrow/mobile viewports
+(`StarField count={cinematic ? 130 : 70}`). Its horizontal spread is
+derived from the live camera FOV and canvas aspect
+(`useHorizontalSpreadAt`), not a fixed world-unit number — a fixed spread
+either clips almost entirely off a narrow portrait phone or barely fills a
+wide desktop window at the same vertical FOV; deriving it from the real
+frustum means the field actually fills whatever frame it is drawn in, on
+any device. Homepage First Load JS: ~170kB (was ~163kB; the shader source
+for the star field is the only addition, no new dependency).
 
 ## Composition rules (this surface)
 

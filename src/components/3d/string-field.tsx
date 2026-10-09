@@ -17,6 +17,7 @@ import { useCinematicMotion } from "@/lib/motion/use-cinematic-motion";
 import { scrollState } from "@/lib/motion/scroll-state";
 import { cn } from "@/lib/utils/cn";
 import { ParticleField } from "@/components/3d/particle-field";
+import { StarField } from "@/components/3d/star-field";
 
 const SEGMENTS = 96;
 const HALF_WIDTH = 6.4;
@@ -96,6 +97,10 @@ function Scene({ cinematic }: { cinematic: boolean }) {
   return (
     <>
       <PerspectiveRig />
+      {/* Shader-drawn, no texture to build and no reliance on the bloom pass
+          below for its own glow — cheap enough to run on every device, so
+          unlike the dust/note field this isn't gated behind `cinematic`. */}
+      <StarField count={cinematic ? 130 : 70} />
       {STRANDS.map((s) => (
         <Strand key={s.offset} offsetY={s.offset} opacity={s.opacity} color={s.color} />
       ))}
