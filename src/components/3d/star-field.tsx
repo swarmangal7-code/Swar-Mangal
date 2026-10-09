@@ -68,7 +68,7 @@ function buildStars(count: number, spread: StarSpread) {
   // in temperature, but this page's night sky stays inside its own palette
   // rather than borrowing the cool blue of a literal sky.
   const cream = new THREE.Color("#F7F2E8");
-  const gold = new THREE.Color("#E2BD68");
+  const gold = new THREE.Color("#F6B55A");
 
   for (let i = 0; i < count; i++) {
     positions[i * 3] = (Math.random() - 0.5) * spread.width;

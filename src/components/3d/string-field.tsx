@@ -22,9 +22,9 @@ import { StarField } from "@/components/3d/star-field";
 const SEGMENTS = 96;
 const HALF_WIDTH = 6.4;
 const STRANDS = [
-  { offset: 0, opacity: 0.9, color: "#E2BD68" },
-  { offset: 0.045, opacity: 0.35, color: "#E2BD68" },
-  { offset: -0.045, opacity: 0.35, color: "#D6A84F" },
+  { offset: 0, opacity: 0.9, color: "#F6B55A" },
+  { offset: 0.045, opacity: 0.35, color: "#F6B55A" },
+  { offset: -0.045, opacity: 0.35, color: "#F2A13A" },
 ] as const;
 
 /**
@@ -190,7 +190,7 @@ export function StringField({ className }: { className?: string }) {
           className="h-px w-full"
           style={{
             background:
-              "linear-gradient(90deg, transparent 0%, rgba(226,189,104,0.22) 48%, rgba(226,189,104,0.22) 52%, transparent 100%)",
+              "linear-gradient(90deg, transparent 0%, rgba(246,181,90,0.22) 48%, rgba(246,181,90,0.22) 52%, transparent 100%)",
           }}
         />
       </div>

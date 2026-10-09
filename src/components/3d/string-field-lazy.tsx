@@ -19,7 +19,7 @@ function StringFallback() {
         className="h-px w-full"
         style={{
           background:
-            "linear-gradient(90deg, transparent 0%, rgba(226,189,104,0.22) 48%, rgba(226,189,104,0.22) 52%, transparent 100%)",
+            "linear-gradient(90deg, transparent 0%, rgba(246,181,90,0.22) 48%, rgba(246,181,90,0.22) 52%, transparent 100%)",
         }}
       />
     </div>

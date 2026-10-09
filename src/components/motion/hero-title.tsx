@@ -26,7 +26,7 @@ export function HeroTitle() {
       transition={{ duration: 1.3, ease: EASE, delay: 0.15 }}
     >
       <span className="block text-[clamp(3.25rem,10vw,6.75rem)] tracking-[0.06em]">Swar</span>
-      <span className="mt-2 block text-[clamp(3.25rem,10vw,6.75rem)] tracking-[0.06em] text-[#E2BD68]">
+      <span className="mt-2 block text-[clamp(3.25rem,10vw,6.75rem)] tracking-[0.06em] text-[#F6B55A]">
         Mangal
       </span>
     </motion.h1>

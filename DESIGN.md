@@ -9,43 +9,62 @@ only. The founder/staff web dashboards elsewhere in this codebase are a
 separate, Operate-mode system with their own established UI (shadcn/Radix +
 Tailwind, functional not expressive) and are not covered here.
 
-## World
+## World: Recital Bill
 
-Near-black, stage-lit ground — a recital hall at night, not a SaaS dashboard.
+Replaces the page's first world (near-black ground, brass-gold string,
+Playfair Display + Inter) after the founder reported it "doesn't look as
+expected" across all three axes — color, layout, type — following an
+earlier amplification pass. Redesign, not refinement: the old look stood as
+evidence of what this subject is (a serious, festive, Indian-classical-
+rooted Mumbai academy, per PRODUCT.md), not authority over what it becomes.
 
-- **Palette**: `#08070B` / `#0E0C12` (two near-black grounds, alternated per
-  section for quiet rhythm), `#F7F2E8` (primary text), `#A9A2B0` (secondary
-  text), `#D6A84F` / `#E2BD68` (warm brass/string-metal gold — the one
-  accent, used as a functional material: the string itself, hairline rules,
-  small caps labels — never as a decorative gradient-fill on text).
-- **Type**: Playfair Display (`--font-display`, headings, large scale, up to
-  `clamp(3.25rem,10vw,6.75rem)` in the hero) paired with Inter (`--font-sans`,
-  body). Both already the site's global font pair — not changed for this
-  surface, since it already sits in this skill's recommended-face list.
-- **Signature motif**: a lit string/wire, rendered in real WebGL (not CSS or
-  SVG), threading through the hero and echoed as a thin static gradient line
-  between every section below it — "sound made visible" as a literal,
-  physical object rather than an illustration of the idea.
-- **Cinematic layer** (added after a second pinned reference, lusion.co):
-  bloom/glow post-processing, a drifting field of warm light motes and
-  literal music-note glyphs, a cursor-following spotlight, a scroll-tied
-  camera dolly, and a whole-page film-grain + vignette overlay. The hero
-  opens inside this light; the CTA closes the page inside the same light
-  (particles alone, no string) — a deliberate bookend, not a repeated
-  effect.
-- **Night sky** (added after a third reference, the founder's own
-  `D:\Zeya` — a fully immersive walk-through 3D experience; pinned as mood
-  only, not a literal scene to copy, resolved to "amplify the existing
-  cinematic world" rather than build a second product). A sparse field of
-  real, shader-lit stars (`src/components/3d/star-field.tsx`) sits behind
-  the string in the hero and behind the dust cloud in the CTA — same
-  bookend, deeper atmosphere. Each star is its own GPU point (core + soft
-  glow in the fragment shader, warm cream/brass tint only — no blue, this
-  sky stays inside the page's own palette), not a texture sprite: no
-  canvas-2d texture to build on mount, one draw call for the whole field.
-  That makes it cheaper than the existing dust/note field, not just
-  quieter, which is why — unlike that field — it runs on every device,
-  phones included, rather than being gated to desktop.
+The governing idea: the page reads as a **printed concert recital
+program/ticket**, not a SaaS landing page — the academy's own name,
+"Mangal" (auspicious, festive), is the material the palette is built from,
+not just a tagline.
+
+- **Palette — Committed strategy** (one saturated hue carries real surface
+  area, not a restrained neutral-plus-accent): `#1B2559` / `#141D47` (two
+  deep indigo grounds, alternated per section — a concert hall's house
+  lights, not a device chrome near-black), `#F2A13A` / `#F6B55A`
+  (saffron-marigold — the "Mangal" color, used as a functional material:
+  rule lines, the ticket seal, button fills, 30-60% of visible surface
+  across the page, never a decorative gradient-fill on body text),
+  `#F7F2E8` (primary text, warm ivory), `#C7C2DD` (secondary text, a
+  cool lavender-grey pulled toward the indigo ground rather than a flat
+  gray).
+- **Type**: Fraunces (`--font-display`, headings — bold/black weights,
+  italic for emphasis lines, a concert bill's display voice) paired with
+  Space Grotesk (`--font-sans`, body/nav/labels — a geometric sans with
+  its own character, replacing Inter). Both loaded in `src/app/page.tsx`
+  itself via `next/font/google`, **not** the root `layout.tsx**: their
+  generated CSS variables (`--font-recital-display`/`--font-recital-sans`)
+  are bound to the shared `--font-display`/`--font-sans` names only inside
+  this page's own wrapper `<div style={{ '--font-display': ... }}>`, so
+  every descendant's existing `font-display`/`font-sans` Tailwind class
+  picks up the new faces through ordinary CSS inheritance with zero
+  per-component edits — and the founder/staff dashboards, which share
+  those same variable *names* for their own unrelated Inter/Playfair
+  setup, are completely unaffected since each route renders its own
+  subtree under `<body>`.
+- **Ticket/program motifs**: a perforated tear-line (`repeating-linear-
+  gradient`, no image) replaces every plain hairline divider between
+  sections; a dashed-circle "सा" seal (`TonicSeal`, tilted -3°, standing in
+  for a hand-stamped admission mark) replaces the old concentric-rings CSS
+  panel in About; course cards carry an internal dashed tear-line
+  separating their billing (name + level) from their program note; four
+  print-registration crosshairs pin the hero's viewport corners — the
+  mark a press proof carries, doing the job a kicker label would do
+  (signaling "this is a printed program") without the banned kicker
+  itself.
+- **Signature motif** (unchanged mechanism, recolored): a lit string/wire
+  in real WebGL threading through the hero, echoed as the perforated
+  tear-line between sections below it — still "sound made visible" as a
+  literal object, now strung in saffron rather than brass-gold.
+- **Night sky** (unchanged mechanism, recolored): the shader-lit star
+  field (`star-field.tsx`) now tints warm cream/saffron stars over deep
+  indigo rather than near-black — the same recital-hall-at-night reading,
+  inside the new palette.
 
 ## Signature interaction
 
@@ -64,105 +83,82 @@ per-frame `BufferAttribute` writes, additive blending for glow:
 
 Real Lenis (`lenis` package) drives scroll physics for this page only, off
 entirely under `prefers-reduced-motion`. `StringField` itself falls back to
-a static 1px gradient line under reduced motion or when WebGL is
-unavailable — same visual position, zero animated frames, so there is never
-a blank gap, only a quieter version of the same object.
+a static 1px gradient line (now saffron) under reduced motion or when
+WebGL is unavailable — same visual position, zero animated frames, so
+there is never a blank gap, only a quieter version of the same object.
 
 The hero's canvas wrapper spans the full hero section (`absolute inset-0`),
-not a fixed-height band centered on the string — an earlier version used a
-`h-[36rem]` band so the star field only lit a horizontal strip with plain
-black above and below it, which read as broken rather than atmospheric.
-The string stays visually centered regardless, since its world position
-sits near y=0 and the camera always looks at the origin. The star field's
-own vertical spread (`star-field.tsx`) runs both above and below that
-plane so stars fill the whole frame rather than clustering in the upper
-half.
+not a fixed-height band centered on the string, so the star field lights
+the whole viewport rather than a horizontal strip. The star field's own
+vertical spread runs both above and below the string's plane.
 
 **Performance**: `three` + `@react-three/fiber` (+ `@react-three/postprocessing`
-+ `postprocessing` for bloom) are lazy-loaded (`next/dynamic`, `ssr: false`,
-via `src/components/3d/string-field-lazy.tsx` and `particle-accent-lazy.tsx`
-— the App Router refuses `ssr:false` directly inside a Server Component) so
-none of it blocks the landing page's initial JS. `three` is imported by
-named export, not `import * as THREE`, so unused parts tree-shake. Homepage
-First Load JS: ~163kB (was 403kB before lazy-loading; adding bloom and the
-particle field did not move this number — they live in the same lazy chunk).
-
-Bloom and the particle field (`src/components/3d/particle-field.tsx`) are
-**desktop-only** (`min-width: 768px`), gated in both `string-field.tsx` and
-`particle-accent.tsx` — PRODUCT.md is explicit that this audience skews
-toward mid/low-end Android, and running an EffectComposer pass plus ~150
-points on top of the string roughly doubles frame cost. The string itself
-(the actual signature interaction) still plays at every size; only the
-cinematic dressing scales back.
-
-The star field is the one exception to that desktop gate — shader points
-with no texture and no post-processing dependency of their own cost little
-enough to run everywhere, at a lower count on narrow/mobile viewports
-(`StarField count={cinematic ? 130 : 70}`). Its horizontal spread is
-derived from the live camera FOV and canvas aspect
-(`useHorizontalSpreadAt`), not a fixed world-unit number — a fixed spread
-either clips almost entirely off a narrow portrait phone or barely fills a
-wide desktop window at the same vertical FOV; deriving it from the real
-frustum means the field actually fills whatever frame it is drawn in, on
-any device. Homepage First Load JS: ~170kB (was ~163kB; the shader source
-for the star field is the only addition, no new dependency).
++ `postprocessing` for bloom) are lazy-loaded (`next/dynamic`, `ssr: false`)
+so none of it blocks the landing page's initial JS. Bloom and the dust/note
+particle field (`particle-field.tsx`) stay **desktop-only**
+(`min-width: 768px`) — PRODUCT.md is explicit this audience skews toward
+mid/low-end Android. The star field is the one exception, cheap enough
+(shader points, no texture, no bloom dependency) to run on every device at
+a lower count on narrow viewports, its horizontal spread derived from the
+live camera FOV/aspect so it fills whatever frame it draws in. Homepage
+First Load JS: ~171kB (was ~170kB before this redesign; Fraunces + Space
+Grotesk are self-hosted font files via `next/font`, not JS bundle weight).
 
 ## Layout width
 
 Section/CTA/footer shells use `max-w-[88rem]` (1408px), not Tailwind's
-`max-w-6xl` (1152px) the incumbent page shipped with — on a standard
-1920px-wide monitor, 6xl left ~384px of dead margin on each side, which
-read as unfinished rather than deliberately editorial. 88rem keeps the
-same centered, breathing-room composition at normal desktop widths while
-using noticeably more of a wide monitor. The narrower prose caps inside
-sections (`max-w-2xl`/`max-w-xl`/`max-w-md` on individual paragraphs, the
-craft-floor's 65-75ch body measure) are unchanged — only the outer shell
-widened, not the text column itself.
+`max-w-6xl` (1152px) — on a standard 1920px monitor, 6xl left ~384px of
+dead margin per side. The narrower prose caps inside sections
+(`max-w-2xl`/`max-w-xl`/`max-w-md`, the craft-floor's 65-75ch body measure)
+are unchanged — only the outer shell widened.
+
+About's two-column grid moved from an even split to an asymmetric
+`lg:grid-cols-12` (7 cols copy / 5 cols seal) — a poster's collage
+asymmetry rather than a centered SaaS feature split.
 
 ## Composition rules (this surface)
 
-Derived directly from a redesign against this skill's craft-floor bans,
-which the incumbent page violated throughout:
-
-- **No eyebrow/kicker labels.** Every heading carries its own weight; no
-  uppercase-tracked label above any `<h2>`.
-- **No repeated icon+heading+text card grids.** Courses reads as a
-  conservatory-program list (name + level + description per row, hairline
-  dividers, no icon). Experience is an asymmetric offset two-column list
-  (odd items pushed down on desktop). Faculty is a flowing wrapped list
-  (a credits reel), not avatar cards.
-- **No hero-metric stat block.** The three factual numbers (10+ instruments,
-  2 centres, 1-on-1) run as one sentence, not a `dd`/`dt` grid.
-- **Branches keeps its two-card layout** — justified because there are
-  exactly two real physical locations; this is location data, not a
-  templated repeat of arbitrary content.
+- **No eyebrow/kicker labels.** Every heading carries its own weight; the
+  print-registration corner marks do the "this is a printed program"
+  signaling a kicker would, without a text label.
+- **No repeated icon+heading+text card grids.** Courses reads as a torn
+  admission-stub list (name + level + perforated tear-line + program
+  note), not icon cards. Experience is an asymmetric offset two-column
+  list. Faculty is a flowing wrapped credits reel, not avatar cards.
+- **No hero-metric stat block.** The three factual numbers (10+
+  instruments, 2 centres, 1-on-1) run as one italic program-note sentence.
+- **Branches keeps its two-card layout** — exactly two real physical
+  locations; location data, not a templated repeat.
 
 ## Open decisions / honest risk
 
 - No real photography, faculty headshots, or logo file yet (see
-  `PRODUCT.md` → Evidence on Hand). All visuals are abstract/geometric
-  placeholders (the "सा" panel, the string field itself) — swap for real
-  assets when available; nothing here fakes a specific claim.
-- Display type at `6.75rem` in the hero exceeds this skill's `6rem` display
-  ceiling guideline. Kept deliberately for first-viewport impact in Persuade
-  mode (this was already the incumbent hero's scale); revisit only if a
-  future pass finds it hurts small-viewport legibility in practice.
-- Focus-visible states and custom text-selection/scrollbar theming were not
-  added in this pass (pre-existing gap, not introduced here) — a follow-up
-  accessibility/polish pass should close it.
+  `PRODUCT.md` → Evidence on Hand). All visuals are abstract/drawn
+  placeholders (the ticket seal, the string field) — nothing here fakes a
+  specific claim.
+- Display type at `6.75rem` in the hero exceeds this skill's `6rem`
+  display ceiling guideline — kept for first-viewport impact in Persuade
+  mode, same ceiling exception as the previous world.
+- Focus-visible states and custom text-selection/scrollbar theming are
+  still not themed for this surface (pre-existing gap, carried over, not
+  introduced by this redesign).
+- `src/components/motion/custom-cursor.tsx:58` animates `width`/`height`
+  directly (flagged by `impeccable detect`) — pre-existing, not touched by
+  this redesign beyond its border color; a follow-up pass should switch it
+  to a `scale` transform.
 
 ## Provenance
 
 No generated raster assets ship on this surface (WebGL is drawn, not
-imaged; the "सा" panel is CSS/DOM, not a raster). Nothing here required
+imaged; the ticket seal is CSS/DOM, not a raster). Nothing here required
 `impeccable embed-prompt`.
 
 **FINISH**: reviewed via direct screenshot inspection (desktop 1440px and
-mobile 390px, both `prefers-reduced-motion: reduce` for a static content
-audit and live for interaction/motion verification) rather than the shipped
-finish-reviewer/documenter subagents — disclosed substitution, given no
-confirmed image-generation tool in this session and the CLI's `--start`
-question-server path being unverified on this Windows environment. A real
-hydration bug in the shared `Reveal` component (SSR/CSR mismatch on
-`prefers-reduced-motion`, pre-existing, not introduced by this redesign) was
-found via this process and fixed in `src/components/motion/reveal.tsx`.
+mobile 390px, section-by-section via scroll rather than a single full-page
+capture — an initial full-page mobile capture caught several sections
+before their scroll-reveal `Reveal` animations fired, which would have
+read as missing content; recapturing section-by-section with a real scroll
+event per section resolved it) rather than the shipped finish-reviewer/
+documenter subagents — disclosed substitution, given no confirmed
+image-generation tool in this session. `impeccable detect --json` ran
+clean except the one pre-existing `custom-cursor.tsx` finding noted above.
