@@ -39,13 +39,13 @@ export function LoadingScreen() {
       {visible && (
         <motion.div
           aria-hidden
-          className="pointer-events-none fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#1B2559]"
+          className="pointer-events-none fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#08070B]"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6, ease: "easeInOut" }}
         >
           <motion.span
-            className="font-display text-2xl text-[#F6B55A]"
+            className="font-display text-2xl text-[#E2BD68]"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
@@ -53,13 +53,13 @@ export function LoadingScreen() {
             सा
           </motion.span>
           <motion.div
-            className="mt-4 h-px w-16 bg-[#F2A13A]/60"
+            className="mt-4 h-px w-16 bg-[#D6A84F]/60"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
           />
           <motion.p
-            className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-[#C7C2DD]"
+            className="mt-4 text-[10px] font-bold uppercase tracking-[0.3em] text-[#A9A2B0]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, delay: 0.2 }}

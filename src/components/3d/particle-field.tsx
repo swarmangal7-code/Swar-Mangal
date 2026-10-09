@@ -46,7 +46,7 @@ function useNoteTexture() {
     ctx.font = `${size * 0.8}px Georgia, "Times New Roman", serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(246,181,90,0.9)";
+    ctx.shadowColor = "rgba(226,189,104,0.9)";
     ctx.shadowBlur = size * 0.18;
     ctx.fillStyle = "#F7EAC8";
     ctx.fillText("♪", size / 2, size / 2 + size * 0.05);
@@ -106,7 +106,7 @@ export function ParticleField({ spread = { x: 14, y: 8, z: 6 } }: { spread?: { x
         new PointsMaterial({
           map: glow,
           size: 0.16,
-          color: new Color("#F6B55A"),
+          color: new Color("#E2BD68"),
           transparent: true,
           opacity: 0.55,
           depthWrite: false,

@@ -59,20 +59,16 @@ static marketing content with no data dependency.
 ## Brand Commitments
 
 - Name: **Swar Mangal** ("सा" — the tonic/Sa — used as a recurring visual
-  motif; "Mangal" itself means auspicious/festive, now a literal source for
-  the palette, not just the brand's name).
-- Current landing page direction ("Recital Bill", see DESIGN.md): a deep
-  indigo ground + saffron-marigold accent, read as a printed concert
-  recital program/ticket rather than a SaaS landing page. Replaces an
-  earlier near-black/brass-gold editorial direction after the founder
-  reported it "doesn't look as expected" across color, layout, and type —
-  a full redesign, not a refinement, per DESIGN.md's own record.
-- Prior binding references, superseded by the above and kept here only as
-  history: **lenis.dev** (Studio Freight/darkroom.engineering — scroll
-  physics, 3D/WebGL interaction) shaped the first cinematic pass; the
-  founder's own **`D:\Zeya`** (a fully immersive walk-through 3D
-  experience) was pinned as mood only for a later amplification pass, not
-  a literal scene to copy.
+  motif in the current design).
+- Existing landing page already establishes a dark, warm-gold/amber-on-near-
+  black palette (`#08070B` / `#D6A84F` / `#E2BD68` / `#F7F2E8`) with a serif
+  display face for headings — evidence of an intentional premium-editorial
+  direction already in place, not yet a locked DESIGN.md.
+- User's explicit binding visual reference for this redesign: **lenis.dev**
+  (Studio Freight / darkroom.engineering's own site) — specifically its
+  scroll smoothness/physics and its 3D/WebGL interaction work. Recorded as
+  given, not expanded here; new-work.md resolves what that means concretely
+  for this brand.
 
 ## Evidence on Hand
 
