@@ -14,6 +14,7 @@ import '../shared/teachers_screen.dart';
 import '../shared/audit_log_screen.dart';
 import '../shared/payout_preview_screen.dart';
 import '../shared/timetable_screen.dart';
+import '../shared/school_sessions_screen.dart';
 import '../shared/fee_rate_card_screen.dart';
 import '../shared/school_invoice_screen.dart';
 import '../shared/whatsapp_groups_screen.dart';
@@ -34,7 +35,7 @@ class FounderShell extends StatelessWidget {
         (label: 'Students', keys: ['students', 'addStudent', 'demoStudents']),
         (label: 'Money', keys: ['addFee', 'receipts', 'payouts', 'payoutSettings', 'feeRateCard', 'expenses']),
         (label: 'People', keys: ['teachers', 'inquiries', 'whatsappGroups', 'approvals']),
-        (label: 'Academy', keys: ['timetable', 'schoolInvoice', 'auditLog']),
+        (label: 'Academy', keys: ['timetable', 'schoolSessions', 'schoolInvoice', 'auditLog']),
         (label: '', keys: ['about']),
       ],
       buildBody: (context, key) {
@@ -67,6 +68,8 @@ class FounderShell extends StatelessWidget {
             return const FeeRateCardScreen();
           case 'timetable':
             return const TimetableScreen(staff: false);
+          case 'schoolSessions':
+            return const SchoolSessionsScreen();
           case 'schoolInvoice':
             return const SchoolInvoiceScreen(staff: false);
           case 'auditLog':

@@ -152,6 +152,18 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return timetableSessionDetail(arg, scope);
     case "api_timetableAssignStudents":
       return timetableAssignStudents(arg, scope);
+    case "api_listSchoolTimetable":
+      return listSchoolTimetable(arg, scope);
+    case "api_addSchoolTimetableSlot":
+      return addSchoolTimetableSlot(arg, scope);
+    case "api_updateSchoolTimetableSlot":
+      return updateSchoolTimetableSlot(arg, scope);
+    case "api_todaysSchoolSessions":
+      return todaysSchoolSessions(arg, scope);
+    case "api_markSchoolAttendance":
+      return markSchoolAttendance(arg, scope, session);
+    case "api_schoolTeacherRoster":
+      return schoolTeacherRoster(arg);
     case "api_staff_grantRecoveryCredit":
       return grantRecoveryCredit(arg, scope, session);
     case "api_staff_listRecoveryCredits":
@@ -2310,6 +2322,200 @@ async function timetableDelete(arg: Record<string, unknown>, scope: BranchScope)
 /** Monday (day 0) of the calendar week containing `date`. */
 function mondayOf(date: string): string {
   return addDays(date, -mondayIndex(date));
+}
+
+// -------------------------------------------------- school sessions
+// Founder request 2026-10-10: staff/founder need a recurring timetable of
+// which teacher travels to which partner school and when, plus a way to
+// mark that teacher's attendance for each such lecture — separate from the
+// on-campus `timetable`/`attendance_acad` tables above because the subject
+// here is the teacher's own attendance, not a student roster. "Which
+// teachers are assigned to a school" is answered by the existing
+// `school_compensation` table rather than a new roster table.
+
+async function listSchoolTimetable(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const branch = s(arg["branch"] ?? "ALL").toUpperCase();
+  const schoolId = s(arg["schoolId"]).trim();
+  const rows = (
+    await query<Record<string, unknown>>(
+      `select id, branch, school_id, day_of_week, start_time, end_time, teacher_id, teacher_name, subject, status, substitute_teacher_id, substitute_teacher_name
+       from school_timetable order by day_of_week, start_time`,
+    )
+  ).filter(
+    (r) => inScope(scope, r.branch) && matchesRequestedBranch(branch, r.branch) && (!schoolId || s(r.school_id) === schoolId),
+  );
+  return ok({
+    entries: rows.map((r) => ({
+      id: s(r.id),
+      branch: s(r.branch),
+      schoolId: s(r.school_id),
+      dayOfWeek: n(r.day_of_week),
+      startTime: s(r.start_time),
+      endTime: s(r.end_time),
+      teacherId: s(r.teacher_id),
+      teacherName: s(r.teacher_name),
+      subject: s(r.subject),
+      status: s(r.status),
+      substituteTeacherId: s(r.substitute_teacher_id),
+      substituteTeacherName: s(r.substitute_teacher_name),
+    })),
+  });
+}
+
+async function addSchoolTimetableSlot(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const branch = defaultBranch(scope, arg["branch"]);
+  if (!inScope(scope, branch)) return branchForbidden(branch);
+  const schoolId = s(arg["schoolId"]).trim();
+  if (!schoolId) return { ok: false, code: "SCHOOL_ID_REQUIRED", error: "Pick the school." };
+  const teacherId = s(arg["teacherId"]).trim();
+  if (!teacherId) return { ok: false, code: "TEACHER_ID_REQUIRED", error: "Pick the teacher." };
+  const id = newId("STT");
+  await query(
+    `insert into school_timetable (id, branch, school_id, day_of_week, start_time, end_time, teacher_id, teacher_name, subject, status, substitute_teacher_id, substitute_teacher_name)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict (id) do nothing`,
+    [
+      id, branch, schoolId, n(arg["dayOfWeek"]), s(arg["startTime"]), s(arg["endTime"]), teacherId, s(arg["teacherName"]),
+      s(arg["subject"]) || null, s(arg["status"]).toUpperCase() || "ACTIVE",
+      s(arg["substituteTeacherId"]) || null, s(arg["substituteTeacherName"]) || null,
+    ],
+  );
+  await bumpRevisions(["schoolSessions"]);
+  notifyFounderGeneric("School timetable updated", `New school session added for ${s(arg["teacherName"])} at ${schoolId}`, id, "TIMETABLE");
+  return ok({
+    entry: {
+      id, branch, schoolId, dayOfWeek: n(arg["dayOfWeek"]), startTime: s(arg["startTime"]), endTime: s(arg["endTime"]),
+      teacherId, teacherName: s(arg["teacherName"]), subject: s(arg["subject"]), status: s(arg["status"]).toUpperCase() || "ACTIVE",
+      substituteTeacherId: s(arg["substituteTeacherId"]), substituteTeacherName: s(arg["substituteTeacherName"]),
+    },
+    note: "created",
+  });
+}
+
+async function updateSchoolTimetableSlot(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const id = s(arg["id"]);
+  const cur = await queryOne<Record<string, unknown>>(`select * from school_timetable where id = $1`, [id]);
+  if (!cur) return { ok: false, code: "TT_ENTRY_NOT_FOUND", error: "Entry not found." };
+  if (!inScope(scope, cur.branch)) return branchForbidden(recordBranch(cur.branch));
+  const nextBranch = recordBranch(s(arg["branch"] ?? cur.branch));
+  if (!inScope(scope, nextBranch)) return branchForbidden(nextBranch);
+
+  await query(
+    `update school_timetable set branch=$2, school_id=$3, day_of_week=$4, start_time=$5, end_time=$6, teacher_id=$7, teacher_name=$8, subject=$9, status=$10, substitute_teacher_id=$11, substitute_teacher_name=$12 where id=$1`,
+    [
+      id, nextBranch, s(arg["schoolId"] ?? cur.school_id), n(arg["dayOfWeek"] ?? cur.day_of_week), s(arg["startTime"] ?? cur.start_time), s(arg["endTime"] ?? cur.end_time),
+      s(arg["teacherId"] ?? cur.teacher_id), s(arg["teacherName"] ?? cur.teacher_name), s(arg["subject"] ?? cur.subject) || null, s(arg["status"] ?? cur.status).toUpperCase(),
+      s(arg["substituteTeacherId"] ?? cur.substitute_teacher_id) || null, s(arg["substituteTeacherName"] ?? cur.substitute_teacher_name) || null,
+    ],
+  );
+  await bumpRevisions(["schoolSessions"]);
+  notifyFounderGeneric("School timetable updated", `A school session was changed at ${recordBranch(nextBranch)}`, id, "TIMETABLE");
+  return ok({ entry: { ...cur, ...arg, id }, note: "updated" });
+}
+
+/** school_timetable rows use Monday = 0, same convention as `timetable`. */
+async function todaysSchoolSessions(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const date = isoDate(arg["date"]) || todayIso();
+  const branch = s(arg["branch"] ?? "ALL");
+  const schoolId = s(arg["schoolId"]).trim();
+  const [slots, marks] = await Promise.all([
+    query<Record<string, unknown>>(
+      `select * from school_timetable where status = 'ACTIVE' and day_of_week = $1 order by start_time`,
+      [mondayIndex(date)],
+    ),
+    query<Record<string, unknown>>(`select * from school_attendance where session_date = $1`, [date]),
+  ]);
+  const markBySlot = new Map(marks.map((m) => [s(m.school_timetable_id), m]));
+  const rows = slots
+    .filter((r) => inScope(scope, r.branch) && matchesRequestedBranch(branch, r.branch) && (!schoolId || s(r.school_id) === schoolId))
+    .map((r) => {
+      const mark = markBySlot.get(s(r.id));
+      return {
+        schoolTimetableId: s(r.id),
+        date,
+        branch: s(r.branch),
+        schoolId: s(r.school_id),
+        startTime: s(r.start_time),
+        endTime: s(r.end_time),
+        teacherId: s(r.teacher_id),
+        teacherName: s(r.teacher_name),
+        subject: s(r.subject),
+        substituteTeacherId: s(r.substitute_teacher_id),
+        substituteTeacherName: s(r.substitute_teacher_name),
+        status: mark ? s(mark.status).toUpperCase() : "NOT_MARKED",
+        absenceReason: s(mark?.absence_reason),
+        recordedBy: s(mark?.recorded_by),
+      };
+    });
+  return ok({ date, sessions: rows });
+}
+
+async function markSchoolAttendance(arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession): Promise<Record<string, unknown>> {
+  const schoolTimetableId = s(arg["schoolTimetableId"]).trim();
+  if (!schoolTimetableId) return { ok: false, code: "SLOT_ID_REQUIRED", error: "Pick the school session." };
+  const status = s(arg["status"]).toUpperCase();
+  if (!ATTENDANCE_STATES.has(status)) return { ok: false, code: "BAD_STATE", error: `Unknown attendance state ${status}` };
+
+  const slot = await queryOne<Record<string, unknown>>(`select * from school_timetable where id = $1`, [schoolTimetableId]);
+  if (!slot) return { ok: false, code: "NOT_FOUND", error: `No school session ${schoolTimetableId}` };
+  if (!inScope(scope, slot.branch)) return branchForbidden(recordBranch(slot.branch));
+
+  const date = isoDate(arg["date"]) || todayIso();
+  const today = todayIso();
+  if (date > today) return { ok: false, code: "FUTURE_DATE", error: "Attendance cannot be marked for a day that has not happened." };
+  const backdatedReason = s(arg["backdatedReason"] ?? arg["reason"]).trim();
+  if (date < today && !backdatedReason) {
+    return { ok: false, code: "BACKDATED_REASON_REQUIRED", error: `This mark is for ${date}, not today. Say why it is being entered late.` };
+  }
+  const lockedAttendance = await closedMonthRefusal(date);
+  if (lockedAttendance) return lockedAttendance;
+
+  const id = `SCHATT-${schoolTimetableId}-${date}`;
+  await query(
+    `insert into school_attendance (id, school_timetable_id, school_id, session_date, teacher_id, status, absence_reason, backdated_reason, recorded_by, recorded_at)
+     values ($1,$2,$3,$4::date,$5,$6,$7,$8,$9,now())
+     on conflict (id) do update set status = excluded.status, absence_reason = excluded.absence_reason,
+       backdated_reason = coalesce(excluded.backdated_reason, school_attendance.backdated_reason),
+       recorded_by = excluded.recorded_by, recorded_at = now()`,
+    [
+      id, schoolTimetableId, s(slot.school_id), date, s(slot.teacher_id), status,
+      s(arg["absenceReason"]).trim() || null, backdatedReason || null, session?.deviceLabel || session?.email || "",
+    ],
+  );
+  await bumpRevisions(["schoolSessions", "dashboard"]);
+  return ok({ id, schoolTimetableId, date, status, markedBy: session?.deviceLabel ?? "" });
+}
+
+/**
+ * Which teachers are assigned to a school, read from the existing
+ * `school_compensation` table (no separate roster table) joined to
+ * `teachers_acad` for display fields.
+ */
+async function schoolTeacherRoster(arg: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const schoolId = s(arg["schoolId"]).trim();
+  if (!schoolId) return { ok: false, code: "SCHOOL_ID_REQUIRED", error: "Pick the school." };
+  const rows = await query<Record<string, unknown>>(
+    `select sc.id, sc.teacher_id, sc.teacher_name, sc.courses, sc.monthly_amount, sc.payout_type, sc.status, t.phone, t.email, t.instrument, t.status as teacher_status
+     from school_compensation sc
+     left join teachers_acad t on t.id = sc.teacher_id
+     where sc.school_id = $1
+     order by sc.teacher_name`,
+    [schoolId],
+  );
+  return ok({
+    schoolId,
+    teachers: rows.map((r) => ({
+      teacherId: s(r.teacher_id),
+      teacherName: s(r.teacher_name),
+      courses: s(r.courses),
+      monthlyAmount: n(r.monthly_amount),
+      payoutType: s(r.payout_type),
+      status: s(r.status),
+      phone: s(r.phone),
+      email: s(r.email),
+      instrument: s(r.instrument),
+      teacherStatus: s(r.teacher_status),
+    })),
+  });
 }
 
 /**

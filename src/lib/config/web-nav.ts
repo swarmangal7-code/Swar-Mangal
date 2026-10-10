@@ -14,6 +14,7 @@ import {
   MessageSquareText,
   MessagesSquare,
   ReceiptText,
+  School,
   SlidersHorizontal,
   Tag,
   UserCheck,
@@ -80,6 +81,7 @@ export const founderNav: WebNavSection[] = [
     label: "Academy",
     items: [
       { title: "Timetable", href: "/founder/timetable", icon: CalendarDays },
+      { title: "School Sessions", href: "/founder/school-sessions", icon: School },
       { title: "School Invoice", href: "/founder/school-invoice", icon: FileText },
       { title: "Activity Log", href: "/founder/activity-log", icon: History },
     ],
@@ -130,6 +132,7 @@ export const staffNav: WebNavSection[] = [
     items: [
       { title: "Teachers", href: "/staff/teachers", icon: GraduationCap },
       { title: "Timetable", href: "/staff/timetable", icon: CalendarDays },
+      { title: "School Sessions", href: "/staff/school-sessions", icon: School },
       { title: "School Invoice", href: "/staff/school-invoice", icon: FileText },
     ],
   },

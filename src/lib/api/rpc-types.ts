@@ -956,3 +956,64 @@ export interface SyncSnapshotResponse extends RpcEnvelope {
   revisions: Record<string, number>;
   changes: Record<string, unknown>[];
 }
+
+// ------------------------------------------------------- school sessions
+
+export interface SchoolTimetableSlot {
+  id: string;
+  branch: string;
+  schoolId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  teacherId: string;
+  teacherName: string;
+  subject: string;
+  status: string;
+  substituteTeacherId: string;
+  substituteTeacherName: string;
+}
+
+export interface SchoolTimetableResponse extends RpcEnvelope {
+  entries: SchoolTimetableSlot[];
+}
+
+export interface SchoolSessionRow {
+  schoolTimetableId: string;
+  date: string;
+  branch: string;
+  schoolId: string;
+  startTime: string;
+  endTime: string;
+  teacherId: string;
+  teacherName: string;
+  subject: string;
+  substituteTeacherId: string;
+  substituteTeacherName: string;
+  status: "NOT_MARKED" | "PRESENT" | "ABSENT" | "INFORMED_ABSENCE" | "EXCUSED" | "LATE" | string;
+  absenceReason: string;
+  recordedBy: string;
+}
+
+export interface TodaysSchoolSessionsResponse extends RpcEnvelope {
+  date: string;
+  sessions: SchoolSessionRow[];
+}
+
+export interface SchoolTeacherRosterRow {
+  teacherId: string;
+  teacherName: string;
+  courses: string;
+  monthlyAmount: number;
+  payoutType: string;
+  status: string;
+  phone: string;
+  email: string;
+  instrument: string;
+  teacherStatus: string;
+}
+
+export interface SchoolTeacherRosterResponse extends RpcEnvelope {
+  schoolId: string;
+  teachers: SchoolTeacherRosterRow[];
+}

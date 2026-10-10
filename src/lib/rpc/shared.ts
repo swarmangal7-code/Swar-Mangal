@@ -145,6 +145,7 @@ export async function peekNextDocSeq(kind: keyof typeof DOC_SOURCES, series: str
 export const SYNC_ENTITIES = [
   "students", "receipts", "teachers", "payments", "expenses", "invoices", "timetable",
   "attendance", "inquiries", "approvals", "sessions", "dashboard", "tasks", "payouts",
+  "schoolSessions",
 ] as const;
 
 export type SyncEntity = (typeof SYNC_ENTITIES)[number];

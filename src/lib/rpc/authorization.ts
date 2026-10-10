@@ -220,6 +220,17 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_timetableSessionDetail: STAFF,
   api_timetableAssignStudents: STAFF,
 
+  // ------------------------------------------------------ school sessions
+  // Founder request 2026-10-10: teacher attendance + recurring timetable for
+  // lectures delivered at partner schools, staffed the same way as the
+  // on-campus timetable above.
+  api_listSchoolTimetable: STAFF,
+  api_addSchoolTimetableSlot: STAFF,
+  api_updateSchoolTimetableSlot: STAFF,
+  api_todaysSchoolSessions: STAFF,
+  api_markSchoolAttendance: STAFF,
+  api_schoolTeacherRoster: STAFF,
+
   // Founder request 2026-10-05: a fee rate card (quotable price list per
   // instrument). Originally founder-only to write, same as a school record;
   // founder request 2026-10-05 (later same day) widened writes to staff too
@@ -404,6 +415,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_founder_manualTermsAcceptanceApprove", "api_founder_manualTermsAcceptanceReject",
   "api_founder_addAuthorizedEmail", "api_founder_removeAuthorizedEmail", "api_founder_revokeDeviceToken",
   "api_timetableCreate", "api_timetableUpdate", "api_timetableDelete", "api_timetableAssignStudents",
+  "api_addSchoolTimetableSlot", "api_updateSchoolTimetableSlot", "api_markSchoolAttendance",
   "api_staff_markAttendance", "api_staff_resolveTodaysClass", "api_staff_scheduleSession",
   "api_staff_grantRecoveryCredit", "api_staff_scheduleRecoveryCredit", "api_staff_resolveRecoveryCredit",
   "api_staff_inquiryQuickAdd", "api_staff_inquiryTransition",
