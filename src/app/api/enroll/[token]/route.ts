@@ -101,10 +101,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (!updated.length) return json({ ok: false, error: "This link is no longer open." }, 409);
 
   const draftId = newId("SDRAFT");
+  // student_drafts_intent_unique is a PARTIAL unique index (where
+  // client_intent_key is not null) — the ON CONFLICT target must repeat
+  // that exact predicate or Postgres can't match it to any constraint and
+  // throws, which (since the token was already marked USED above) silently
+  // ate every enrollment submission: the link flipped to USED but no draft
+  // was ever created, and the client saw a bare 500 as "link not valid".
   await query(
     `insert into student_drafts (id, status, action, name, phone, email, parent_name, course, branch, submitted_by, origin, client_intent_key)
      values ($1,'SUBMITTED','ADD',$2,$3,$4,$5,$6,$7,'Enroll link','PUBLIC_ENROLL',$8)
-     on conflict (client_intent_key) do nothing`,
+     on conflict (client_intent_key) where client_intent_key is not null do nothing`,
     [draftId, name, phone, email || null, guardianName, instrument, row!.branch, token],
   );
   await query(`update enroll_links set draft_id = $2 where token = $1`, [token, draftId]);

@@ -76,13 +76,13 @@ export function FeeBucketCard({
               <p className="mt-1.5 text-lg font-semibold tracking-tight text-dash-accent">{formatINR(total)}</p>
             )}
             {count > 0 ? (
-              <ul className="mt-3 space-y-1.5">
+              <ul className="mt-3 space-y-2">
                 {rows.slice(0, 4).map((r) => (
-                  <li key={r.studentId} className="flex items-center justify-between gap-2 text-[13px]">
-                    <span className="truncate text-dash-fg/85">{r.studentName}</span>
-                    <span className="shrink-0 text-dash-fg/45">
+                  <li key={r.studentId} className="min-w-0 text-[13px]">
+                    <p className="truncate text-dash-fg/85">{r.studentName}</p>
+                    <p className="truncate text-[11px] text-dash-fg/45">
                       {r.classCode} · {formatDateOnly(r.nextDueDate)}
-                    </span>
+                    </p>
                   </li>
                 ))}
               </ul>
