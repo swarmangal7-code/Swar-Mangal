@@ -29,8 +29,18 @@ interface MarkArg extends Record<string, unknown> {
 const selectClass =
   "h-11 rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-3 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60";
 
+function yesterdayISO(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function StaffAttendancePage() {
-  const [date, setDate] = React.useState(todayISO());
+  // Founder request 2026-10-09/10: today's attendance is marked from
+  // Today's Classes only, gated to each session's own start time — this
+  // page is for backdated corrections now, so it opens on yesterday and
+  // never allows picking today.
+  const [date, setDate] = React.useState(yesterdayISO());
   const [instrument, setInstrument] = React.useState("");
   const [backdatedReason, setBackdatedReason] = React.useState("");
   const [pendingId, setPendingId] = React.useState<string | null>(null);
@@ -77,11 +87,17 @@ export default function StaffAttendancePage() {
         </p>
       </motion.div>
 
+      <motion.div variants={fadeUp}>
+        <div className="rounded-2xl border border-dash-accent/20 bg-dash-accent/5 px-4 py-3 text-sm text-dash-fg/70">
+          This page is for backdated corrections only. Mark today&apos;s attendance from Today&apos;s Classes.
+        </div>
+      </motion.div>
+
       <motion.div variants={fadeUp} className="flex flex-wrap items-end gap-3">
         <Input
           type="date"
           value={date}
-          max={todayISO()}
+          max={yesterdayISO()}
           onChange={(e) => setDate(e.target.value)}
           className="w-fit border-dash-fg/12 bg-dash-card text-dash-fg"
         />
