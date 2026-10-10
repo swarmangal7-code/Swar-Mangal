@@ -13,6 +13,26 @@ export const dynamic = "force-dynamic";
 // Founder request 2026-10-10: the public enroll-student page. No login — a
 // one-time token in the URL is the only credential, same as /api/terms.
 // Never touches the RPC session model.
+//
+// Unlike /api/terms (whose link always points at this app's own domain, so
+// its fetch is same-origin), the enroll link is meant to be opened from the
+// Cloudflare-hosted marketing site — a different origin — so every response
+// here needs CORS headers or the browser silently blocks the fetch (curl
+// never shows this; it only appears as a browser console error).
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+function json(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, { status, headers: CORS_HEADERS });
+}
 
 interface TokenRow {
   token: string;
@@ -38,26 +58,26 @@ function stateOf(row: TokenRow | null): "NOT_FOUND" | "EXPIRED" | "USED" | "OPEN
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  if (!isDbConfigured) return NextResponse.json({ ok: false, error: "Not configured" }, { status: 503 });
+  if (!isDbConfigured) return json({ ok: false, error: "Not configured" }, 503);
   const row = await loadToken(token);
   const state = stateOf(row);
-  return NextResponse.json({ ok: true, state, branch: row?.branch ?? "" });
+  return json({ ok: true, state, branch: row?.branch ?? "" });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  if (!isDbConfigured) return NextResponse.json({ ok: false, error: "Not configured" }, { status: 503 });
+  if (!isDbConfigured) return json({ ok: false, error: "Not configured" }, 503);
   const row = await loadToken(token);
   const state = stateOf(row);
-  if (state === "NOT_FOUND") return NextResponse.json({ ok: false, error: "Link not found." }, { status: 404 });
-  if (state === "USED") return NextResponse.json({ ok: false, error: "This link has already been used." }, { status: 409 });
-  if (state === "EXPIRED") return NextResponse.json({ ok: false, error: "This link has expired. Ask the academy to send a new one." }, { status: 410 });
+  if (state === "NOT_FOUND") return json({ ok: false, error: "Link not found." }, 404);
+  if (state === "USED") return json({ ok: false, error: "This link has already been used." }, 409);
+  if (state === "EXPIRED") return json({ ok: false, error: "This link has expired. Ask the academy to send a new one." }, 410);
 
   let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "Bad request." }, { status: 400 });
+    return json({ ok: false, error: "Bad request." }, 400);
   }
   const s = (v: unknown) => (v == null ? "" : String(v)).trim();
   const name = s(body["name"]);
@@ -66,11 +86,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   const email = s(body["email"]);
   const instrument = s(body["instrument"]);
   const termsAccepted = body["termsAccepted"] === true;
-  if (!name) return NextResponse.json({ ok: false, error: "Enter the student's full name." }, { status: 400 });
-  if (!guardianName) return NextResponse.json({ ok: false, error: "Enter the guardian's name." }, { status: 400 });
-  if (!phone) return NextResponse.json({ ok: false, error: "Enter a contact number." }, { status: 400 });
-  if (!instrument) return NextResponse.json({ ok: false, error: "Enter the preferred instrument." }, { status: 400 });
-  if (!termsAccepted) return NextResponse.json({ ok: false, error: "Please accept the terms & conditions to enroll." }, { status: 400 });
+  if (!name) return json({ ok: false, error: "Enter the student's full name." }, 400);
+  if (!guardianName) return json({ ok: false, error: "Enter the guardian's name." }, 400);
+  if (!phone) return json({ ok: false, error: "Enter a contact number." }, 400);
+  if (!instrument) return json({ ok: false, error: "Enter the preferred instrument." }, 400);
+  if (!termsAccepted) return json({ ok: false, error: "Please accept the terms & conditions to enroll." }, 400);
 
   // CAS on status='OPEN': prevents a race with expiry or a double-submit
   // from two tabs, same pattern as /api/terms.
@@ -78,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     `update enroll_links set status = 'USED' where token = $1 and status = 'OPEN' and expires_at > now() returning token`,
     [token],
   );
-  if (!updated.length) return NextResponse.json({ ok: false, error: "This link is no longer open." }, { status: 409 });
+  if (!updated.length) return json({ ok: false, error: "This link is no longer open." }, 409);
 
   const draftId = newId("SDRAFT");
   await query(
@@ -94,7 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   // itself, which has already been recorded above.
   await sendEnrollmentConfirmation({ name, guardianName, phone, email, instrument, branch: row!.branch }).catch(() => {});
 
-  return NextResponse.json({ ok: true, state: "SUBMITTED" });
+  return json({ ok: true, state: "SUBMITTED" });
 }
 
 async function sendEnrollmentConfirmation(data: {

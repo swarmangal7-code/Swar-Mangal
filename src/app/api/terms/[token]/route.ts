@@ -6,6 +6,26 @@ export const dynamic = "force-dynamic";
 
 // Brief §P10: the public admission-terms page. No login — a one-time token
 // in the URL is the only credential. Never touches the RPC session model.
+//
+// CORS headers: this link always pointed at this app's own domain so far
+// (same-origin), but /api/enroll hit a real CORS block the first time a
+// public page fetched it from a different origin (swarmangal.pages.dev) —
+// adding the same headers here pre-empts the identical bug if a terms link
+// is ever opened from the marketing site too.
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
+function json(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, { status, headers: CORS_HEADERS });
+}
 
 interface TokenRow {
   token: string;
@@ -34,10 +54,10 @@ function stateOf(row: TokenRow | null): "NOT_FOUND" | "EXPIRED" | "ACCEPTED" | "
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  if (!isDbConfigured) return NextResponse.json({ ok: false, error: "Not configured" }, { status: 503 });
+  if (!isDbConfigured) return json({ ok: false, error: "Not configured" }, 503);
   const row = await loadToken(token);
   const state = stateOf(row);
-  return NextResponse.json({
+  return json({
     ok: true,
     state,
     studentName: row?.student_name ?? "",
@@ -47,12 +67,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  if (!isDbConfigured) return NextResponse.json({ ok: false, error: "Not configured" }, { status: 503 });
+  if (!isDbConfigured) return json({ ok: false, error: "Not configured" }, 503);
   const row = await loadToken(token);
   const state = stateOf(row);
-  if (state === "NOT_FOUND") return NextResponse.json({ ok: false, error: "Link not found." }, { status: 404 });
-  if (state === "ACCEPTED") return NextResponse.json({ ok: true, state: "ACCEPTED", idempotent: true, acceptedAt: row!.accepted_at });
-  if (state === "EXPIRED") return NextResponse.json({ ok: false, error: "This link has expired. Ask the academy to send a new one." }, { status: 410 });
+  if (state === "NOT_FOUND") return json({ ok: false, error: "Link not found." }, 404);
+  if (state === "ACCEPTED") return json({ ok: true, state: "ACCEPTED", idempotent: true, acceptedAt: row!.accepted_at });
+  if (state === "EXPIRED") return json({ ok: false, error: "This link has expired. Ask the academy to send a new one." }, 410);
 
   // CAS on status='OPEN': a retry or a double-tap can never double-accept or
   // race past an expiry that fires between the GET and this POST.
@@ -62,6 +82,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ to
      returning token, accepted_at::text`,
     [token],
   );
-  if (!updated.length) return NextResponse.json({ ok: false, error: "This link is no longer open." }, { status: 409 });
-  return NextResponse.json({ ok: true, state: "ACCEPTED", acceptedAt: updated[0].accepted_at });
+  if (!updated.length) return json({ ok: false, error: "This link is no longer open." }, 409);
+  return json({ ok: true, state: "ACCEPTED", acceptedAt: updated[0].accepted_at });
 }
