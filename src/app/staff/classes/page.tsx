@@ -21,11 +21,66 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ClassCorrectionButton, ScheduleSessionDialog } from "@/components/dashboard/session-scheduler-dialog";
 import { useMutationRpc, useTeachers, useTodaysClasses } from "@/lib/api/rpc-hooks";
-import type { RpcEnvelope, TodaysClass } from "@/lib/api/rpc-types";
+import type { RpcEnvelope, TodaysClass, TodaysClassStudent } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { cn, todayISO } from "@/lib/utils/cn";
 import { formatDateOnly } from "@/app/founder/_shared";
+
+const ATTENDANCE_STATES = [
+  { value: "PRESENT", label: "P", tone: "border-emerald-400/50 bg-emerald-400/15 text-emerald-300" },
+  { value: "ABSENT", label: "A", tone: "border-red-400/50 bg-red-400/15 text-red-300" },
+  { value: "INFORMED_ABSENCE", label: "I", tone: "border-amber-400/50 bg-amber-400/15 text-amber-300" },
+] as const;
+
+interface MarkAttendanceArg extends Record<string, unknown> {
+  studentId: string;
+  state: string;
+  workDate: string;
+  timetableId?: string;
+  scheduledSessionId?: string;
+}
+
+function StudentAttendanceRow({
+  classItem,
+  student,
+  onMark,
+  marking,
+}: {
+  classItem: TodaysClass;
+  student: TodaysClassStudent;
+  onMark: (studentId: string, state: string) => void;
+  marking: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <div className="min-w-0">
+        <p className="truncate text-[13px] font-medium text-dash-fg">{student.name}</p>
+        {student.instrument && <p className="truncate text-[11px] text-dash-fg/40">{student.instrument}</p>}
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {marking ? (
+          <span className="h-6 w-6 animate-pulse rounded-full bg-dash-fg/10" />
+        ) : (
+          ATTENDANCE_STATES.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              title={s.value.replaceAll("_", " ")}
+              onClick={() => onMark(student.studentId, s.value)}
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-bold transition-colors",
+                student.status === s.value ? s.tone : "border-dash-fg/12 text-dash-fg/30 hover:text-dash-fg/60",
+              )}
+            >
+              {s.label}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
 const FALLBACK_OUTCOMES = [
   "HELD",
@@ -72,6 +127,7 @@ export default function StaffClassesPage() {
   const [lateReason, setLateReason] = React.useState("");
   const [reason, setReason] = React.useState("");
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
+  const [marking, setMarking] = React.useState<string | null>(null);
 
   const classes = useTodaysClasses(date, branch);
   const teachers = useTeachers();
@@ -83,6 +139,26 @@ export default function StaffClassesPage() {
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not record the class."),
   });
+
+  const markAttendance = useMutationRpc<MarkAttendanceArg, RpcEnvelope>("api_staff_markAttendance", {
+    invalidate: [["rpc", "api_staff_todaysClasses"]],
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not mark attendance."),
+  });
+
+  const markStudent = (c: TodaysClass, studentId: string, state: string) => {
+    const key = `${c.eventId}:${studentId}`;
+    setMarking(key);
+    markAttendance.mutate(
+      {
+        studentId,
+        state,
+        workDate: c.classDate,
+        ...(c.timetableId ? { timetableId: c.timetableId } : {}),
+        ...(c.scheduledSessionId ? { scheduledSessionId: c.scheduledSessionId } : {}),
+      },
+      { onSettled: () => setMarking((m) => (m === key ? null : m)) },
+    );
+  };
 
   const rows = classes.data?.rows ?? [];
   const outcomes = classes.data?.outcomes?.length ? classes.data.outcomes : FALLBACK_OUTCOMES;
@@ -246,6 +322,29 @@ export default function StaffClassesPage() {
                     )}
                   </div>
                 </CardContent>
+                {/* Attendance is marked here only, and only for today's date
+                    — a past date shown via the date picker is read-only;
+                    use a backdated correction for that instead. */}
+                {c.classDate === todayISO() && !!c.students?.length && (
+                  <div className="border-t border-dash-fg/10 px-4 py-3 sm:px-5">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-dash-fg/40">Students</p>
+                    {!c.canMarkAttendance ? (
+                      <p className="text-[12px] text-dash-fg/45">Attendance opens at {c.attendanceOpensAt}.</p>
+                    ) : (
+                      <div className="divide-y divide-dash-fg/[0.06]">
+                        {c.students.map((st) => (
+                          <StudentAttendanceRow
+                            key={st.studentId}
+                            classItem={c}
+                            student={st}
+                            marking={marking === `${c.eventId}:${st.studentId}`}
+                            onMark={(studentId, state) => markStudent(c, studentId, state)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </Card>
             </motion.div>
           ))}

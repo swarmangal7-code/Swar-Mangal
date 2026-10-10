@@ -265,6 +265,13 @@ export interface FeesDueTodaySummary {
   rows: FeesDueTodayRow[];
 }
 
+export interface TodaysClassStudent {
+  studentId: string;
+  name: string;
+  instrument: string;
+  status: string;
+}
+
 export interface TodaysClass {
   eventId: string;
   classDate: string;
@@ -286,6 +293,11 @@ export interface TodaysClass {
   customReason: string;
   resolved: boolean;
   answerable: boolean;
+  timetableId?: string;
+  scheduledSessionId?: string;
+  students?: TodaysClassStudent[];
+  canMarkAttendance?: boolean;
+  attendanceOpensAt?: string;
 }
 
 export interface TodaysLecturesSummary {
