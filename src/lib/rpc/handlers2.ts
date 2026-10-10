@@ -2372,11 +2372,15 @@ async function timetableRoster(timetableId: string, base: Record<string, unknown
     const ids = new Set(assigned.map((r) => r.student_id));
     return students.filter((x) => ids.has(x.id) && s(x.status).toUpperCase() === "ACTIVE");
   }
+  // Rollout-gap fallback — a student already assigned to a specific teacher
+  // must never leak into a different teacher's same-instrument slot.
+  const slotTeacherId = s(base.teacher_id);
   return students.filter(
     (x) =>
       s(x.status).toUpperCase() === "ACTIVE" &&
       recordBranch(x.branch) === recordBranch(s(base.branch)) &&
-      s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase(),
+      s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase() &&
+      (!s(x.assigned_teacher_id) || s(x.assigned_teacher_id) === slotTeacherId),
   );
 }
 
@@ -2720,13 +2724,19 @@ async function todaysClasses(arg: Record<string, unknown>, scope: BranchScope): 
     if (timetableId) {
       const assigned = byTimetable.get(timetableId);
       if (assigned?.length) return assigned;
-      // Rollout-gap fallback — see timetableRoster()'s identical reasoning.
+      // Rollout-gap fallback for a slot with no explicit roster yet — see
+      // timetableRoster()'s identical reasoning. A student already
+      // assigned_teacher_id'd to someone must never leak into a different
+      // teacher's same-instrument slot, so the teacher must match unless the
+      // student has no assigned teacher at all.
+      const slotTeacherId = s(base.teacher_id);
       return allStudents
         .filter(
           (x) =>
             s(x.status).toUpperCase() === "ACTIVE" &&
             recordBranch(x.branch) === recordBranch(s(base.branch)) &&
-            s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase(),
+            s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase() &&
+            (!s(x.assigned_teacher_id) || s(x.assigned_teacher_id) === slotTeacherId),
         )
         .map((x) => x.id);
     }
