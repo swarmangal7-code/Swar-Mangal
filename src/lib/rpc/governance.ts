@@ -61,6 +61,7 @@ export const GOVERNANCE_FUNCTIONS = new Set([
   "api_founder_instalmentPlanDraftReject",
   "api_instalmentPlanForStudent",
   "api_staff_generateTermsToken",
+  "api_staff_generateEnrollLink",
   "api_staff_requestManualTermsAcceptance",
   "api_founder_manualTermsAcceptanceApprove",
   "api_founder_manualTermsAcceptanceReject",
@@ -140,6 +141,8 @@ export async function dispatchGovernance(fn: string, arg: Record<string, unknown
       return instalmentPlanForStudent(arg);
     case "api_staff_generateTermsToken":
       return generateTermsToken(arg, scope, session);
+    case "api_staff_generateEnrollLink":
+      return generateEnrollLink(arg, scope, session);
     case "api_staff_requestManualTermsAcceptance":
       return requestManualTermsAcceptance(arg, scope, session);
     case "api_founder_manualTermsAcceptanceApprove":
@@ -1255,6 +1258,37 @@ async function generateTermsToken(arg: Record<string, unknown>, scope: BranchSco
     url: base ? `${base}/terms/${token}` : "",
     expiresInDays: TERMS_TOKEN_TTL_DAYS,
     note: base ? "Share this link with the parent." : "Set APP_DOMAIN to generate a full shareable link.",
+  });
+}
+
+// ---------------------------------------------------------------- public enroll link
+// Founder request 2026-10-10: a link staff can send a prospective family so
+// they fill in their own basic details, landing as an ordinary student
+// draft (origin='PUBLIC_ENROLL') for staff/founder to review in its own
+// screen. Mirrors generateTermsToken exactly, including the token-in-URL
+// pattern and the "never touches the RPC session model" rule for the
+// public-facing side (src/app/api/enroll/[token]/route.ts).
+const ENROLL_LINK_TTL_DAYS = 7;
+
+async function generateEnrollLink(arg: Record<string, unknown>, scope: BranchScope, session: RpcSession): Promise<Result> {
+  const branch = defaultBranch(scope, arg["branch"]);
+  if (!inScope(scope, branch)) return branchForbidden(branch);
+  const token = randomBytes(24).toString("hex");
+  await query(
+    `insert into enroll_links (token, branch, issued_by, expires_at) values ($1,$2,$3, now() + ($4::int * interval '1 day'))`,
+    [token, branch, who(session), ENROLL_LINK_TTL_DAYS],
+  );
+  // The shareable link always points at the public marketing site — the
+  // page itself is a static export there; its own form submission reaches
+  // this app's API cross-origin, same as every other call that site makes.
+  const domain = (process.env.PUBLIC_SITE_DOMAIN ?? "").trim();
+  const base = domain ? `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}` : "";
+  return ok({
+    token,
+    path: `/enroll/${token}`,
+    url: base ? `${base}/enroll/${token}` : "",
+    expiresInDays: ENROLL_LINK_TTL_DAYS,
+    note: base ? "Share this link with the family." : "Set PUBLIC_SITE_DOMAIN to generate a full shareable link.",
   });
 }
 

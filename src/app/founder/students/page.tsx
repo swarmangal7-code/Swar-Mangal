@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ChevronRight, Plus, Search, UserX } from "lucide-react";
+import { ChevronRight, Plus, Search, UserPlus2, UserX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRpc, useTeachers } from "@/lib/api/rpc-hooks";
+import { useNewEnrollments, useRpc, useTeachers } from "@/lib/api/rpc-hooks";
 import type { StudentSearchResponse } from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { initials } from "@/lib/utils/cn";
@@ -52,6 +52,7 @@ export default function FounderStudentsPage() {
     { q: debounced, branch: "ALL", classCode: cls, instrument, teacherId, feeState: feeFilter, includeAll: true },
   );
   const { data: teacherData } = useTeachers();
+  const newEnrollments = useNewEnrollments();
 
   const rows = data?.results ?? data?.rows ?? [];
   const instruments = data?.instruments ?? [];
@@ -69,11 +70,23 @@ export default function FounderStudentsPage() {
             Search the academy roster.{!isPending && !isError && ` ${rows.length} student${rows.length === 1 ? "" : "s"}.`}
           </p>
         </div>
-        <Button asChild className="hidden bg-dash-accent text-dash-bg hover:bg-dash-accent-hover lg:inline-flex">
-          <Link href="/founder/students/add">
-            <Plus className="h-4 w-4" aria-hidden /> Add Student
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
+            <Link href="/founder/students/new-enrollments" className="relative">
+              <UserPlus2 className="h-4 w-4" aria-hidden /> New Enrollments
+              {!!newEnrollments.data?.pendingCount && (
+                <Badge className="ml-1.5 border-dash-accent/40 bg-dash-accent/15 text-dash-accent">
+                  {newEnrollments.data.pendingCount}
+                </Badge>
+              )}
+            </Link>
+          </Button>
+          <Button asChild className="hidden bg-dash-accent text-dash-bg hover:bg-dash-accent-hover lg:inline-flex">
+            <Link href="/founder/students/add">
+              <Plus className="h-4 w-4" aria-hidden /> Add Student
+            </Link>
+          </Button>
+        </div>
       </motion.div>
 
       <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center">

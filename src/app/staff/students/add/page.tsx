@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EnrollLinkButton } from "@/components/dashboard/enroll-link-button";
 import { useMutationRpc, useStaffBoot, useTeachers } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { useTokenAuth } from "@/lib/auth/token-auth";
@@ -162,10 +163,15 @@ export default function StaffAddStudentPage() {
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to students
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-dash-fg">Add Student</h1>
-        <p className="mt-1 text-sm text-dash-fg/55">
-          New admissions go to Sharvil as a draft — he adds the student to the master.
-        </p>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-dash-fg">Add Student</h1>
+            <p className="mt-1 text-sm text-dash-fg/55">
+              New admissions go to Sharvil as a draft — he adds the student to the master.
+            </p>
+          </div>
+          <EnrollLinkButton branch={branch} />
+        </div>
       </motion.div>
 
       {feedback && (

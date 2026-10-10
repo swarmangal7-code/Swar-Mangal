@@ -27,6 +27,7 @@ import type {
   FeeRateCardListResponse,
   InquiryQueueResponse,
   InstrumentListResponse,
+  NewEnrollmentsResponse,
   PaymentDraftsResponse,
   PayoutPreviewResponse,
   PayoutSettingsResponse,
@@ -167,6 +168,10 @@ export function useStudentSearch(query: string, opts?: StudentSearchOptions, opt
     },
     { enabled: query.trim().length > 0 || hasFilter, ...options },
   );
+}
+
+export function useNewEnrollments(options?: QueryOptions<NewEnrollmentsResponse>) {
+  return useRpc<NewEnrollmentsResponse>("api_newEnrollments", undefined, { staleTime: 15_000, ...options });
 }
 
 export function useStudentProfile(id: string, options?: QueryOptions<StudentProfileResponse>) {

@@ -191,6 +191,12 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_staff_requestManualTermsAcceptance: STAFF,
   api_founder_manualTermsAcceptanceApprove: FOUNDER,
   api_founder_manualTermsAcceptanceReject: FOUNDER,
+
+  // Founder request 2026-10-10: staff mint a public enroll link; both roles
+  // can see what's landed from it, but only the founder decides (same
+  // merge/reject RPCs every other staff-submitted draft already uses).
+  api_staff_generateEnrollLink: STAFF,
+  api_newEnrollments: STAFF,
   api_termsStatusForStudent: STAFF,
 
   // Self-service email+OTP token registration/reset (src/app/api/auth/otp/*
@@ -394,7 +400,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_staff_requestClassCorrection", "api_founder_approveClassCorrection", "api_founder_rejectClassCorrection",
   "api_staff_submitLateFeeWaiverRequest", "api_founder_lateFeeWaiverApprove", "api_founder_lateFeeWaiverReject",
   "api_staff_submitInstalmentPlanDraft", "api_founder_instalmentPlanDraftApprove", "api_founder_instalmentPlanDraftReject",
-  "api_staff_generateTermsToken", "api_staff_requestManualTermsAcceptance",
+  "api_staff_generateTermsToken", "api_staff_generateEnrollLink", "api_staff_requestManualTermsAcceptance",
   "api_founder_manualTermsAcceptanceApprove", "api_founder_manualTermsAcceptanceReject",
   "api_founder_addAuthorizedEmail", "api_founder_removeAuthorizedEmail", "api_founder_revokeDeviceToken",
   "api_timetableCreate", "api_timetableUpdate", "api_timetableDelete", "api_timetableAssignStudents",

@@ -3,12 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Search, Users } from "lucide-react";
+import { ArrowRight, Search, UserPlus2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useStudentSearch, useTeachers } from "@/lib/api/rpc-hooks";
+import { useNewEnrollments, useStudentSearch, useTeachers } from "@/lib/api/rpc-hooks";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -41,6 +42,7 @@ export default function StaffStudentsPage() {
 
   const search = useStudentSearch(debounced, { mode: "staff", branch, instrument, teacherId, feeState: feeFilter }, { enabled: true });
   const { data: teacherData } = useTeachers();
+  const newEnrollments = useNewEnrollments();
   const rows = search.data?.results ?? search.data?.rows ?? [];
   const instruments = search.data?.instruments ?? [];
   const hasFilters = instrument !== "ALL" || teacherId !== "ALL" || feeFilter !== "ALL";
@@ -48,13 +50,25 @@ export default function StaffStudentsPage() {
 
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
-      <motion.div variants={fadeUp}>
-        <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Students</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Students</h1>
-        <p className="mt-1 text-sm text-dash-fg/55">
-          The full roster — search to narrow it down.
-          {!search.isPending && !search.isError && ` ${rows.length} student${rows.length === 1 ? "" : "s"}.`}
-        </p>
+      <motion.div variants={fadeUp} className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Students</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Students</h1>
+          <p className="mt-1 text-sm text-dash-fg/55">
+            The full roster — search to narrow it down.
+            {!search.isPending && !search.isError && ` ${rows.length} student${rows.length === 1 ? "" : "s"}.`}
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="border-dash-fg/15 text-dash-fg hover:bg-dash-fg/[0.05]">
+          <Link href="/staff/students/new-enrollments" className="relative">
+            <UserPlus2 className="h-3.5 w-3.5" aria-hidden /> New Enrollments
+            {!!newEnrollments.data?.pendingCount && (
+              <Badge className="ml-1.5 border-dash-accent/40 bg-dash-accent/15 text-dash-accent">
+                {newEnrollments.data.pendingCount}
+              </Badge>
+            )}
+          </Link>
+        </Button>
       </motion.div>
 
       <motion.div variants={fadeUp} className="relative">

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EnrollLinkButton } from "@/components/dashboard/enroll-link-button";
 import { useBootstrap, useMutationRpc, useTeachers } from "@/lib/api/rpc-hooks";
 import type { RpcEnvelope } from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
@@ -159,10 +160,15 @@ export default function FounderAddStudentPage() {
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to students
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-dash-fg">Add Student</h1>
-        <p className="mt-1 text-sm text-dash-fg/55">
-          New admissions land straight on the roster with the fee plan attached.
-        </p>
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-dash-fg">Add Student</h1>
+            <p className="mt-1 text-sm text-dash-fg/55">
+              New admissions land straight on the roster with the fee plan attached.
+            </p>
+          </div>
+          <EnrollLinkButton branch={classCode === "KMC" ? "KANDIVALI" : "GOREGAON"} />
+        </div>
       </motion.div>
 
       {feedback && (

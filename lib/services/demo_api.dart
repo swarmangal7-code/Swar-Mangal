@@ -200,6 +200,7 @@ class DemoApiClient extends ApiClient {
     'api_founder_instalmentPlanDraftApprove': {'approvals', 'students', 'payments'},
     'api_founder_instalmentPlanDraftReject': {'approvals'},
     'api_staff_generateTermsToken': {},
+    'api_staff_generateEnrollLink': {},
     'api_staff_requestManualTermsAcceptance': {'approvals'},
     'api_founder_manualTermsAcceptanceApprove': {'approvals'},
     'api_founder_manualTermsAcceptanceReject': {'approvals'},
@@ -292,6 +293,7 @@ class DemoApiClient extends ApiClient {
     'api_founder_instalmentPlanDraftApprove',
     'api_founder_instalmentPlanDraftReject',
     'api_staff_generateTermsToken',
+    'api_staff_generateEnrollLink',
     'api_staff_requestManualTermsAcceptance',
     'api_founder_manualTermsAcceptanceApprove',
     'api_founder_manualTermsAcceptanceReject',
@@ -750,6 +752,34 @@ class DemoApiClient extends ApiClient {
           'url': '',
           'expiresInDays': 7,
           'note': 'DEMO — no real link generated.',
+        };
+      case 'api_staff_generateEnrollLink':
+        return {
+          'ok': true,
+          'token': 'demoenroll123',
+          'path': '/enroll/demoenroll123',
+          'url': '',
+          'expiresInDays': 7,
+          'note': 'DEMO — no real link generated.',
+        };
+      case 'api_newEnrollments':
+        return {
+          'ok': true,
+          'pendingCount': 1,
+          'pending': [
+            {
+              'draftId': 'SDRAFT-DEMO-ENROLL-1',
+              'status': 'SUBMITTED',
+              'name': 'Riya Kapoor',
+              'phone': '9820099887',
+              'email': '',
+              'guardianName': 'Nisha Kapoor',
+              'instrument': 'Guitar',
+              'branch': 'KANDIVALI',
+              'submittedAt': '2026-10-09T10:00:00Z',
+            },
+          ],
+          'recent': [],
         };
       case 'api_staff_requestManualTermsAcceptance':
         return {

@@ -10,6 +10,7 @@ import '../../widgets/anim.dart';
 import '../../widgets/atoms.dart';
 import 'student_profile_screen.dart';
 import 'add_student_screen.dart';
+import 'new_enrollments_screen.dart';
 
 /// Student search + directory. `staff` flips the API to the branch-isolated
 /// staff search endpoint and adds an inline "quick add" entry.
@@ -127,6 +128,15 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
           Padding(
             padding: const EdgeInsets.fromLTRB(AppSpace.s4, AppSpace.s4, AppSpace.s4, 0),
             child: Column(children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewEnrollmentsScreen())),
+                  icon: const Icon(Icons.person_add_alt_outlined, size: 16),
+                  label: const Text('New Enrollments'),
+                ),
+              ),
+              const SizedBox(height: AppSpace.s3),
               SearchField(
                 controller: _q,
                 hint: widget.staff

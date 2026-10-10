@@ -1921,3 +1921,28 @@ create table if not exists scheduled_session_students (
 -- existing timetable_id column (line ~1494) for a recurring slot. Nullable:
 -- a mark made from the old whole-day Attendance screen has neither.
 alter table attendance_acad add column if not exists scheduled_session_id text;
+
+-- ============================================================
+-- Founder request 2026-10-10: a public "enroll student" link staff can send
+-- a prospective family, so they fill in their own basic details rather than
+-- staff typing it in by hand. Mirrors terms_acceptance_tokens exactly (an
+-- unguessable token, checked server-side via /api/enroll/[token], never the
+-- RPC session model) — see that table's comment for why this pattern
+-- exists. A submission lands as an ordinary student_drafts row (action=ADD)
+-- tagged with origin so it can be reviewed in its own dedicated screen
+-- rather than the general Approvals queue.
+-- ============================================================
+create table if not exists enroll_links (
+  token text primary key,
+  branch text not null,
+  issued_by text,
+  issued_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  status text not null default 'OPEN',   -- OPEN | USED | EXPIRED
+  draft_id text
+);
+create index if not exists idx_enroll_links_branch on enroll_links (branch);
+
+-- 'PUBLIC_ENROLL' on a row created via the link above; null (the default)
+-- for every staff-submitted draft, exactly as today.
+alter table student_drafts add column if not exists origin text;

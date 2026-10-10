@@ -79,6 +79,28 @@ export interface Student {
   admissionSource?: string;
 }
 
+export interface NewEnrollmentRow {
+  draftId: string;
+  status: string;
+  name: string;
+  phone: string;
+  email: string;
+  guardianName: string;
+  instrument: string;
+  branch: string;
+  submittedAt: string;
+  decidedBy: string;
+  decidedAt: string;
+  decisionNote: string;
+  studentId: string;
+}
+
+export interface NewEnrollmentsResponse extends RpcEnvelope {
+  pending: NewEnrollmentRow[];
+  recent: NewEnrollmentRow[];
+  pendingCount: number;
+}
+
 export interface StudentSearchResponse extends RpcEnvelope {
   results: Student[];
   rows: Student[];

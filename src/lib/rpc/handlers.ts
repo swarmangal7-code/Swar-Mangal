@@ -51,6 +51,7 @@ export const HANDLERS1_FUNCTIONS = new Set([
   "api_searchReceipt", "api_receiptPreflight", "api_addFeePayment", "api_staff_prepareReceiptDraft",
   "api_founder_listPaymentDrafts", "api_founder_paymentDraftApprove", "api_founder_paymentDraftReject",
   "api_founder_finalisePaymentDraft", "api_staff_finalisePaymentDraft", "api_founder_studentDraftReject",
+  "api_newEnrollments",
 ]);
 
 export async function rpcDispatch(role: RpcRole, fn: string, arg: Record<string, unknown>, scope: BranchScope, session?: RpcSession) {
@@ -90,6 +91,8 @@ export async function rpcDispatch(role: RpcRole, fn: string, arg: Record<string,
       return mergeStudentDraft(arg, session);
     case "api_founder_studentDraftReject":
       return studentDraftReject(arg, session);
+    case "api_newEnrollments":
+      return newEnrollments(arg, scope);
 
     // -------------------------------------------------- receipts / money
     case "api_searchReceipt":
@@ -620,6 +623,39 @@ async function saveStudentDraft(arg: Record<string, unknown>, scope: BranchScope
     // Brief pattern B: never "Saved" — the founder has not decided yet.
     note: "Sent for approval.",
   });
+}
+
+/**
+ * Founder request 2026-10-10: the dedicated review list for self-submitted
+ * enrollments (origin='PUBLIC_ENROLL'), separate from the general Approvals
+ * queue. Deciding one is the exact same mergeStudentDraft/studentDraftReject
+ * call the Approvals screen already uses for any student draft — this is
+ * read-only, just a differently-filtered view onto the same table.
+ */
+async function newEnrollments(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const rows = await query<Record<string, unknown>>(
+    `select id, status, name, phone, email, parent_name, course, branch, submitted_at, decided_by, decided_at, decision_note, student_id
+     from student_drafts where origin = 'PUBLIC_ENROLL' order by submitted_at desc limit 200`,
+  );
+  const visible = rows.filter((r) => inScope(scope, r.branch));
+  const view = (r: Record<string, unknown>) => ({
+    draftId: s(r.id),
+    status: s(r.status),
+    name: s(r.name),
+    phone: s(r.phone),
+    email: s(r.email),
+    guardianName: s(r.parent_name),
+    instrument: s(r.course),
+    branch: s(r.branch),
+    submittedAt: d(r.submitted_at),
+    decidedBy: s(r.decided_by),
+    decidedAt: d(r.decided_at),
+    decisionNote: s(r.decision_note),
+    studentId: s(r.student_id),
+  });
+  const pending = visible.filter((r) => s(r.status) === "SUBMITTED").map(view);
+  const recent = visible.filter((r) => s(r.status) !== "SUBMITTED").slice(0, 20).map(view);
+  return ok({ pending, recent, pendingCount: pending.length });
 }
 
 /** Founder merges a staff draft: ADD creates the student, EDIT updates the fields that were filled in. */

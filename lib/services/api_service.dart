@@ -366,6 +366,13 @@ class ApiService {
   Future<dynamic> timetableAssignStudents({required String timetableId, required List<String> studentIds}) =>
       _api.call('api_timetableAssignStudents', {'timetableId': timetableId, 'studentIds': studentIds});
 
+  /// A link staff can send a prospective family so they fill in their own
+  /// basic details — lands in New Enrollments for review.
+  Future<dynamic> generateEnrollLink({required String branch}) =>
+      _api.call('api_staff_generateEnrollLink', {'branch': branch});
+
+  Future<dynamic> newEnrollments() => _api.call('api_newEnrollments');
+
 // -------------------------------------------------------------- teachers
   Future<List<Teacher>> listTeachers() async {
     final b = await _api.call('api_listTeachers');

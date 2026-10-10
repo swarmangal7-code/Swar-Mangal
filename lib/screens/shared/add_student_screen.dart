@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/auth_provider.dart';
 import '../../widgets/atoms.dart';
+import 'enroll_link_screen.dart';
 
 /// Add Edit Student.
 /// founder: writes via the checked founder add path (draft + merge in one call).
@@ -225,6 +226,19 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     return ListView(
       padding: const EdgeInsets.all(AppSpace.s4),
       children: [
+        if (!_editing)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpace.s3),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => EnrollLinkScreen(
+                  branch: widget.staff ? (auth.branch ?? 'KANDIVALI') : (_classCode == 'KMC' ? 'KANDIVALI' : 'GOREGAON'),
+                ),
+              )),
+              icon: const Icon(Icons.link_outlined),
+              label: const Text('Send an enroll link instead'),
+            ),
+          ),
         Form(
           key: _formKey,
           child: Column(children: [
