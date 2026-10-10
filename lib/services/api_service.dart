@@ -341,6 +341,33 @@ class ApiService {
   Future<dynamic> timetableDelete(String id, [Map<String, dynamic>? form]) =>
       _api.call('api_timetableDelete', {'id': id, ...?form});
 
+  // --------------------------------------------------------- school sessions
+  /// Recurring timetable of which teacher travels to which partner school.
+  Future<dynamic> listSchoolTimetable({String branch = 'ALL', String schoolId = ''}) =>
+      _api.call('api_listSchoolTimetable', {'branch': branch, 'schoolId': schoolId});
+
+  Future<dynamic> addSchoolTimetableSlot(Map<String, dynamic> form) =>
+      _api.call('api_addSchoolTimetableSlot', form);
+
+  Future<dynamic> updateSchoolTimetableSlot(String id, Map<String, dynamic> form) =>
+      _api.call('api_updateSchoolTimetableSlot', {'id': id, ...form});
+
+  /// Today's (or a past date's) expected school sessions, with any
+  /// attendance already marked merged in.
+  Future<dynamic> todaysSchoolSessions({
+    String date = '',
+    String branch = 'ALL',
+    String schoolId = '',
+  }) =>
+      _api.call('api_todaysSchoolSessions', {'date': date, 'branch': branch, 'schoolId': schoolId});
+
+  Future<dynamic> markSchoolAttendance(Map<String, dynamic> payload) =>
+      _api.call('api_markSchoolAttendance', payload);
+
+  /// Teachers assigned to a school, read from school_compensation.
+  Future<dynamic> schoolTeacherRoster(String schoolId) =>
+      _api.call('api_schoolTeacherRoster', {'schoolId': schoolId});
+
   /// One calendar week's worth of sessions — the base recurring pattern
   /// resolved to real dates, with any "this week only" edits merged in.
   Future<({String weekStart, String weekEnd, List<TimetableWeekEntry> entries})> timetableWeek({

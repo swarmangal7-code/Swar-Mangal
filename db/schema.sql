@@ -1946,3 +1946,39 @@ create index if not exists idx_enroll_links_branch on enroll_links (branch);
 -- 'PUBLIC_ENROLL' on a row created via the link above; null (the default)
 -- for every staff-submitted draft, exactly as today.
 alter table student_drafts add column if not exists origin text;
+
+-- ============================================================
+-- School Sessions — a recurring timetable of which teacher travels to which
+-- partner school/when (mirrors `timetable` above, but for external-school
+-- lectures rather than on-campus classes), plus the attendance taken against
+-- each such slot. "Which teachers are assigned to a school" is answered by
+-- the existing `school_compensation` table, not duplicated here.
+-- ============================================================
+create table if not exists school_timetable (
+  id text primary key,
+  branch text not null,
+  school_id text not null references schools(id),
+  day_of_week int not null,
+  start_time time not null,
+  end_time time not null,
+  teacher_id text not null references teachers_acad(id),
+  teacher_name text not null,
+  subject text,
+  status text not null default 'ACTIVE',
+  substitute_teacher_id text,
+  substitute_teacher_name text
+);
+
+create table if not exists school_attendance (
+  id text primary key,
+  school_timetable_id text not null references school_timetable(id),
+  school_id text not null,
+  session_date date not null,
+  teacher_id text not null,
+  status text not null,
+  absence_reason text,
+  backdated_reason text,
+  recorded_by text,
+  recorded_at timestamptz not null default now()
+);
+create unique index if not exists school_attendance_unique on school_attendance (school_timetable_id, session_date);

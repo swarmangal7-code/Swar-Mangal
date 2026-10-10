@@ -33,6 +33,8 @@ import type {
   PayoutSettingsResponse,
   ReceiptSearchResponse,
   SchoolListResponse,
+  SchoolTeacherRosterResponse,
+  SchoolTimetableResponse,
   StaffBootResponse,
   StaffStudentHubResponse,
   StudentProfileResponse,
@@ -44,6 +46,7 @@ import type {
   TimetableWeekResponse,
   TimetableSessionDetailResponse,
   TodaysClassesResponse,
+  TodaysSchoolSessionsResponse,
   WhatsAppGroupListResponse,
   WhatsAppStatusResponse,
 } from "./rpc-types";
@@ -81,6 +84,11 @@ export const rpcKeys = {
     ["rpc", "api_staff_attendanceRoster", classId ?? "", date ?? ""] as const,
   whatsappStatus: () => ["rpc", "api_whatsappStatus"] as const,
   whatsappGroups: () => ["rpc", "api_listWhatsAppGroups"] as const,
+  schoolTimetable: (branch?: string, schoolId?: string) =>
+    ["rpc", "api_listSchoolTimetable", branch ?? "ALL", schoolId ?? ""] as const,
+  todaysSchoolSessions: (date?: string, branch?: string, schoolId?: string) =>
+    ["rpc", "api_todaysSchoolSessions", date ?? "", branch ?? "ALL", schoolId ?? ""] as const,
+  schoolTeacherRoster: (schoolId?: string) => ["rpc", "api_schoolTeacherRoster", schoolId ?? ""] as const,
 };
 
 // ------------------------------------------------------------------ generic
@@ -381,6 +389,40 @@ export function useAttendanceRoster(classId?: string, date?: string, options?: Q
     payload.instrument = classId;
   }
   return useRpc<AttendanceRosterResponse>("api_staff_attendanceRoster", payload, options);
+}
+
+// -------------------------------------------------------- school sessions
+
+/** Recurring timetable of which teacher travels to which partner school. */
+export function useSchoolTimetable(branch?: string, schoolId?: string, options?: QueryOptions<SchoolTimetableResponse>) {
+  return useRpc<SchoolTimetableResponse>(
+    "api_listSchoolTimetable",
+    { branch: branch ?? "ALL", schoolId: schoolId ?? "" },
+    options,
+  );
+}
+
+/** Today's (or a past date's) expected school sessions, with any attendance already marked. */
+export function useTodaysSchoolSessions(
+  date?: string,
+  branch?: string,
+  schoolId?: string,
+  options?: QueryOptions<TodaysSchoolSessionsResponse>,
+) {
+  return useRpc<TodaysSchoolSessionsResponse>(
+    "api_todaysSchoolSessions",
+    { date: date ?? "", branch: branch ?? "ALL", schoolId: schoolId ?? "" },
+    { staleTime: 30_000, ...options },
+  );
+}
+
+/** Teachers assigned to a school, read from school_compensation. */
+export function useSchoolTeacherRoster(schoolId?: string, options?: QueryOptions<SchoolTeacherRosterResponse>) {
+  return useRpc<SchoolTeacherRosterResponse>(
+    "api_schoolTeacherRoster",
+    { schoolId: schoolId ?? "" },
+    { enabled: !!schoolId, ...options },
+  );
 }
 
 // ----------------------------------------------------------------- whatsapp

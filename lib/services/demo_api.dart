@@ -93,6 +93,31 @@ class DemoApiClient extends ApiClient {
         },
       ];
 
+  /// School Sessions: recurring timetable of which teacher travels to which
+  /// partner school, SHARED like the on-campus timetable above.
+  static List<Map<String, dynamic>>? _sharedSchoolTimetable;
+  static List<Map<String, dynamic>> get _schoolTT => _sharedSchoolTimetable ??= [
+        {
+          'id': 'STT-DEMO-1',
+          'branch': 'KANDIVALI',
+          'schoolId': 'SCH-MHWS',
+          'dayOfWeek': 0,
+          'startTime': '10:00',
+          'endTime': '11:00',
+          'teacherId': 'TCH-DEMO-1',
+          'teacherName': 'Aarav Mehta',
+          'subject': 'Guitar',
+          'status': 'ACTIVE',
+          'substituteTeacherId': '',
+          'substituteTeacherName': '',
+        },
+      ];
+
+  /// Attendance marks for the school sessions above, keyed by
+  /// "schoolTimetableId|date" — SHARED like the timetable.
+  static Map<String, Map<String, dynamic>>? _sharedSchoolAttendance;
+  static Map<String, Map<String, dynamic>> get _schoolAttendance => _sharedSchoolAttendance ??= {};
+
   /// Clears the process-wide demo store. Tests call this in setUp so one
   /// test's writes cannot change what another test sees.
   static void resetSharedState() {
@@ -101,6 +126,8 @@ class DemoApiClient extends ApiClient {
     _sharedStatements = null;
     _sharedInstruments = null;
     _sharedFeeRateCard = null;
+    _sharedSchoolTimetable = null;
+    _sharedSchoolAttendance = null;
     revisions.updateAll((k, v) => 1);
   }
 
@@ -125,7 +152,7 @@ class DemoApiClient extends ApiClient {
     'students': 1, 'teachers': 1, 'payments': 1, 'receipts': 1, 'expenses': 1,
     'invoices': 1, 'timetable': 1, 'attendance': 1, 'inquiries': 1,
     'approvals': 1, 'sessions': 1, 'dashboard': 1, 'tasks': 1, 'payouts': 1,
-    'feeRateCard': 1,
+    'feeRateCard': 1, 'schoolSessions': 1,
   };
 
   static void _bump(Iterable<String> entities) {
@@ -210,6 +237,9 @@ class DemoApiClient extends ApiClient {
     'api_staff_requestAddTeacher': {'approvals'},
     'api_founder_addTeacherRequestApprove': {'approvals', 'teachers'},
     'api_founder_addTeacherRequestReject': {'approvals'},
+    'api_addSchoolTimetableSlot': {'schoolSessions'},
+    'api_updateSchoolTimetableSlot': {'schoolSessions'},
+    'api_markSchoolAttendance': {'schoolSessions', 'dashboard'},
   };
 
   /// Write endpoints that must carry DEMO provenance (no real write happens).
@@ -303,6 +333,9 @@ class DemoApiClient extends ApiClient {
     'api_staff_requestAddTeacher',
     'api_founder_addTeacherRequestApprove',
     'api_founder_addTeacherRequestReject',
+    'api_addSchoolTimetableSlot',
+    'api_updateSchoolTimetableSlot',
+    'api_markSchoolAttendance',
   };
 
   @override
@@ -481,6 +514,18 @@ class DemoApiClient extends ApiClient {
         return _timetableDelete(a);
       case 'api_timetableAssignStudents':
         return {'ok': true, 'timetableId': a['timetableId'], 'studentCount': (a['studentIds'] as List? ?? const []).length};
+      case 'api_listSchoolTimetable':
+        return _listSchoolTimetable(a);
+      case 'api_addSchoolTimetableSlot':
+        return _addSchoolTimetableSlot(a);
+      case 'api_updateSchoolTimetableSlot':
+        return _updateSchoolTimetableSlot(a);
+      case 'api_todaysSchoolSessions':
+        return _todaysSchoolSessions(a);
+      case 'api_markSchoolAttendance':
+        return _markSchoolAttendance(a);
+      case 'api_schoolTeacherRoster':
+        return _schoolTeacherRoster(a);
       case 'api_listInstruments':
         return {
           'ok': true,
@@ -2567,6 +2612,147 @@ class DemoApiClient extends ApiClient {
       'deleted': before != _tt.length,
       'note': 'demo timetable entry deleted',
     };
+  }
+
+  Map<String, dynamic> _listSchoolTimetable(Map<String, dynamic> a) {
+    final branch = _s(a['branch'] ?? '').toUpperCase();
+    final schoolId = _s(a['schoolId'] ?? '');
+    final rows = _schoolTT.where((e) {
+      final matchesBranch = branch.isEmpty || branch == 'ALL' || _s(e['branch']) == branch;
+      final matchesSchool = schoolId.isEmpty || _s(e['schoolId']) == schoolId;
+      return matchesBranch && matchesSchool;
+    }).toList();
+    return {'ok': true, 'entries': rows.map((e) => Map<String, dynamic>.from(e)).toList()};
+  }
+
+  Map<String, dynamic> _addSchoolTimetableSlot(Map<String, dynamic> a) {
+    final entry = <String, dynamic>{
+      'id': 'STT-DEMO-${DateTime.now().microsecondsSinceEpoch}',
+      'branch': _s(a['branch'] ?? 'KANDIVALI').toUpperCase(),
+      'schoolId': _s(a['schoolId']),
+      'dayOfWeek': (a['dayOfWeek'] as num?)?.toInt() ?? 0,
+      'startTime': _s(a['startTime']),
+      'endTime': _s(a['endTime']),
+      'teacherId': _s(a['teacherId']),
+      'teacherName': _s(a['teacherName']),
+      'subject': _s(a['subject']),
+      'status': _s(a['status']).isEmpty ? 'ACTIVE' : _s(a['status']).toUpperCase(),
+      'substituteTeacherId': _s(a['substituteTeacherId']),
+      'substituteTeacherName': _s(a['substituteTeacherName']),
+    };
+    _schoolTT.add(entry);
+    return {'ok': true, 'entry': entry, 'note': 'demo school session added'};
+  }
+
+  Map<String, dynamic> _updateSchoolTimetableSlot(Map<String, dynamic> a) {
+    final id = _s(a['id']);
+    final idx = _schoolTT.indexWhere((e) => e['id'] == id);
+    if (idx < 0) return {'ok': false, 'code': 'TT_ENTRY_NOT_FOUND', 'error': 'Entry not found.'};
+    final cur = _schoolTT[idx];
+    final next = <String, dynamic>{
+      'id': id,
+      'branch': _s(a['branch'] ?? cur['branch']).toUpperCase(),
+      'schoolId': _s(a['schoolId'] ?? cur['schoolId']),
+      'dayOfWeek': (a['dayOfWeek'] as num?)?.toInt() ?? cur['dayOfWeek'],
+      'startTime': _s(a['startTime']).isEmpty ? cur['startTime'] : _s(a['startTime']),
+      'endTime': _s(a['endTime']).isEmpty ? cur['endTime'] : _s(a['endTime']),
+      'teacherId': _s(a['teacherId']).isEmpty ? cur['teacherId'] : _s(a['teacherId']),
+      'teacherName': _s(a['teacherName']).isEmpty ? cur['teacherName'] : _s(a['teacherName']),
+      'subject': _s(a['subject']).isEmpty ? cur['subject'] : _s(a['subject']),
+      'status': _s(a['status']).isEmpty ? cur['status'] : _s(a['status']).toUpperCase(),
+      'substituteTeacherId': _s(a['substituteTeacherId'] ?? cur['substituteTeacherId']),
+      'substituteTeacherName': _s(a['substituteTeacherName'] ?? cur['substituteTeacherName']),
+    };
+    _schoolTT[idx] = next;
+    return {'ok': true, 'entry': next, 'note': 'demo school session updated'};
+  }
+
+  /// school_timetable rows use Monday = 0, same convention as the on-campus
+  /// timetable's demo fixtures.
+  Map<String, dynamic> _todaysSchoolSessions(Map<String, dynamic> a) {
+    final date = _s(a['date']).isEmpty ? _todayStr() : _s(a['date']);
+    final branch = _s(a['branch'] ?? '').toUpperCase();
+    final schoolId = _s(a['schoolId'] ?? '');
+    final dow = (DateTime.parse(date).weekday - 1) % 7;
+    final rows = _schoolTT.where((e) {
+      final matchesDay = e['dayOfWeek'] == dow && _s(e['status']) == 'ACTIVE';
+      final matchesBranch = branch.isEmpty || branch == 'ALL' || _s(e['branch']) == branch;
+      final matchesSchool = schoolId.isEmpty || _s(e['schoolId']) == schoolId;
+      return matchesDay && matchesBranch && matchesSchool;
+    }).map((e) {
+      final mark = _schoolAttendance['${e['id']}|$date'];
+      return {
+        'schoolTimetableId': e['id'],
+        'date': date,
+        'branch': e['branch'],
+        'schoolId': e['schoolId'],
+        'startTime': e['startTime'],
+        'endTime': e['endTime'],
+        'teacherId': e['teacherId'],
+        'teacherName': e['teacherName'],
+        'subject': e['subject'],
+        'substituteTeacherId': e['substituteTeacherId'],
+        'substituteTeacherName': e['substituteTeacherName'],
+        'status': mark == null ? 'NOT_MARKED' : mark['status'],
+        'absenceReason': mark == null ? '' : (mark['absenceReason'] ?? ''),
+        'recordedBy': mark == null ? '' : (mark['recordedBy'] ?? ''),
+      };
+    }).toList();
+    return {'ok': true, 'date': date, 'sessions': rows};
+  }
+
+  Map<String, dynamic> _markSchoolAttendance(Map<String, dynamic> a) {
+    final slotId = _s(a['schoolTimetableId']);
+    if (slotId.isEmpty) return {'ok': false, 'code': 'SLOT_ID_REQUIRED', 'error': 'Pick the school session.'};
+    final status = _s(a['status']).toUpperCase();
+    final date = _s(a['date']).isEmpty ? _todayStr() : _s(a['date']);
+    final today = _todayStr();
+    if (date.compareTo(today) > 0) {
+      return {'ok': false, 'code': 'FUTURE_DATE', 'error': 'Attendance cannot be marked for a day that has not happened.'};
+    }
+    final backdatedReason = _s(a['backdatedReason'] ?? a['reason']).trim();
+    if (date.compareTo(today) < 0 && backdatedReason.isEmpty) {
+      return {
+        'ok': false,
+        'code': 'BACKDATED_REASON_REQUIRED',
+        'error': 'This mark is for $date, not today. Say why it is being entered late.',
+      };
+    }
+    _schoolAttendance['$slotId|$date'] = {
+      'status': status,
+      'absenceReason': _s(a['absenceReason']),
+      'recordedBy': 'demo staff',
+    };
+    return {'ok': true, 'id': 'SCHATT-$slotId-$date', 'schoolTimetableId': slotId, 'date': date, 'status': status};
+  }
+
+  Map<String, dynamic> _schoolTeacherRoster(Map<String, dynamic> a) {
+    final schoolId = _s(a['schoolId']);
+    final slots = _schoolTT.where((e) => _s(e['schoolId']) == schoolId).toList();
+    final seen = <String>{};
+    final teachers = <Map<String, dynamic>>[];
+    for (final e in slots) {
+      final id = _s(e['teacherId']);
+      if (id.isEmpty || !seen.add(id)) continue;
+      teachers.add({
+        'teacherId': id,
+        'teacherName': e['teacherName'],
+        'courses': e['subject'],
+        'monthlyAmount': 0,
+        'payoutType': 'FIXED',
+        'status': 'ACTIVE',
+        'phone': '',
+        'email': '',
+        'instrument': e['subject'],
+        'teacherStatus': 'ACTIVE',
+      });
+    }
+    return {'ok': true, 'schoolId': schoolId, 'teachers': teachers};
+  }
+
+  String _todayStr() {
+    final n = DateTime.now();
+    return '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
   }
 
   Map<String, dynamic> _addInstrument(Map<String, dynamic> a) {
