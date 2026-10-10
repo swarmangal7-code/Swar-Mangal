@@ -31,6 +31,7 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
   DateTime _date = DateTime.now();
   List<Teacher> _teachers = const [];
   final Set<String> _marking = {};
+  final Set<String> _expanded = {};
 
   @override
   void initState() {
@@ -256,21 +257,43 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
         ),
         // Student attendance is marked here only, and only for today's date —
         // a past date shown via the back arrow is read-only here; use the
-        // Attendance screen for a backdated correction instead.
+        // Attendance screen for a backdated correction instead. Collapsed by
+        // default since a full day's roster across every class makes the
+        // list very long otherwise.
         if (isToday && c.students.isNotEmpty) ...[
           const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpace.s4, AppSpace.s3, AppSpace.s4, AppSpace.s3),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('STUDENTS', style: AppType.eyebrow),
-              const SizedBox(height: AppSpace.s2),
-              if (!c.canMarkAttendance)
-                Text('Attendance opens at ${_time12(c.attendanceOpensAt)}.',
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted))
-              else
-                for (final st in c.students) _studentRow(c, st),
-            ]),
+          InkWell(
+            onTap: () => setState(() {
+              if (_expanded.contains(c.eventId)) {
+                _expanded.remove(c.eventId);
+              } else {
+                _expanded.add(c.eventId);
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpace.s4, AppSpace.s3, AppSpace.s4, AppSpace.s3),
+              child: Row(children: [
+                Text('STUDENTS (${c.students.length})', style: AppType.eyebrow),
+                const Spacer(),
+                Icon(
+                  _expanded.contains(c.eventId) ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: AppColors.muted,
+                ),
+              ]),
+            ),
           ),
+          if (_expanded.contains(c.eventId))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpace.s4, 0, AppSpace.s4, AppSpace.s3),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (!c.canMarkAttendance)
+                  Text('Attendance opens at ${_time12(c.attendanceOpensAt)}.',
+                      style: const TextStyle(fontSize: 12, color: AppColors.muted))
+                else
+                  for (final st in c.students) _studentRow(c, st),
+              ]),
+            ),
         ],
       ]),
     );

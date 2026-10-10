@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { CalendarCheck, CalendarPlus, CheckCircle2 } from "lucide-react";
+import { CalendarCheck, CalendarPlus, CheckCircle2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -128,6 +128,14 @@ export default function StaffClassesPage() {
   const [reason, setReason] = React.useState("");
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
   const [marking, setMarking] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+  const toggleExpanded = (eventId: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
 
   const classes = useTodaysClasses(date, branch);
   const teachers = useTeachers();
@@ -324,23 +332,44 @@ export default function StaffClassesPage() {
                 </CardContent>
                 {/* Attendance is marked here only, and only for today's date
                     — a past date shown via the date picker is read-only;
-                    use a backdated correction for that instead. */}
+                    use a backdated correction for that instead. Collapsed by
+                    default since a full day's roster across every class
+                    makes the page very long otherwise. */}
                 {c.classDate === todayISO() && !!c.students?.length && (
-                  <div className="border-t border-dash-fg/10 px-4 py-3 sm:px-5">
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-dash-fg/40">Students</p>
-                    {!c.canMarkAttendance ? (
-                      <p className="text-[12px] text-dash-fg/45">Attendance opens at {c.attendanceOpensAt}.</p>
-                    ) : (
-                      <div className="divide-y divide-dash-fg/[0.06]">
-                        {c.students.map((st) => (
-                          <StudentAttendanceRow
-                            key={st.studentId}
-                            classItem={c}
-                            student={st}
-                            marking={marking === `${c.eventId}:${st.studentId}`}
-                            onMark={(studentId, state) => markStudent(c, studentId, state)}
-                          />
-                        ))}
+                  <div className="border-t border-dash-fg/10">
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(c.eventId)}
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-left sm:px-5"
+                    >
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-dash-fg/40">
+                        Students ({c.students.length})
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-dash-fg/40 transition-transform",
+                          expanded.has(c.eventId) && "rotate-180",
+                        )}
+                        aria-hidden
+                      />
+                    </button>
+                    {expanded.has(c.eventId) && (
+                      <div className="px-4 pb-3 sm:px-5">
+                        {!c.canMarkAttendance ? (
+                          <p className="text-[12px] text-dash-fg/45">Attendance opens at {c.attendanceOpensAt}.</p>
+                        ) : (
+                          <div className="divide-y divide-dash-fg/[0.06]">
+                            {c.students.map((st) => (
+                              <StudentAttendanceRow
+                                key={st.studentId}
+                                classItem={c}
+                                student={st}
+                                marking={marking === `${c.eventId}:${st.studentId}`}
+                                onMark={(studentId, state) => markStudent(c, studentId, state)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
