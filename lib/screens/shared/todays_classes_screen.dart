@@ -213,7 +213,6 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
 
   Widget _classCard(TodaysClass c, List<String> outcomes) {
     final resolved = c.resolved;
-    final isToday = c.classDate == _todayStr;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpace.s3),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -255,12 +254,13 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
             ]),
           ),
         ),
-        // Student attendance is marked here only, and only for today's date —
-        // a past date shown via the back arrow is read-only here; use the
-        // Attendance screen for a backdated correction instead. Collapsed by
-        // default since a full day's roster across every class makes the
-        // list very long otherwise.
-        if (isToday && c.students.isNotEmpty) ...[
+        // Student attendance is marked here, for today (gated to the
+        // session's start time) and for any past date shown via the back
+        // arrow (backdated — a reason is required, same rule the old
+        // Attendance screen already enforced). Collapsed by default since a
+        // full day's roster across every class makes the list very long
+        // otherwise.
+        if (c.students.isNotEmpty) ...[
           const Divider(height: 1),
           InkWell(
             onTap: () => setState(() {
@@ -343,9 +343,40 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
     );
   }
 
+  /// The server refuses a mark for a past date without a reason — same rule
+  /// the old whole-day Attendance screen already enforces.
+  Future<String?> _askBackdatedReason(String classDate) async {
+    final ctrl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Why is $classDate being entered late?'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 2,
+          decoration: const InputDecoration(hintText: 'Reason (required)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => ctrl.text.trim().isEmpty ? null : Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    return reason;
+  }
+
   Future<void> _markStudent(TodaysClass c, TodaysClassStudent st, String state) async {
     final auth = context.read<AuthProvider>();
     if (auth.service == null) return;
+    String? backdatedReason;
+    if (c.classDate != _todayStr) {
+      backdatedReason = await _askBackdatedReason(c.classDate);
+      if (backdatedReason == null || !mounted) return; // cancelled
+    }
     final key = '${c.eventId}:${st.studentId}';
     if (_marking.contains(key)) return;
     setState(() => _marking.add(key));
@@ -357,6 +388,7 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
         'workDate': c.classDate,
         if (c.timetableId.isNotEmpty) 'timetableId': c.timetableId,
         if (c.scheduledSessionId.isNotEmpty) 'scheduledSessionId': c.scheduledSessionId,
+        if (backdatedReason != null) 'backdatedReason': backdatedReason,
       });
       if (!mounted) return;
       await _load();

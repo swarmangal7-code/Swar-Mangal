@@ -39,6 +39,7 @@ interface MarkAttendanceArg extends Record<string, unknown> {
   workDate: string;
   timetableId?: string;
   scheduledSessionId?: string;
+  backdatedReason?: string;
 }
 
 function StudentAttendanceRow({
@@ -153,7 +154,15 @@ export default function StaffClassesPage() {
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not mark attendance."),
   });
 
-  const markStudent = (c: TodaysClass, studentId: string, state: string) => {
+  // The server refuses a mark for a past date without a reason — same rule
+  // the whole-day Attendance screen already enforces. Marking today needs
+  // no such prompt.
+  const [pendingMark, setPendingMark] = React.useState<{ c: TodaysClass; studentId: string; state: string } | null>(
+    null,
+  );
+  const [backdatedReason, setBackdatedReason] = React.useState("");
+
+  const runMark = (c: TodaysClass, studentId: string, state: string, reason?: string) => {
     const key = `${c.eventId}:${studentId}`;
     setMarking(key);
     markAttendance.mutate(
@@ -163,9 +172,25 @@ export default function StaffClassesPage() {
         workDate: c.classDate,
         ...(c.timetableId ? { timetableId: c.timetableId } : {}),
         ...(c.scheduledSessionId ? { scheduledSessionId: c.scheduledSessionId } : {}),
+        ...(reason ? { backdatedReason: reason } : {}),
       },
       { onSettled: () => setMarking((m) => (m === key ? null : m)) },
     );
+  };
+
+  const markStudent = (c: TodaysClass, studentId: string, state: string) => {
+    if (c.classDate !== todayISO()) {
+      setBackdatedReason("");
+      setPendingMark({ c, studentId, state });
+      return;
+    }
+    runMark(c, studentId, state);
+  };
+
+  const confirmBackdatedMark = () => {
+    if (!pendingMark || !backdatedReason.trim()) return;
+    runMark(pendingMark.c, pendingMark.studentId, pendingMark.state, backdatedReason.trim());
+    setPendingMark(null);
   };
 
   const rows = classes.data?.rows ?? [];
@@ -330,12 +355,12 @@ export default function StaffClassesPage() {
                     )}
                   </div>
                 </CardContent>
-                {/* Attendance is marked here only, and only for today's date
-                    — a past date shown via the date picker is read-only;
-                    use a backdated correction for that instead. Collapsed by
-                    default since a full day's roster across every class
+                {/* Attendance is marked here, for today (gated to the
+                    session's start time) and for any past date shown via the
+                    date picker (backdated — prompts for a reason). Collapsed
+                    by default since a full day's roster across every class
                     makes the page very long otherwise. */}
-                {c.classDate === todayISO() && !!c.students?.length && (
+                {!!c.students?.length && (
                   <div className="border-t border-dash-fg/10">
                     <button
                       type="button"
@@ -471,6 +496,34 @@ export default function StaffClassesPage() {
               onClick={submit}
             >
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pendingMark} onOpenChange={(open) => !open && setPendingMark(null)}>
+        <DialogContent className="border-dash-fg/12 bg-dash-card text-dash-fg">
+          <DialogHeader>
+            <DialogTitle className="text-dash-fg">
+              Why is {pendingMark ? formatDateOnly(pendingMark.c.classDate) : ""} being entered late?
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={backdatedReason}
+            onChange={(e) => setBackdatedReason(e.target.value)}
+            placeholder="Reason (required)"
+            className="border-dash-fg/12 bg-dash-sidebar text-dash-fg placeholder:text-dash-fg/30"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPendingMark(null)} className="text-dash-fg/70 hover:bg-dash-fg/[0.05]">
+              Cancel
+            </Button>
+            <Button
+              className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover"
+              disabled={!backdatedReason.trim()}
+              onClick={confirmBackdatedMark}
+            >
+              Continue
             </Button>
           </DialogFooter>
         </DialogContent>
