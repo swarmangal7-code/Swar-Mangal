@@ -20,7 +20,7 @@ import {
 } from "@/lib/rpc/rules";
 import { isServiceMonth } from "@/lib/rpc/payouts";
 import { branchForbidden, defaultBranch, inScope, moneyInScope, recordBranch, type BranchScope } from "@/lib/rpc/scope";
-import { notifyFounderApproval, notifyStaffDecision, notifyAllStaff, notifyBranch } from "@/lib/push/notify";
+import { notifyFounderApproval, notifyRequesterDecision, notifyAllStaff, notifyBranch } from "@/lib/push/notify";
 
 type Result = Record<string, unknown>;
 const ok = (extra: Result = {}): Result => ({ ok: true, ...extra });
@@ -383,7 +383,13 @@ async function voidReceipt(arg: Record<string, unknown>, session: RpcSession): P
   if (result["changed"] === true) {
     await bumpRevisions(["receipts", "payments", "students", "dashboard", "approvals", "tasks"]);
     const voidedBranch = await queryOne<{ branch: string }>(`select branch from receipts where receipt_no = $1`, [receiptNo]);
-    if (voidedBranch?.branch) notifyStaffDecision(recordBranch(voidedBranch.branch), "Receipt correction", `${receiptNo} was voided`, receiptNo);
+    if (voidedBranch?.branch) {
+      const requester = await queryOne<{ requested_by: string }>(
+        `select requested_by from receipt_corrections where receipt_no = $1 order by requested_at desc limit 1`,
+        [receiptNo],
+      );
+      notifyRequesterDecision(s(requester?.requested_by), recordBranch(voidedBranch.branch), "Receipt correction", `${receiptNo} was voided`, receiptNo);
+    }
   }
   return result;
 }
@@ -473,14 +479,14 @@ async function correctionReject(arg: Record<string, unknown>, session: RpcSessio
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("CORRECTION_ID_REQUIRED", "Pick the correction request.");
   if (!reason) return refuse("REASON_REQUIRED", "Say why the receipt stands, so staff can tell the parent.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; requested_by: string }>(
     `update receipt_corrections set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, requested_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("NOT_FOUND", `No pending correction request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Receipt correction", "rejected — the receipt stands", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].requested_by), recordBranch(rows[0].branch), "Receipt correction", "rejected — the receipt stands", id);
   return ok({ id, changed: true, status: "REJECTED" });
 }
 
@@ -595,12 +601,12 @@ async function finaliseSchoolInvoiceDraft(arg: Record<string, unknown>, session:
       [id, who(session), invoiceId, invoiceNo],
     );
     const total = n(draft.amount) + extraCharges.reduce((sum, c) => sum + c.amount, 0);
-    return ok({ draftId: id, changed: true, invoiceId, invoiceNo, branch: s(draft.branch), charges: extraCharges, total, note: `Invoice ${invoiceNo} issued.` });
+    return ok({ draftId: id, changed: true, invoiceId, invoiceNo, branch: s(draft.branch), submittedBy: s(draft.submitted_by), charges: extraCharges, total, note: `Invoice ${invoiceNo} issued.` });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["invoices", "approvals", "dashboard"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "School invoice", "issued", id);
+    if (branch) notifyRequesterDecision(s(result["submittedBy"]), recordBranch(branch), "School invoice", "issued", id);
   }
   return result;
 }
@@ -610,14 +616,14 @@ async function schoolInvoiceDraftReject(arg: Record<string, unknown>, session: R
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("DRAFT_ID_REQUIRED", "Pick the invoice draft.");
   if (!reason) return refuse("REASON_REQUIRED", "Give a reason so staff know what to fix.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update school_invoice_drafts set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("DRAFT_NOT_FOUND", `No pending school invoice draft ${id}`);
   await bumpRevisions(["approvals", "invoices"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "School invoice", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].submitted_by), recordBranch(rows[0].branch), "School invoice", "rejected — see the reason", id);
   return ok({ draftId: id, changed: true, status: "REJECTED" });
 }
 
@@ -674,12 +680,12 @@ async function packageExtensionApprove(arg: Record<string, unknown>, session: Rp
       `update package_extension_requests set status = 'APPROVED', decided_by = $2, decided_at = now() where id = $1`,
       [id, who(session)],
     );
-    return ok({ requestId: id, changed: true, branch: s(req.branch), studentId: s(req.student_id), note: "Package extended." });
+    return ok({ requestId: id, changed: true, branch: s(req.branch), submittedBy: s(req.submitted_by), studentId: s(req.student_id), note: "Package extended." });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["approvals", "students", "dashboard"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Package extension", "approved", id);
+    if (branch) notifyRequesterDecision(s(result["submittedBy"]), recordBranch(branch), "Package extension", "approved", id);
   }
   return result;
 }
@@ -689,14 +695,14 @@ async function packageExtensionReject(arg: Record<string, unknown>, session: Rpc
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("REQUEST_ID_REQUIRED", "Pick the package extension request.");
   if (!reason) return refuse("REASON_REQUIRED", "Give a reason so staff know what to fix.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update package_extension_requests set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("NOT_FOUND", `No pending package extension request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Package extension", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].submitted_by), recordBranch(rows[0].branch), "Package extension", "rejected — see the reason", id);
   return ok({ requestId: id, changed: true, status: "REJECTED" });
 }
 
@@ -748,12 +754,12 @@ async function paymentProfileChangeApprove(arg: Record<string, unknown>, session
       `update payment_profile_change_requests set status = 'APPROVED', decided_by = $2, decided_at = now() where id = $1`,
       [id, who(session)],
     );
-    return ok({ requestId: id, changed: true, branch: s(req.branch), entityId: s(req.entity_id), note: "Payment profile updated." });
+    return ok({ requestId: id, changed: true, branch: s(req.branch), submittedBy: s(req.submitted_by), entityId: s(req.entity_id), note: "Payment profile updated." });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["approvals"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Payment profile change", "approved", id);
+    if (branch) notifyRequesterDecision(s(result["submittedBy"]), recordBranch(branch), "Payment profile change", "approved", id);
   }
   return result;
 }
@@ -763,14 +769,14 @@ async function paymentProfileChangeReject(arg: Record<string, unknown>, session:
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("REQUEST_ID_REQUIRED", "Pick the payment profile change request.");
   if (!reason) return refuse("REASON_REQUIRED", "Give a reason so staff know what to fix.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update payment_profile_change_requests set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("NOT_FOUND", `No pending payment profile change request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Payment profile change", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].submitted_by), recordBranch(rows[0].branch), "Payment profile change", "rejected — see the reason", id);
   return ok({ requestId: id, changed: true, status: "REJECTED" });
 }
 
@@ -870,12 +876,12 @@ async function authoriseClosure(arg: Record<string, unknown>, session: RpcSessio
     const rows = await timetableRowsForClosure(s(c.scope), s(c.branch), tx);
     await applyClosureFlag(tx, d(c.from_date), d(c.to_date), rows, s(c.reason));
     await tx.query(`update closure_calendar set state = 'AUTHORISED', authorised_by = $2, authorised_at = now() where id = $1`, [id, who(session)]);
-    return ok({ closureId: id, changed: true, branch: s(c.branch), note: "Closure authorised." });
+    return ok({ closureId: id, changed: true, branch: s(c.branch), recordedBy: s(c.recorded_by), note: "Closure authorised." });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["approvals", "sessions", "dashboard"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Closure", "authorised", id);
+    if (branch) notifyRequesterDecision(s(result["recordedBy"]), recordBranch(branch), "Closure", "authorised", id);
   }
   return result;
 }
@@ -885,14 +891,14 @@ async function closureReject(arg: Record<string, unknown>, session: RpcSession):
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("CLOSURE_ID_REQUIRED", "Pick the closure request.");
   if (!reason) return refuse("REASON_REQUIRED", "Give a reason so staff know what to fix.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; recorded_by: string }>(
     `update closure_calendar set state = 'REVOKED', authorised_by = $2, authorised_at = now(), decision_note = $3
-     where id = $1 and state = 'PROPOSED' returning id, branch`,
+     where id = $1 and state = 'PROPOSED' returning id, branch, recorded_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("NOT_FOUND", `No pending closure request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Closure", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].recorded_by), recordBranch(rows[0].branch), "Closure", "rejected — see the reason", id);
   return ok({ closureId: id, changed: true, state: "REVOKED" });
 }
 
@@ -909,12 +915,12 @@ async function revokeClosure(arg: Record<string, unknown>, session: RpcSession):
     const rows = await timetableRowsForClosure(s(c.scope), s(c.branch), tx);
     await applyClosureFlag(tx, d(c.from_date), d(c.to_date), rows, null);
     await tx.query(`update closure_calendar set state = 'REVOKED', decision_note = $2 where id = $1`, [id, reason]);
-    return ok({ closureId: id, changed: true, branch: s(c.branch), note: "Closure revoked. Those classes are expected again." });
+    return ok({ closureId: id, changed: true, branch: s(c.branch), recordedBy: s(c.recorded_by), note: "Closure revoked. Those classes are expected again." });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["approvals", "sessions", "dashboard"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Closure", "revoked", id);
+    if (branch) notifyRequesterDecision(s(result["recordedBy"]), recordBranch(branch), "Closure", "revoked", id);
   }
   return result;
 }
@@ -990,12 +996,12 @@ async function approveClassCorrection(arg: Record<string, unknown>, session: Rpc
       [s(c.event_id)],
     );
     await tx.query(`update class_outcome_corrections set status = 'APPROVED', decided_by = $2, decided_at = now() where id = $1`, [id, who(session)]);
-    return ok({ id, changed: true, branch: s(c.branch), eventId: s(c.event_id), note: "The class is open to answer again." });
+    return ok({ id, changed: true, branch: s(c.branch), requestedBy: s(c.requested_by), eventId: s(c.event_id), note: "The class is open to answer again." });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["approvals", "sessions", "dashboard"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Class correction", "approved — answer it again", id);
+    if (branch) notifyRequesterDecision(s(result["requestedBy"]), recordBranch(branch), "Class correction", "approved — answer it again", id);
   }
   return result;
 }
@@ -1005,14 +1011,14 @@ async function rejectClassCorrection(arg: Record<string, unknown>, session: RpcS
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("CORRECTION_ID_REQUIRED", "Pick the correction request.");
   if (!reason) return refuse("REASON_REQUIRED", "Say why the class's answer stands.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; requested_by: string }>(
     `update class_outcome_corrections set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, requested_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("NOT_FOUND", `No pending correction request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Class correction", "rejected — the answer stands", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].requested_by), recordBranch(rows[0].branch), "Class correction", "rejected — the answer stands", id);
   return ok({ id, changed: true, status: "REJECTED" });
 }
 
@@ -1086,12 +1092,12 @@ async function lateFeeWaiverApprove(arg: Record<string, unknown>, session: RpcSe
       await tx.query(`update students_acad set next_due_date = $2::date where id = $1`, [s(req.student_id), d(req.new_next_due_date)]);
     }
     await tx.query(`update late_fee_waiver_requests set status = 'APPROVED', decided_by = $2, decided_at = now() where id = $1`, [id, who(session)]);
-    return ok({ requestId: id, changed: true, branch: s(req.branch), studentId: s(req.student_id), note: "Late fee waived." });
+    return ok({ requestId: id, changed: true, branch: s(req.branch), submittedBy: s(req.submitted_by), studentId: s(req.student_id), note: "Late fee waived." });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["approvals", "students", "dashboard"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Late-fee waiver", "approved", id);
+    if (branch) notifyRequesterDecision(s(result["submittedBy"]), recordBranch(branch), "Late-fee waiver", "approved", id);
   }
   return result;
 }
@@ -1101,14 +1107,14 @@ async function lateFeeWaiverReject(arg: Record<string, unknown>, session: RpcSes
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("REQUEST_ID_REQUIRED", "Pick the waiver request.");
   if (!reason) return refuse("REASON_REQUIRED", "Give a reason so staff know what to fix.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update late_fee_waiver_requests set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("NOT_FOUND", `No pending late-fee waiver request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Late-fee waiver", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].submitted_by), recordBranch(rows[0].branch), "Late-fee waiver", "rejected — see the reason", id);
   return ok({ requestId: id, changed: true, status: "REJECTED" });
 }
 
@@ -1170,12 +1176,12 @@ async function instalmentPlanDraftApprove(arg: Record<string, unknown>, session:
       );
     }
     await tx.query(`update instalment_plan_drafts set status = 'APPROVED', decided_by = $2, decided_at = now(), plan_id = $3 where id = $1`, [id, who(session), planId]);
-    return ok({ draftId: id, changed: true, planId, branch: s(draft.branch), note: "Instalment plan created." });
+    return ok({ draftId: id, changed: true, planId, branch: s(draft.branch), submittedBy: s(draft.submitted_by), note: "Instalment plan created." });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["approvals", "students", "payments"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Instalment plan", "approved", id);
+    if (branch) notifyRequesterDecision(s(result["submittedBy"]), recordBranch(branch), "Instalment plan", "approved", id);
   }
   return result;
 }
@@ -1185,14 +1191,14 @@ async function instalmentPlanDraftReject(arg: Record<string, unknown>, session: 
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("DRAFT_ID_REQUIRED", "Pick the instalment plan request.");
   if (!reason) return refuse("REASON_REQUIRED", "Give a reason so staff know what to fix.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update instalment_plan_drafts set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("DRAFT_NOT_FOUND", `No pending instalment plan request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Instalment plan", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].submitted_by), recordBranch(rows[0].branch), "Instalment plan", "rejected — see the reason", id);
   return ok({ draftId: id, changed: true, status: "REJECTED" });
 }
 
@@ -1280,9 +1286,9 @@ async function requestManualTermsAcceptance(arg: Record<string, unknown>, scope:
 async function manualTermsAcceptanceApprove(arg: Record<string, unknown>, session: RpcSession): Promise<Result> {
   const id = s(arg["requestId"] ?? arg["itemId"]).trim();
   if (!id) return refuse("REQUEST_ID_REQUIRED", "Pick the request.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update manual_terms_acceptance_requests set status = 'APPROVED', decided_by = $2, decided_at = now()
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, who(session)],
   );
   if (!rows.length) {
@@ -1291,7 +1297,7 @@ async function manualTermsAcceptanceApprove(arg: Record<string, unknown>, sessio
     return refuse("NOT_FOUND", `No pending manual terms acceptance request ${id}`);
   }
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Manual terms acceptance", "approved", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].submitted_by), recordBranch(rows[0].branch), "Manual terms acceptance", "approved", id);
   return ok({ requestId: id, changed: true, status: "APPROVED" });
 }
 
@@ -1300,14 +1306,14 @@ async function manualTermsAcceptanceReject(arg: Record<string, unknown>, session
   const reason = s(arg["reason"]).trim();
   if (!id) return refuse("REQUEST_ID_REQUIRED", "Pick the request.");
   if (!reason) return refuse("REASON_REQUIRED", "Say why this cannot be accepted as-is.");
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update manual_terms_acceptance_requests set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, who(session), reason],
   );
   if (!rows.length) return refuse("NOT_FOUND", `No pending manual terms acceptance request ${id}`);
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Manual terms acceptance", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(s(rows[0].submitted_by), recordBranch(rows[0].branch), "Manual terms acceptance", "rejected — see the reason", id);
   return ok({ requestId: id, changed: true, status: "REJECTED" });
 }
 

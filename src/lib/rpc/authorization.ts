@@ -212,6 +212,7 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   api_timetableDelete: STAFF,
   api_timetableWeek: STAFF,
   api_timetableSessionDetail: STAFF,
+  api_timetableAssignStudents: STAFF,
 
   // Founder request 2026-10-05: a fee rate card (quotable price list per
   // instrument). Originally founder-only to write, same as a school record;
@@ -396,7 +397,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_staff_generateTermsToken", "api_staff_requestManualTermsAcceptance",
   "api_founder_manualTermsAcceptanceApprove", "api_founder_manualTermsAcceptanceReject",
   "api_founder_addAuthorizedEmail", "api_founder_removeAuthorizedEmail", "api_founder_revokeDeviceToken",
-  "api_timetableCreate", "api_timetableUpdate", "api_timetableDelete",
+  "api_timetableCreate", "api_timetableUpdate", "api_timetableDelete", "api_timetableAssignStudents",
   "api_staff_markAttendance", "api_staff_resolveTodaysClass", "api_staff_scheduleSession",
   "api_staff_grantRecoveryCredit", "api_staff_scheduleRecoveryCredit", "api_staff_resolveRecoveryCredit",
   "api_staff_inquiryQuickAdd", "api_staff_inquiryTransition",

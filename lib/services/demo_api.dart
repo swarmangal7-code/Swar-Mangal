@@ -177,6 +177,7 @@ class DemoApiClient extends ApiClient {
     'api_timetableCreate': {'timetable'},
     'api_timetableUpdate': {'timetable'},
     'api_timetableDelete': {'timetable'},
+    'api_timetableAssignStudents': {'timetable', 'students'},
     'api_founder_upsertFeeRateCard': {'feeRateCard'},
     'api_founder_deactivateFeeRateCard': {'feeRateCard'},
     'api_staff_submitPackageExtensionRequest': {'approvals'},
@@ -231,6 +232,7 @@ class DemoApiClient extends ApiClient {
     'api_staff_markAttendance',
     'api_staff_scheduleSession',
     'api_staff_resolveTodaysClass',
+    'api_timetableAssignStudents',
     'api_founder_setStudentStatus',
     'api_updateTeacherStatus',
     'api_recordTeacherPayout',
@@ -475,6 +477,8 @@ class DemoApiClient extends ApiClient {
         return _timetableUpdate(a);
       case 'api_timetableDelete':
         return _timetableDelete(a);
+      case 'api_timetableAssignStudents':
+        return {'ok': true, 'timetableId': a['timetableId'], 'studentCount': (a['studentIds'] as List? ?? const []).length};
       case 'api_listInstruments':
         return {
           'ok': true,
@@ -1692,6 +1696,14 @@ class DemoApiClient extends ApiClient {
           'customReason': '',
           'resolved': false,
           'answerable': true,
+          'timetableId': 'TT-DEMO-A',
+          'scheduledSessionId': '',
+          'canMarkAttendance': false,
+          'attendanceOpensAt': '18:00',
+          'students': [
+            {'studentId': 'STU-DEMO-A1', 'name': 'Kabir Rao', 'instrument': 'Tabla', 'status': 'NOT_MARKED'},
+            {'studentId': 'STU-DEMO-A2', 'name': 'Ishaan Verma', 'instrument': 'Tabla', 'status': 'NOT_MARKED'},
+          ],
         },
         {
           'eventId': 'E-2026-09-11-B',
@@ -1715,6 +1727,14 @@ class DemoApiClient extends ApiClient {
           'customReason': '',
           'resolved': false,
           'answerable': true,
+          'timetableId': 'TT-DEMO-B',
+          'scheduledSessionId': '',
+          'canMarkAttendance': true,
+          'attendanceOpensAt': '16:50',
+          'students': [
+            {'studentId': 'STU-55DCD622', 'name': 'Aarav Mehta', 'instrument': 'Keyboard', 'status': 'NOT_MARKED'},
+            {'studentId': 'STU-DEMO-B2', 'name': 'Sara Pillai', 'instrument': 'Keyboard', 'status': 'PRESENT'},
+          ],
         },
         {
           'eventId': 'E-2026-09-11-C',
@@ -1738,6 +1758,13 @@ class DemoApiClient extends ApiClient {
           'customReason': '',
           'resolved': true,
           'answerable': false,
+          'timetableId': 'TT-DEMO-C',
+          'scheduledSessionId': '',
+          'canMarkAttendance': true,
+          'attendanceOpensAt': '15:50',
+          'students': [
+            {'studentId': 'STU-77FA91C0', 'name': 'Diya Shah', 'instrument': 'Violin', 'status': 'PRESENT'},
+          ],
         },
       ],
       'lateHours': 48,

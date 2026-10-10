@@ -177,6 +177,36 @@ export const MIGRATIONS = [
       if (rows[0].n === 0) await c.query(readFileSync(join(here, "timetable_seed.sql"), "utf8"));
     },
   },
+  {
+    // Founder request 2026-10-09: Today's Classes shows each session's real
+    // assigned students (timetable_students) instead of inferring the
+    // roster from instrument+branch at read time. Seed that real assignment
+    // from the exact same inference every ENABLED slot used before, so no
+    // slot's roster goes from "something" to "empty" the moment this ships
+    // — from here on, staff/founder edit the assignment directly.
+    id: "2026-10-09-seed-timetable-students",
+    run: (c) =>
+      c.query(
+        // The CASE here is the SQL twin of recordBranch() in scope.ts — kept
+        // in lockstep with it (blank/"KAN" -> KANDIVALI, "GOR" -> GOREGAON,
+        // else the raw value), since this is a one-time seed, not a live
+        // query that could import the real function.
+        `insert into timetable_students (timetable_id, student_id)
+         select t.id, s.id
+         from timetable t
+         join students_acad s
+           on upper(trim(coalesce(s.status,''))) = 'ACTIVE'
+          and upper(trim(coalesce(s.instrument,''))) = upper(trim(coalesce(t.class_name,'')))
+          and (case when upper(trim(coalesce(s.branch,''))) like '%GOR%' then 'GOREGAON'
+                    when upper(trim(coalesce(s.branch,''))) = '' or upper(trim(coalesce(s.branch,''))) like '%KAN%' then 'KANDIVALI'
+                    else upper(trim(coalesce(s.branch,''))) end)
+              = (case when upper(trim(coalesce(t.branch,''))) like '%GOR%' then 'GOREGAON'
+                    when upper(trim(coalesce(t.branch,''))) = '' or upper(trim(coalesce(t.branch,''))) like '%KAN%' then 'KANDIVALI'
+                    else upper(trim(coalesce(t.branch,''))) end)
+         where t.status = 'ENABLED'
+         on conflict do nothing`,
+      ),
+  },
 ];
 
 export async function runMigrations(client) {

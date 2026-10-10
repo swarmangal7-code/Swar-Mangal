@@ -20,6 +20,10 @@ import {
   effectiveRowOn,
   payoutPercentForOutcome,
   slabPercentFor,
+  hmToMinutes,
+  minutesToHm,
+  canMarkSessionAttendance,
+  ATTENDANCE_START_GRACE_MINUTES,
   type PayoutStatusRule,
   type TeacherPercentSlab,
 } from "../src/lib/rpc/rules.ts";
@@ -190,4 +194,31 @@ test("only VERIFIED classes settle", () => {
     "2026-10-04:not answered",
   ]);
   assert.equal(monthEndExclusive("2026-12"), "2027-01-01");
+});
+
+test("hmToMinutes / minutesToHm round-trip HH:MM", () => {
+  assert.equal(hmToMinutes("09:05"), 545);
+  assert.equal(hmToMinutes("00:00"), 0);
+  assert.equal(minutesToHm(545), "09:05");
+  assert.equal(minutesToHm(0), "00:00");
+  // A grace window subtracted from just after midnight never goes negative.
+  assert.equal(minutesToHm(hmToMinutes("00:05") - ATTENDANCE_START_GRACE_MINUTES), "00:00");
+});
+
+test("canMarkSessionAttendance: blocked before the grace window, open from it onward, no upper bound", () => {
+  const start = "17:00"; // 1020 minutes
+  const today = "2026-10-09";
+  // One minute before the grace window opens — still blocked.
+  assert.equal(canMarkSessionAttendance(today, start, today, 1020 - ATTENDANCE_START_GRACE_MINUTES - 1), false);
+  // Exactly at the start of the grace window.
+  assert.equal(canMarkSessionAttendance(today, start, today, 1020 - ATTENDANCE_START_GRACE_MINUTES), true);
+  // Exactly at start time.
+  assert.equal(canMarkSessionAttendance(today, start, today, 1020), true);
+  // Long after the session has ended — still open, no cutoff.
+  assert.equal(canMarkSessionAttendance(today, start, today, 1020 + 180), true);
+});
+
+test("canMarkSessionAttendance: a past date's session has already started; a future date's has not", () => {
+  assert.equal(canMarkSessionAttendance("2026-10-08", "17:00", "2026-10-09", 0), true);
+  assert.equal(canMarkSessionAttendance("2026-10-10", "17:00", "2026-10-09", 1439), false);
 });

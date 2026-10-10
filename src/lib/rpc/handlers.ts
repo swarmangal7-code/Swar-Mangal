@@ -6,6 +6,7 @@ import {
   advanceCycle,
   amountRupees,
   branchFromClient,
+  feeState,
   referenceRuleViolation,
   resolvePlan,
   todayIso,
@@ -24,7 +25,7 @@ import {
 } from "@/lib/rpc/scope";
 import { isBackdated, isExcludedReceiptStatus, studentIncompleteFields } from "@/lib/rpc/rules";
 import { closedMonthRefusal } from "@/lib/rpc/governance";
-import { notifyFounderApproval, notifyStaffDecision, notifyFounderGeneric, notifyBranch } from "@/lib/push/notify";
+import { notifyFounderApproval, notifyRequesterDecision, notifyFounderGeneric, notifyBranch } from "@/lib/push/notify";
 
 const ok = (extra: Record<string, unknown> = {}) => ({ ok: true, ...extra });
 
@@ -157,8 +158,16 @@ async function studentsSearch(arg: Record<string, unknown>, scope: BranchScope):
   const q = s(arg["q"] ?? arg["query"] ?? "");
   const branch = s(arg["branch"] ?? "ALL");
   const cc = s(arg["classCode"] ?? "ALL").toUpperCase();
+  const instrument = s(arg["instrument"] ?? "ALL").toUpperCase();
+  const teacherId = s(arg["teacherId"] ?? "ALL");
+  const feeFilter = s(arg["feeState"] ?? "ALL").toUpperCase();
+  const today = todayIso();
   const all = await acadStudents(q);
-  const matching = all.filter((x) => {
+  // Scoped by everything except the instrument filter itself, so the
+  // distinct instrument list below still offers every choice that was
+  // available before the operator picked one — narrowing it to just the
+  // currently-selected instrument would make the filter un-change-able.
+  const preInstrument = all.filter((x) => {
     if (!inScope(scope, x.branch)) return false;
     if (!matchesRequestedBranch(branch, x.branch)) return false;
     if (cc === "ALL") return true;
@@ -166,8 +175,20 @@ async function studentsSearch(arg: Record<string, unknown>, scope: BranchScope):
     const isKmc = cc === "KMC" && recordBranch(x.branch) !== "GOREGAON";
     return isGmc || isKmc;
   });
+  const instruments = Array.from(new Set(preInstrument.map((x) => s(x.instrument)).filter(Boolean))).sort();
+  const matching = preInstrument.filter((x) => {
+    if (instrument !== "ALL" && s(x.instrument).toUpperCase() !== instrument) return false;
+    if (teacherId !== "ALL" && s(x.assigned_teacher_id) !== teacherId) return false;
+    if (feeFilter !== "ALL") {
+      const st = feeState(x.next_due_date, today, { status: x.status });
+      // "DUE" is a UI bucket covering both the amber states; every other
+      // filter value matches feeState()'s own return exactly.
+      if (feeFilter === "DUE" ? st !== "DUE_SOON" && st !== "DUE_TODAY" : st !== feeFilter) return false;
+    }
+    return true;
+  });
   const rows = (await studentsToRpc(matching)) as unknown as Record<string, unknown>[];
-  return ok({ results: rows, rows, count: rows.length });
+  return ok({ results: rows, rows, count: rows.length, instruments });
 }
 
 async function studentProfile(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
@@ -633,12 +654,12 @@ async function mergeStudentDraft(arg: Record<string, unknown>, session?: RpcSess
       `update student_drafts set status = 'MERGED', student_id = $2, decided_by = $3, decided_at = now() where id = $1`,
       [draftId, studentId, session?.email ?? ""],
     );
-    return ok({ changed: true, created: s(draft.action) !== "EDIT", draftId, studentId, branch: s(draft.branch) });
+    return ok({ changed: true, created: s(draft.action) !== "EDIT", draftId, studentId, branch: s(draft.branch), submittedBy: s(draft.submitted_by) });
   });
   if (result["changed"] === true) {
     await bumpRevisions(["students", "approvals", "dashboard", "tasks", "inquiries"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Student change", "merged into the master", draftId);
+    if (branch) notifyRequesterDecision(s(result["submittedBy"]), recordBranch(branch), "Student change", "merged into the master", draftId);
   }
   return result;
 }
@@ -648,14 +669,14 @@ async function studentDraftReject(arg: Record<string, unknown>, session?: RpcSes
   const reason = s(arg["reason"] ?? arg["comment"]).trim();
   if (!draftId) return { ok: false, code: "DRAFT_ID_REQUIRED", error: "draftId required" };
   if (!reason) return { ok: false, code: "REASON_REQUIRED", error: "Give a reason so staff know what to fix." };
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update student_drafts set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [draftId, session?.email ?? "", reason],
   );
   if (!rows.length) return { ok: false, code: "DRAFT_NOT_FOUND", error: `No pending student draft ${draftId}` };
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Student change", "rejected — see the reason", draftId);
+  if (rows[0].branch) notifyRequesterDecision(rows[0].submitted_by, recordBranch(rows[0].branch), "Student change", "rejected — see the reason", draftId);
   return ok({ changed: true, draftId, status: "REJECTED" });
 }
 
@@ -1070,7 +1091,7 @@ async function listPaymentDrafts(arg: Record<string, unknown>): Promise<Record<s
 async function paymentDraftApprove(arg: Record<string, unknown>, session?: RpcSession): Promise<Record<string, unknown>> {
   const draftId = s(arg["draftId"]);
   if (!draftId) return { ok: false, code: "DRAFT_ID_REQUIRED", error: "draftId required" };
-  const current = await queryOne<{ status: string; approved_by: string; branch: string }>(`select status, approved_by, branch from payment_drafts where id = $1`, [draftId]);
+  const current = await queryOne<{ status: string; approved_by: string; branch: string; submitted_by: string }>(`select status, approved_by, branch, submitted_by from payment_drafts where id = $1`, [draftId]);
   if (!current) return { ok: false, code: "DRAFT_NOT_FOUND", error: `No payment draft ${draftId}` };
   if (current.status === "APPROVED" || current.status === "FINALISED") {
     return ok({ changed: false, draftId, status: current.status, approvedBy: current.approved_by, idempotent: true });
@@ -1082,7 +1103,7 @@ async function paymentDraftApprove(arg: Record<string, unknown>, session?: RpcSe
     [draftId, session?.email ?? ""],
   );
   await bumpRevisions(["payments", "approvals"]);
-  if (current.branch) notifyStaffDecision(recordBranch(current.branch), "Fee payment", "approved — ready to finalise", draftId);
+  if (current.branch) notifyRequesterDecision(current.submitted_by, recordBranch(current.branch), "Fee payment", "approved — ready to finalise", draftId);
   return ok({ changed: true, draftId, approved: true, approvedBy: session?.email ?? "", note: "draft approved" });
 }
 
@@ -1091,14 +1112,14 @@ async function paymentDraftReject(arg: Record<string, unknown>, session?: RpcSes
   const comment = s(arg["comment"] ?? arg["reason"]).trim();
   if (!draftId) return { ok: false, code: "DRAFT_ID_REQUIRED", error: "draftId required" };
   if (!comment) return { ok: false, code: "REASON_REQUIRED", error: "Give a reason so staff know what to fix." };
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update payment_drafts set status = 'REJECTED', decision_note = $2, approved_by = $3, approved_at = now()
-     where id = $1 and status in ('SUBMITTED','APPROVED') returning id, branch`,
+     where id = $1 and status in ('SUBMITTED','APPROVED') returning id, branch, submitted_by`,
     [draftId, comment, session?.email ?? ""],
   );
   if (!rows.length) return { ok: false, code: "DRAFT_NOT_FOUND", error: `No payment draft ${draftId} awaiting a decision` };
   await bumpRevisions(["payments", "approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Fee payment", "rejected — see the reason", draftId);
+  if (rows[0].branch) notifyRequesterDecision(rows[0].submitted_by, recordBranch(rows[0].branch), "Fee payment", "rejected — see the reason", draftId);
   return ok({ changed: true, draftId, rejected: true, note: comment });
 }
 

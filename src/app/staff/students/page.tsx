@@ -8,10 +8,20 @@ import { ArrowRight, Search, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useStudentSearch } from "@/lib/api/rpc-hooks";
+import { useStudentSearch, useTeachers } from "@/lib/api/rpc-hooks";
 import { useTokenAuth } from "@/lib/auth/token-auth";
 import { fadeUp, listVariants } from "@/lib/motion";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { feeStatusTone, formatINR, studentStatusTone } from "@/app/founder/_shared";
+
+type FeeFilter = "ALL" | "PAID" | "DUE" | "OVERDUE";
+
+const FEE_FILTERS: { value: FeeFilter; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "PAID", label: "Paid" },
+  { value: "DUE", label: "Due" },
+  { value: "OVERDUE", label: "Overdue" },
+];
 
 export default function StaffStudentsPage() {
   const { session } = useTokenAuth();
@@ -20,15 +30,21 @@ export default function StaffStudentsPage() {
 
   const [q, setQ] = React.useState("");
   const [debounced, setDebounced] = React.useState("");
+  const [instrument, setInstrument] = React.useState("ALL");
+  const [teacherId, setTeacherId] = React.useState("ALL");
+  const [feeFilter, setFeeFilter] = React.useState<FeeFilter>("ALL");
 
   React.useEffect(() => {
     const t = setTimeout(() => setDebounced(q), 250);
     return () => clearTimeout(t);
   }, [q]);
 
-  const search = useStudentSearch(debounced, { mode: "staff", branch }, { enabled: true });
+  const search = useStudentSearch(debounced, { mode: "staff", branch, instrument, teacherId, feeState: feeFilter }, { enabled: true });
+  const { data: teacherData } = useTeachers();
   const rows = search.data?.results ?? search.data?.rows ?? [];
-  const searching = debounced.trim().length > 0;
+  const instruments = search.data?.instruments ?? [];
+  const hasFilters = instrument !== "ALL" || teacherId !== "ALL" || feeFilter !== "ALL";
+  const searching = debounced.trim().length > 0 || hasFilters;
 
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-6">
@@ -50,6 +66,36 @@ export default function StaffStudentsPage() {
           placeholder="Name, phone or STU id…"
           className="h-12 border-dash-fg/12 bg-dash-card pl-11 text-dash-fg placeholder:text-dash-fg/30"
         />
+      </motion.div>
+
+      <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-3">
+        <select
+          value={instrument}
+          onChange={(e) => setInstrument(e.target.value)}
+          aria-label="Filter by instrument"
+          className="rounded-xl border border-dash-fg/10 bg-dash-card px-3 py-1.5 text-[13px] text-dash-fg"
+        >
+          <option value="ALL">All instruments</option>
+          {instruments.map((i) => (
+            <option key={i} value={i}>
+              {i}
+            </option>
+          ))}
+        </select>
+        <select
+          value={teacherId}
+          onChange={(e) => setTeacherId(e.target.value)}
+          aria-label="Filter by teacher"
+          className="rounded-xl border border-dash-fg/10 bg-dash-card px-3 py-1.5 text-[13px] text-dash-fg"
+        >
+          <option value="ALL">All teachers</option>
+          {(teacherData?.teachers ?? []).map((t) => (
+            <option key={t.teacherId} value={t.teacherId}>
+              {t.teacherName}
+            </option>
+          ))}
+        </select>
+        <SegmentedControl value={feeFilter} onChange={setFeeFilter} options={FEE_FILTERS} label="Filter by fee status" />
       </motion.div>
 
       {search.isError ? (

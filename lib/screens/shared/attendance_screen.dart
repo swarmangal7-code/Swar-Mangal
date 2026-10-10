@@ -68,19 +68,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SyncAware {
   @override
   void initState() {
     super.initState();
-    _date = _today();
+    // Founder request 2026-10-09: today's attendance is marked from Today's
+    // Classes only, gated to each session's own start time — this screen is
+    // for backdated corrections now, so it opens on yesterday, not today.
+    _date = _yesterday();
     _load();
   }
 
   /// ISO dates sort lexicographically, which is all this needs.
   bool get _isBackdated => _date.compareTo(_today()) < 0;
 
+  String _yesterday() {
+    final y = DateTime.now().subtract(const Duration(days: 1));
+    return '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.tryParse(_date) ?? DateTime.now(),
+      initialDate: DateTime.tryParse(_date) ?? DateTime.now().subtract(const Duration(days: 1)),
       firstDate: DateTime(DateTime.now().year - 2),
-      lastDate: DateTime.now(), // the server rejects future days
+      // Today's attendance is marked from Today's Classes, not here.
+      lastDate: DateTime.now().subtract(const Duration(days: 1)),
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -208,10 +217,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SyncAware {
       child: ListView(
         padding: const EdgeInsets.all(AppSpace.s4),
         children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpace.s3),
+            margin: const EdgeInsets.only(bottom: AppSpace.s3),
+            decoration: BoxDecoration(color: AppColors.infoBg, borderRadius: BorderRadius.circular(AppRadius.s)),
+            child: const Text(
+              "This screen is for backdated corrections only. Mark today's attendance from Today's Classes.",
+              style: TextStyle(fontSize: 12, color: AppColors.infoFg),
+            ),
+          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.event_outlined),
-            title: Text('ATTENDANCE · ${_isBackdated ? _date : '$_date (today)'}',
+            title: Text('ATTENDANCE (BACKDATED) · $_date',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: .5, color: AppColors.muted)),
             trailing: const Icon(Icons.edit_calendar_outlined, size: 18),
             onTap: _pickDate,

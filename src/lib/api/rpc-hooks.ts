@@ -140,6 +140,9 @@ export function useStaffBoot(branch?: string, options?: QueryOptions<StaffBootRe
 export interface StudentSearchOptions {
   branch?: string;
   classCode?: string;
+  instrument?: string;
+  teacherId?: string;
+  feeState?: string;
   /** "staff" calls api_staff_searchStudents; "founder" calls api_searchStudent. */
   mode?: "staff" | "founder";
 }
@@ -147,15 +150,22 @@ export interface StudentSearchOptions {
 export function useStudentSearch(query: string, opts?: StudentSearchOptions, options?: QueryOptions<StudentSearchResponse>) {
   const mode = opts?.mode ?? "staff";
   const fn = mode === "founder" ? "api_searchStudent" : "api_staff_searchStudents";
+  const instrument = opts?.instrument ?? "ALL";
+  const teacherId = opts?.teacherId ?? "ALL";
+  const feeState = opts?.feeState ?? "ALL";
+  const hasFilter = instrument !== "ALL" || teacherId !== "ALL" || feeState !== "ALL";
   return useRpc<StudentSearchResponse>(
     fn,
     {
       q: query,
       branch: opts?.branch ?? "ALL",
       classCode: opts?.classCode ?? "ALL",
+      instrument,
+      teacherId,
+      feeState,
       includeAll: true,
     },
-    { enabled: query.trim().length > 0, ...options },
+    { enabled: query.trim().length > 0 || hasFilter, ...options },
   );
 }
 

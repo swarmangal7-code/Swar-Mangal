@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../state/auth_provider.dart';
 import '../../state/sync_manager.dart';
 import '../../widgets/atoms.dart';
+import 'student_multiselect_screen.dart';
 
 /// Today's Classes — the staff end-of-evening surface. Records what actually
 /// happened to each expected class (TEACHER DELIVERY). Student attendance is a
@@ -29,6 +30,7 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
   bool _busy = true;
   DateTime _date = DateTime.now();
   List<Teacher> _teachers = const [];
+  final Set<String> _marking = {};
 
   @override
   void initState() {
@@ -205,49 +207,149 @@ class _TodaysClassesScreenState extends State<TodaysClassesScreen> with SyncAwar
     );
   }
 
+  String get _todayStr =>
+      '${_today.year}-${_today.month.toString().padLeft(2, '0')}-${_today.day.toString().padLeft(2, '0')}';
+
   Widget _classCard(TodaysClass c, List<String> outcomes) {
     final resolved = c.resolved;
+    final isToday = c.classDate == _todayStr;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpace.s3),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: c.answerable ? () => _resolve(c, outcomes) : null,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpace.s4),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Container(
-                width: 56,
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                decoration: BoxDecoration(color: AppColors.primaryDark, borderRadius: BorderRadius.circular(6)),
-                child: Center(
-                  child: Text(_time12(c.startTime),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: c.answerable ? () => _resolve(c, outcomes) : null,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.s4),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  width: 56,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                  decoration: BoxDecoration(color: AppColors.primaryDark, borderRadius: BorderRadius.circular(6)),
+                  child: Center(
+                    child: Text(_time12(c.startTime),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                  ),
                 ),
-              ),
-              const SizedBox(width: AppSpace.s3),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${c.course} · ${c.branch}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                  Text('Teacher ${_s(c.teacherId)}${c.deliveredBy.isNotEmpty ? ' · delivered by ${_s(c.deliveredBy)}' : ''}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-                ]),
-              ),
+                const SizedBox(width: AppSpace.s3),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${c.course} · ${c.branch}',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    Text('Teacher ${_s(c.teacherId)}${c.deliveredBy.isNotEmpty ? ' · delivered by ${_s(c.deliveredBy)}' : ''}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: AppSpace.s2),
+              Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
+                if (resolved) StatusBadge(c.outcome)
+                else const StatusBadge('UNANSWERED'),
+                if (c.customKind.isNotEmpty) TagChip(c.customKind, color: AppColors.focus),
+                if (c.evidenceClass.isNotEmpty)
+                  Text(c.evidenceClass, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                if (c.notRequired) const StatusBadge('NOT REQUIRED'),
+              ]),
             ]),
-            const SizedBox(height: AppSpace.s2),
-            Wrap(spacing: AppSpace.s2, runSpacing: AppSpace.s2, children: [
-              if (resolved) StatusBadge(c.outcome)
-              else const StatusBadge('UNANSWERED'),
-              if (c.customKind.isNotEmpty) TagChip(c.customKind, color: AppColors.focus),
-              if (c.evidenceClass.isNotEmpty)
-                Text(c.evidenceClass, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-              if (c.notRequired) const StatusBadge('NOT REQUIRED'),
-            ]),
-          ]),
+          ),
         ),
+        // Student attendance is marked here only, and only for today's date —
+        // a past date shown via the back arrow is read-only here; use the
+        // Attendance screen for a backdated correction instead.
+        if (isToday && c.students.isNotEmpty) ...[
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpace.s4, AppSpace.s3, AppSpace.s4, AppSpace.s3),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('STUDENTS', style: AppType.eyebrow),
+              const SizedBox(height: AppSpace.s2),
+              if (!c.canMarkAttendance)
+                Text('Attendance opens at ${_time12(c.attendanceOpensAt)}.',
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted))
+              else
+                for (final st in c.students) _studentRow(c, st),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _studentRow(TodaysClass c, TodaysClassStudent st) {
+    final key = '${c.eventId}:${st.studentId}';
+    final busy = _marking.contains(key);
+    final isPresent = st.status == 'PRESENT';
+    final isAbsent = st.status == 'ABSENT';
+    final isInformed = st.status == 'INFORMED_ABSENCE';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.s2),
+      child: Row(children: [
+        Expanded(
+          child: Text('${st.name}${st.instrument.isNotEmpty ? ' · ${st.instrument}' : ''}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+        if (busy)
+          const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+        else ...[
+          _markChip('P', isPresent, AppColors.okFg, () => _markStudent(c, st, 'PRESENT')),
+          const SizedBox(width: AppSpace.s2),
+          _markChip('A', isAbsent, AppColors.blockFg, () => _markStudent(c, st, 'ABSENT')),
+          const SizedBox(width: AppSpace.s2),
+          _markChip('I', isInformed, AppColors.blockFg, () => _markStudent(c, st, 'INFORMED_ABSENCE')),
+        ],
+      ]),
+    );
+  }
+
+  Widget _markChip(String label, bool active, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? color : color.withValues(alpha: .12),
+          shape: BoxShape.circle,
+        ),
+        child: Text(label,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: active ? Colors.white : color)),
       ),
     );
+  }
+
+  Future<void> _markStudent(TodaysClass c, TodaysClassStudent st, String state) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    final key = '${c.eventId}:${st.studentId}';
+    if (_marking.contains(key)) return;
+    setState(() => _marking.add(key));
+    try {
+      await auth.service!.staffMarkAttendance({
+        'branch': _branch,
+        'studentId': st.studentId,
+        'state': state,
+        'workDate': c.classDate,
+        if (c.timetableId.isNotEmpty) 'timetableId': c.timetableId,
+        if (c.scheduledSessionId.isNotEmpty) 'scheduledSessionId': c.scheduledSessionId,
+      });
+      if (!mounted) return;
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('${st.name} → $state')));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiUnreachable catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _marking.remove(key));
+    }
   }
 
   Future<void> _resolve(TodaysClass c, List<String> outcomes) async {
@@ -475,6 +577,7 @@ class _ScheduleCustomScreenState extends State<_ScheduleCustomScreen> {
   bool _busy = false;
   String? _result;
   bool _ok = false;
+  List<String> _studentIds = [];
 
   static const _kinds = [
     (
@@ -525,6 +628,7 @@ class _ScheduleCustomScreenState extends State<_ScheduleCustomScreen> {
         'customKind': _kind,
         'reason': _reason.text.trim(),
         if (_original != null) 'originalEventId': _original!.eventId,
+        if (_studentIds.isNotEmpty) 'studentIds': _studentIds,
       });
       final m = r as Map<String, dynamic>;
       if (!mounted) return;
@@ -651,6 +755,28 @@ class _ScheduleCustomScreenState extends State<_ScheduleCustomScreen> {
                     controller: _time,
                     decoration: const InputDecoration(labelText: 'Start time (HH:MM)', prefixIcon: Icon(Icons.schedule)),
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Start time required' : null,
+                  ),
+                  const SizedBox(height: AppSpace.s3),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.groups_outlined, color: AppColors.muted),
+                    title: Text(
+                      _studentIds.isEmpty ? 'Students (none picked yet)' : '${_studentIds.length} student${_studentIds.length == 1 ? '' : 's'}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    trailing: TextButton(
+                      onPressed: () async {
+                        final picked = await Navigator.of(context).push<List<String>>(MaterialPageRoute(
+                          builder: (_) => StudentMultiselectScreen(
+                            branch: widget.branch,
+                            initiallySelected: _studentIds,
+                            title: 'Who is this class for?',
+                          ),
+                        ));
+                        if (picked != null && mounted) setState(() => _studentIds = picked);
+                      },
+                      child: const Text('Pick'),
+                    ),
                   ),
                   const SizedBox(height: AppSpace.s3),
                   ListTile(

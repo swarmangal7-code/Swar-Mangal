@@ -271,6 +271,41 @@ export function monthEndExclusive(month: string): string {
   return addMonths(`${month}-01`, 1);
 }
 
+// ------------------------------------------------------------ attendance gating
+/** Minutes before a session's start_time that marking opens early, so staff
+ *  already with the student can mark attendance as the class begins rather
+ *  than waiting for the exact minute. */
+export const ATTENDANCE_START_GRACE_MINUTES = 10;
+
+/** "09:05" -> 545. Shared by the attendance-reminder sweep and the
+ *  mark-attendance gate below, so both read HH:MM the same way. */
+export function hmToMinutes(hm: string): number {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hm || "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+}
+
+/** 545 -> "09:05". Inverse of hmToMinutes, clamped to a single day — a grace
+ *  window subtracted from a slot just after midnight never goes negative. */
+export function minutesToHm(minutes: number): string {
+  const clamped = Math.max(0, Math.min(1439, Math.round(minutes)));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Founder request 2026-10-09: attendance for a session can be marked once it
+ * has actually started (with a small grace window before, so staff already
+ * in the room aren't blocked for a few minutes) — but never earlier, and
+ * with no upper bound: marking stays open after the session ends too. A
+ * past date's session has unconditionally started; a future date's has not.
+ */
+export function canMarkSessionAttendance(sessionDate: string, startTime: string, today: string, nowMinutes: number): boolean {
+  if (sessionDate < today) return true;
+  if (sessionDate > today) return false;
+  return nowMinutes >= hmToMinutes(startTime) - ATTENDANCE_START_GRACE_MINUTES;
+}
+
 // ------------------------------------------------- effective-dated settings
 // Founder request 2026-10-03: payout_status_rules, teacher_percent_slabs and
 // late_fee_settings are all append-only, effective-dated tables (new rows,

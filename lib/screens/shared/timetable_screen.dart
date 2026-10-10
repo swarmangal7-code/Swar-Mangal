@@ -10,6 +10,7 @@ import '../../widgets/anim.dart';
 import '../../widgets/atoms.dart';
 import 'closures_screen.dart';
 import 'export_share_dialog.dart';
+import 'student_multiselect_screen.dart';
 
 /// Branch timetable — day selector + per-day class cards, weekly view.
 /// Both roles edit (add/edit/enable-disable/delete).
@@ -334,6 +335,8 @@ class _TimetableScreenState extends State<TimetableScreen> with SyncAware {
           Navigator.pop(ctx);
           _delete(e);
         },
+        canEdit: canEdit,
+        onAssignStudents: (studentIds) => auth.service!.timetableAssignStudents(timetableId: e.id, studentIds: studentIds),
       ),
     );
   }
@@ -737,17 +740,39 @@ const _attendanceLabels = {
 /// Founder request 2026-09-28: tapping a calendar session shows teacher
 /// attendance (with the reason if absent) and student attendance by name.
 class _SessionDetailSheet extends StatefulWidget {
-  const _SessionDetailSheet({required this.entry, required this.loader, required this.onEdit, required this.onDelete});
+  const _SessionDetailSheet({
+    required this.entry,
+    required this.loader,
+    required this.onEdit,
+    required this.onDelete,
+    this.canEdit = false,
+    this.onAssignStudents,
+  });
   final TimetableWeekEntry entry;
   final Future<TimetableSessionDetail> Function() loader;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final bool canEdit;
+  final Future<void> Function(List<String> studentIds)? onAssignStudents;
   @override
   State<_SessionDetailSheet> createState() => _SessionDetailSheetState();
 }
 
 class _SessionDetailSheetState extends State<_SessionDetailSheet> {
-  late final Future<TimetableSessionDetail> _future = widget.loader();
+  late Future<TimetableSessionDetail> _future = widget.loader();
+
+  Future<void> _manageStudents(List<String> current) async {
+    final picked = await Navigator.of(context).push<List<String>>(MaterialPageRoute(
+      builder: (_) => StudentMultiselectScreen(
+        branch: widget.entry.branch,
+        initiallySelected: current,
+        title: 'Students in ${widget.entry.className}',
+      ),
+    ));
+    if (picked == null || widget.onAssignStudents == null) return;
+    await widget.onAssignStudents!(picked);
+    setState(() => _future = widget.loader());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -801,7 +826,15 @@ class _SessionDetailSheetState extends State<_SessionDetailSheet> {
                     ),
                   ),
                   const SizedBox(height: AppSpace.s3),
-                  SectionTitle('Students (${snap.data!.students.length})'),
+                  Row(children: [
+                    Expanded(child: SectionTitle('Students (${snap.data!.students.length})')),
+                    if (widget.canEdit)
+                      TextButton.icon(
+                        onPressed: () => _manageStudents(snap.data!.students.map((s) => s.studentId).toList()),
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        label: const Text('Manage'),
+                      ),
+                  ]),
                   if (snap.data!.students.isEmpty)
                     Text('No students matched to this class yet.',
                         style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted)))

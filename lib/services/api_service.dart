@@ -26,10 +26,19 @@ class ApiService {
   }
 
   // ------------------------------------------------------------- students
-  Future<List<Student>> searchStudents(String q, {String classCode = 'ALL'}) async {
+  Future<List<Student>> searchStudents(
+    String q, {
+    String classCode = 'ALL',
+    String instrument = 'ALL',
+    String teacherId = 'ALL',
+    String feeState = 'ALL',
+  }) async {
     final b = await _api.call('api_searchStudent', {
       'q': q,
       'classCode': classCode,
+      'instrument': instrument,
+      'teacherId': teacherId,
+      'feeState': feeState,
       'includeAll': true,
     });
     return ((b as Map)['results'] as List?)
@@ -39,10 +48,19 @@ class ApiService {
         [];
   }
 
-  Future<List<Student>> staffSearchStudents(String q, {String branch = 'ALL'}) async {
+  Future<List<Student>> staffSearchStudents(
+    String q, {
+    String branch = 'ALL',
+    String instrument = 'ALL',
+    String teacherId = 'ALL',
+    String feeState = 'ALL',
+  }) async {
     final b = await _api.call('api_staff_searchStudents', {
       'q': q,
       'branch': branch,
+      'instrument': instrument,
+      'teacherId': teacherId,
+      'feeState': feeState,
       'includeAll': true,
     });
     // Staff API returns `rows` not `results`
@@ -343,6 +361,10 @@ class ApiService {
     final b = (await _api.call('api_timetableSessionDetail', {'timetableId': timetableId, 'date': date})) as Map;
     return TimetableSessionDetail.fromApi(b.cast<String, dynamic>());
   }
+
+  /// Replace-all: the given list becomes the slot's entire assigned roster.
+  Future<dynamic> timetableAssignStudents({required String timetableId, required List<String> studentIds}) =>
+      _api.call('api_timetableAssignStudents', {'timetableId': timetableId, 'studentIds': studentIds});
 
 // -------------------------------------------------------------- teachers
   Future<List<Teacher>> listTeachers() async {

@@ -1,6 +1,6 @@
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
-import { s, n, d, newId, newPersonId, nextDocSeq, peekNextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts, parseExtraCharges, schoolInvoiceCharges, type ExtraCharge } from "@/lib/rpc/shared";
+import { s, n, d, newId, newPersonId, nextDocSeq, peekNextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts, parseExtraCharges, schoolInvoiceCharges, type AcadStudent, type ExtraCharge } from "@/lib/rpc/shared";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo, billingMonthRange } from "@/lib/rpc/numbering";
 import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, accruedLateFee, type FeeState, type LateFeeSetting } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
@@ -27,10 +27,14 @@ import {
   EXPECTED_EVENTS_FLOOR,
   TERMINAL_INQUIRY_STATUSES,
   addDays,
+  ATTENDANCE_START_GRACE_MINUTES,
+  canMarkSessionAttendance,
   customSessionRefusal,
   earningBaseFromEnv,
   excludedReceiptSql,
   expenseCategoryRefusal,
+  hmToMinutes,
+  minutesToHm,
   inquiryFinalStatus,
   INQUIRY_DORMANT_AFTER_DAYS,
   isBackdated,
@@ -46,7 +50,7 @@ import {
   type TeacherPercentSlab,
 } from "@/lib/rpc/rules";
 import { closedMonthRefusal, expectedClassesBetween, governanceApprovalItems } from "@/lib/rpc/governance";
-import { notifyFounderApproval, notifyStaffDecision } from "@/lib/push/notify";
+import { notifyFounderApproval, notifyRequesterDecision } from "@/lib/push/notify";
 
 const ok = (extra: Record<string, unknown> = {}) => ({ ok: true, ...extra });
 
@@ -146,6 +150,8 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return timetableWeek(arg, scope);
     case "api_timetableSessionDetail":
       return timetableSessionDetail(arg, scope);
+    case "api_timetableAssignStudents":
+      return timetableAssignStudents(arg, scope);
     case "api_staff_grantRecoveryCredit":
       return grantRecoveryCredit(arg, scope, session);
     case "api_staff_listRecoveryCredits":
@@ -235,11 +241,6 @@ async function sendDailyDigest(): Promise<Record<string, unknown>> {
 const ATTENDANCE_REMINDER_LEAD_MINUTES = 15;
 const ATTENDANCE_REMINDER_THROTTLE_MINUTES = 20;
 const ATTENDANCE_IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-
-function hmToMinutes(hm: string): number {
-  const m = /^(\d{1,2}):(\d{2})/.exec(hm);
-  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
-}
 
 /**
  * Nudge a branch's staff to mark attendance (class outcome + per-student) for
@@ -726,9 +727,9 @@ async function addTeacherRequestApprove(arg: Record<string, unknown>, session?: 
   if (!id) return { ok: false, code: "REQUEST_ID_REQUIRED", error: "Pick the request." };
   const req = await queryOne<{
     id: string; action: string; teacher_id: string; teacher_name: string; phone: string; email: string;
-    primary_role: string; status: string; lifecycle_status: string; status_reason: string; branch: string;
+    primary_role: string; status: string; lifecycle_status: string; status_reason: string; branch: string; submitted_by: string;
   }>(
-    `select id, action, teacher_id, teacher_name, phone, email, primary_role, status, lifecycle_status, status_reason, branch from teacher_add_requests where id = $1`,
+    `select id, action, teacher_id, teacher_name, phone, email, primary_role, status, lifecycle_status, status_reason, branch, submitted_by from teacher_add_requests where id = $1`,
     [id],
   );
   if (!req) return { ok: false, code: "NOT_FOUND", error: `No teacher request ${id}` };
@@ -763,7 +764,8 @@ async function addTeacherRequestApprove(arg: Record<string, unknown>, session?: 
   await bumpRevisions(["approvals", "teachers", "inquiries"]);
   const isEdit = s(req.action) === "EDIT";
   if (req.branch) {
-    notifyStaffDecision(
+    notifyRequesterDecision(
+      req.submitted_by,
       recordBranch(req.branch),
       "Teacher change",
       isEdit ? "approved and applied" : "approved — teacher added",
@@ -778,14 +780,14 @@ async function addTeacherRequestReject(arg: Record<string, unknown>, session?: R
   const reason = s(arg["reason"]).trim();
   if (!id) return { ok: false, code: "REQUEST_ID_REQUIRED", error: "Pick the request." };
   if (!reason) return { ok: false, code: "REASON_REQUIRED", error: "Say why this teacher isn't being added." };
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update teacher_add_requests set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [id, session?.email ?? "", reason],
   );
   if (!rows.length) return { ok: false, code: "NOT_FOUND", error: `No pending teacher request ${id}` };
   await bumpRevisions(["approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Teacher change", "rejected — see the reason", id);
+  if (rows[0].branch) notifyRequesterDecision(rows[0].submitted_by, recordBranch(rows[0].branch), "Teacher change", "rejected — see the reason", id);
   return ok({ requestId: id, changed: true, status: "REJECTED" });
 }
 
@@ -1755,12 +1757,12 @@ async function expenseDraftApprove(arg: Record<string, unknown>, session?: RpcSe
       `update expense_drafts set status = 'APPROVED', decided_by = $2, decided_at = now(), expense_id = $3, ledger_id = $4 where id = $1`,
       [draftId, session?.email ?? "", expenseId, ledgerId],
     );
-    return ok({ changed: true, draftId, status: "APPROVED", expenseId, ledgerId, amount, branch: s(draft.branch), note: "expense recorded and posted to the cashbook" });
+    return ok({ changed: true, draftId, status: "APPROVED", expenseId, ledgerId, amount, branch: s(draft.branch), submittedBy: s(draft.submitted_by), note: "expense recorded and posted to the cashbook" });
   });
   if (result["ok"] === true && result["changed"] === true) {
     await bumpRevisions(["expenses", "approvals", "dashboard"]);
     const branch = s(result["branch"]);
-    if (branch) notifyStaffDecision(recordBranch(branch), "Expense", "approved and posted", draftId);
+    if (branch) notifyRequesterDecision(s(result["submittedBy"]), recordBranch(branch), "Expense", "approved and posted", draftId);
   }
   return result;
 }
@@ -1769,14 +1771,14 @@ async function expenseDraftReject(arg: Record<string, unknown>, session?: RpcSes
   const draftId = s(arg["draftId"] ?? arg["itemId"]);
   const reason = s(arg["reason"] ?? arg["comment"]);
   if (!draftId) return { ok: false, code: "NO_DRAFT", error: "draftId required" };
-  const rows = await query<{ id: string; branch: string }>(
+  const rows = await query<{ id: string; branch: string; submitted_by: string }>(
     `update expense_drafts set status = 'REJECTED', decided_by = $2, decided_at = now(), decision_note = $3
-     where id = $1 and status = 'SUBMITTED' returning id, branch`,
+     where id = $1 and status = 'SUBMITTED' returning id, branch, submitted_by`,
     [draftId, session?.email ?? "", reason || null],
   );
   if (!rows.length) return { ok: false, code: "NOT_FOUND", error: `No pending expense draft ${draftId}` };
   await bumpRevisions(["expenses", "approvals"]);
-  if (rows[0].branch) notifyStaffDecision(recordBranch(rows[0].branch), "Expense", "rejected — see the reason", draftId);
+  if (rows[0].branch) notifyRequesterDecision(rows[0].submitted_by, recordBranch(rows[0].branch), "Expense", "rejected — see the reason", draftId);
   return ok({ changed: true, draftId, status: "REJECTED", note: reason || "rejected" });
 }
 
@@ -2357,11 +2359,33 @@ async function timetableWeek(arg: Record<string, unknown>, scope: BranchScope): 
 }
 
 /**
+ * A slot's real, staff-assigned roster (timetable_students), falling back to
+ * the old instrument+branch inference only when nothing has been assigned
+ * yet — covers the rollout gap for a slot the backfill missed or a brand
+ * new slot nobody has assigned students to, rather than ever showing a
+ * previously-populated roster as suddenly empty.
+ */
+async function timetableRoster(timetableId: string, base: Record<string, unknown>): Promise<AcadStudent[]> {
+  const assigned = await query<{ student_id: string }>(`select student_id from timetable_students where timetable_id = $1`, [timetableId]);
+  const students = await acadStudents();
+  if (assigned.length) {
+    const ids = new Set(assigned.map((r) => r.student_id));
+    return students.filter((x) => ids.has(x.id) && s(x.status).toUpperCase() === "ACTIVE");
+  }
+  return students.filter(
+    (x) =>
+      s(x.status).toUpperCase() === "ACTIVE" &&
+      recordBranch(x.branch) === recordBranch(s(base.branch)) &&
+      s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase(),
+  );
+}
+
+/**
  * Click-through detail for one calendar session: teacher attendance (from
  * the existing Today's Classes outcome/reason model — unaffected by
  * week-scoped edits since it is keyed by the base timetable id + real
- * date) plus the student roster for that slot's instrument/branch, each
- * marked PRESENT/ABSENT/etc if already recorded for this specific session.
+ * date) plus the slot's assigned student roster, each marked
+ * PRESENT/ABSENT/etc if already recorded for this specific session.
  */
 async function timetableSessionDetail(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const timetableId = s(arg["timetableId"]);
@@ -2372,9 +2396,9 @@ async function timetableSessionDetail(arg: Record<string, unknown>, scope: Branc
   if (!inScope(scope, base.branch)) return branchForbidden(recordBranch(base.branch));
 
   const eventId = `E-${date}-${timetableId}`;
-  const [session, students, marks] = await Promise.all([
+  const [session, roster, marks] = await Promise.all([
     queryOne<Record<string, unknown>>(`select * from scheduled_sessions where id = $1`, [eventId]),
-    acadStudents(),
+    timetableRoster(timetableId, base),
     query<{ student_id: string; status: string; absence_reason: string | null }>(
       `select student_id, status, absence_reason from attendance_acad where timetable_id = $1 and session_date = $2`,
       [timetableId, date],
@@ -2382,12 +2406,6 @@ async function timetableSessionDetail(arg: Record<string, unknown>, scope: Branc
   ]);
   const statusOf = new Map(marks.map((m) => [m.student_id, s(m.status).toUpperCase()]));
   const reasonOf = new Map(marks.map((m) => [m.student_id, s(m.absence_reason)]));
-  const roster = students.filter(
-    (x) =>
-      s(x.status).toUpperCase() === "ACTIVE" &&
-      recordBranch(x.branch) === recordBranch(s(base.branch)) &&
-      s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase(),
-  );
 
   return ok({
     slot: {
@@ -2414,6 +2432,34 @@ async function timetableSessionDetail(arg: Record<string, unknown>, scope: Branc
       absenceReason: reasonOf.get(st.studentId) || "",
     })),
   });
+}
+
+/**
+ * Staff/founder replace-all assignment of students to a recurring timetable
+ * slot — the real roster `timetableRoster()` and `todaysClasses()` read,
+ * replacing the instrument+branch inference this slot used before. A plain
+ * delete+insert inside one transaction: simpler than diffing and the list is
+ * always small (one class's worth of students), so there's no reason to
+ * preserve row identity across an edit.
+ */
+async function timetableAssignStudents(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const timetableId = s(arg["timetableId"]).trim();
+  if (!timetableId) return { ok: false, code: "TIMETABLE_ID_REQUIRED", error: "Pick the class slot." };
+  const base = await queryOne<{ branch: string }>(`select branch from timetable where id = $1`, [timetableId]);
+  if (!base) return { ok: false, code: "NOT_FOUND", error: `No timetable slot ${timetableId}` };
+  if (!inScope(scope, base.branch)) return branchForbidden(recordBranch(base.branch));
+  const studentIds = Array.isArray(arg["studentIds"]) ? (arg["studentIds"] as unknown[]).map((x) => s(x)).filter(Boolean) : [];
+  await withTransaction(async (tx) => {
+    await tx.query(`delete from timetable_students where timetable_id = $1`, [timetableId]);
+    for (const studentId of studentIds) {
+      await tx.query(
+        `insert into timetable_students (timetable_id, student_id) values ($1,$2) on conflict do nothing`,
+        [timetableId, studentId],
+      );
+    }
+  });
+  await bumpRevisions(["sessions", "students"]);
+  return ok({ timetableId, studentCount: studentIds.length });
 }
 
 // -------------------------------------------------------- attendance / today
@@ -2484,10 +2530,33 @@ async function markAttendance(arg: Record<string, unknown>, scope: BranchScope, 
   }
   const lockedAttendance = await closedMonthRefusal(date);
   if (lockedAttendance) return lockedAttendance;
-  // Set when marking is launched from a Timetable session's click-through,
-  // so this mark is findable by that specific slot later (api_timetableSessionDetail)
-  // rather than only by student+date.
+  // Set when marking is launched from a Timetable session's click-through or
+  // from Today's Classes, so this mark is findable by that specific slot
+  // later (api_timetableSessionDetail) rather than only by student+date.
   const timetableId = s(arg["timetableId"]).trim() || null;
+  const scheduledSessionId = s(arg["scheduledSessionId"]).trim() || null;
+  // Founder request 2026-10-09: today's attendance is only ever marked from
+  // a specific session (Today's Classes), never the whole-day roster — that
+  // is what makes the start-time gate below meaningful. A backdated
+  // correction (date < today) has no such requirement; it already needs its
+  // own typed reason above.
+  if (date === today && !timetableId && !scheduledSessionId) {
+    return { ok: false, code: "SESSION_CONTEXT_REQUIRED", error: "Mark today's attendance from Today's Classes, not here." };
+  }
+  if (date === today && (timetableId || scheduledSessionId)) {
+    const startTime = timetableId
+      ? s((await queryOne<{ start_time: string }>(`select start_time from timetable where id = $1`, [timetableId]))?.start_time)
+      : s((await queryOne<{ start_time: string }>(`select start_time from scheduled_sessions where id = $1`, [scheduledSessionId]))?.start_time);
+    const nowMinutes = Math.floor((Date.now() + ATTENDANCE_IST_OFFSET_MS) / 60000) % 1440;
+    if (startTime && !canMarkSessionAttendance(date, startTime, today, nowMinutes)) {
+      return {
+        ok: false,
+        code: "SESSION_NOT_STARTED",
+        error: `This class hasn't started yet. Attendance opens at ${minutesToHm(hmToMinutes(startTime) - ATTENDANCE_START_GRACE_MINUTES)}.`,
+        opensAt: minutesToHm(hmToMinutes(startTime) - ATTENDANCE_START_GRACE_MINUTES),
+      };
+    }
+  }
   const students = new Map<string, Awaited<ReturnType<typeof acadStudentById>>>();
   for (const e of entries) {
     const student = await acadStudentById(e.studentId);
@@ -2508,13 +2577,13 @@ async function markAttendance(arg: Record<string, unknown>, scope: BranchScope, 
     // adding a second row.
     await query(
       `insert into attendance_acad (id, session_date, student_id, student_name, teacher_id, teacher_name, instrument, status,
-                                    backdated_reason, recorded_by, recorded_at, timetable_id, absence_reason)
-       values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11,$12)
+                                    backdated_reason, recorded_by, recorded_at, timetable_id, absence_reason, scheduled_session_id)
+       values ($1,$2::date,$3,$4,$5,$6,$7,$8,$9,$10,now(),$11,$12,$13)
        on conflict (id) do update set status = excluded.status, backdated_reason = coalesce(excluded.backdated_reason, attendance_acad.backdated_reason),
          recorded_by = excluded.recorded_by, recorded_at = now(), timetable_id = coalesce(excluded.timetable_id, attendance_acad.timetable_id),
-         absence_reason = excluded.absence_reason`,
+         absence_reason = excluded.absence_reason, scheduled_session_id = coalesce(excluded.scheduled_session_id, attendance_acad.scheduled_session_id)`,
       [`ATT-${e.studentId}-${date}`, date, e.studentId, student!.name, s(teacher?.teacher_id), s(teacher?.teacher_name), s(student!.instrument), e.status.toUpperCase(),
-       backdatedReason || null, session?.deviceLabel || session?.email || "", timetableId, e.absenceReason || null],
+       backdatedReason || null, session?.deviceLabel || session?.email || "", timetableId, e.absenceReason || null, scheduledSessionId],
     );
   }
   await bumpRevisions(["attendance", "sessions", "tasks", "dashboard"]);
@@ -2610,41 +2679,109 @@ function mondayIndex(date: string): number {
 async function todaysClasses(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const date = isoDate(arg["date"]) || todayIso();
   const branch = s(arg["branch"] ?? "ALL");
-  const [tt, sessions] = await Promise.all([
+  const today = todayIso();
+  const nowMinutes = Math.floor((Date.now() + ATTENDANCE_IST_OFFSET_MS) / 60000) % 1440;
+  const [tt, sessions, allStudents, timetableAssignments, sessionAssignments, marks] = await Promise.all([
     query<Record<string, unknown>>(
       `select * from timetable where status = 'ENABLED' and day_of_week = $1 order by start_time`,
       [mondayIndex(date)],
     ),
     query<Record<string, unknown>>(`select * from scheduled_sessions where session_date = $1`, [date]),
+    acadStudents(),
+    query<{ timetable_id: string; student_id: string }>(`select timetable_id, student_id from timetable_students`),
+    query<{ scheduled_session_id: string; student_id: string }>(`select scheduled_session_id, student_id from scheduled_session_students`),
+    query<{ student_id: string; status: string; timetable_id: string | null; scheduled_session_id: string | null }>(
+      `select student_id, status, timetable_id, scheduled_session_id from attendance_acad where session_date = $1`,
+      [date],
+    ),
   ]);
   const byId = new Map(sessions.map((r) => [s(r.id), r]));
+  const studentsById = new Map(allStudents.map((x) => [x.id, x]));
+  const byTimetable = new Map<string, string[]>();
+  for (const r of timetableAssignments) {
+    const list = byTimetable.get(r.timetable_id) ?? [];
+    list.push(r.student_id);
+    byTimetable.set(r.timetable_id, list);
+  }
+  const bySession = new Map<string, string[]>();
+  for (const r of sessionAssignments) {
+    const list = bySession.get(r.scheduled_session_id) ?? [];
+    list.push(r.student_id);
+    bySession.set(r.scheduled_session_id, list);
+  }
+  const markByTimetable = new Map<string, string>();
+  const markBySession = new Map<string, string>();
+  for (const m of marks) {
+    if (m.timetable_id) markByTimetable.set(`${m.timetable_id}:${m.student_id}`, s(m.status).toUpperCase());
+    if (m.scheduled_session_id) markBySession.set(`${m.scheduled_session_id}:${m.student_id}`, s(m.status).toUpperCase());
+  }
 
-  const view = (eventId: string, base: Record<string, unknown>, rec: Record<string, unknown> | undefined) => ({
-    eventId,
-    classDate: date,
-    startTime: s(base.start_time),
-    teacherId: s(base.teacher_id),
-    teacherName: s(base.teacher_name),
-    branch: s(base.branch),
-    course: s(base.class_name ?? base.course),
-    outcome: s(rec?.outcome),
-    deliveredBy: s(rec?.delivered_by),
-    payeeTeacherId: s(rec?.payee_teacher_id),
-    entryDate: rec?.created_at ? String(rec.created_at).slice(0, 10) : "",
-    recordedBy: s(rec?.recorded_by),
-    evidenceClass: s(rec?.evidence_class),
-    evidenceReason: s(rec?.late_reason ?? rec?.evidence_reason),
-    notRequired: rec?.not_required === true,
-    closureId: "",
-    closureReason: s(rec?.closure_reason),
-    customKind: s(rec?.custom_kind),
-    customReason: s(rec?.custom_reason),
-    payable: rec?.payable === true,
-    originalEventId: s(rec?.original_event_id),
-    replacementEventId: s(rec?.replacement_event_id),
-    resolved: rec?.resolved === true,
-    answerable: rec?.resolved !== true,
-  });
+  const rosterFor = (timetableId: string | null, scheduledSessionId: string | null, base: Record<string, unknown>): string[] => {
+    if (timetableId) {
+      const assigned = byTimetable.get(timetableId);
+      if (assigned?.length) return assigned;
+      // Rollout-gap fallback — see timetableRoster()'s identical reasoning.
+      return allStudents
+        .filter(
+          (x) =>
+            s(x.status).toUpperCase() === "ACTIVE" &&
+            recordBranch(x.branch) === recordBranch(s(base.branch)) &&
+            s(x.instrument).toUpperCase() === s(base.class_name).toUpperCase(),
+        )
+        .map((x) => x.id);
+    }
+    if (scheduledSessionId) return bySession.get(scheduledSessionId) ?? [];
+    return [];
+  };
+
+  const view = (eventId: string, base: Record<string, unknown>, rec: Record<string, unknown> | undefined) => {
+    const timetableId = eventId.startsWith("E-") ? s(base.id) : null;
+    const scheduledSessionId = !timetableId ? eventId : null;
+    const studentIds = rosterFor(timetableId, scheduledSessionId, base);
+    const markKey = timetableId ? markByTimetable : markBySession;
+    const markPrefix = timetableId ?? scheduledSessionId ?? "";
+    const students = studentIds
+      .map((id) => studentsById.get(id))
+      .filter((x): x is AcadStudent => !!x)
+      .map((x) => ({
+        studentId: x.id,
+        name: x.name,
+        instrument: x.instrument,
+        status: markKey.get(`${markPrefix}:${x.id}`) ?? "NOT_MARKED",
+      }));
+    const startTime = s(base.start_time);
+    return {
+      eventId,
+      classDate: date,
+      startTime,
+      teacherId: s(base.teacher_id),
+      teacherName: s(base.teacher_name),
+      branch: s(base.branch),
+      course: s(base.class_name ?? base.course),
+      outcome: s(rec?.outcome),
+      deliveredBy: s(rec?.delivered_by),
+      payeeTeacherId: s(rec?.payee_teacher_id),
+      entryDate: rec?.created_at ? String(rec.created_at).slice(0, 10) : "",
+      recordedBy: s(rec?.recorded_by),
+      evidenceClass: s(rec?.evidence_class),
+      evidenceReason: s(rec?.late_reason ?? rec?.evidence_reason),
+      notRequired: rec?.not_required === true,
+      closureId: "",
+      closureReason: s(rec?.closure_reason),
+      customKind: s(rec?.custom_kind),
+      customReason: s(rec?.custom_reason),
+      payable: rec?.payable === true,
+      originalEventId: s(rec?.original_event_id),
+      replacementEventId: s(rec?.replacement_event_id),
+      resolved: rec?.resolved === true,
+      answerable: rec?.resolved !== true,
+      timetableId: timetableId ?? "",
+      scheduledSessionId: scheduledSessionId ?? "",
+      students,
+      canMarkAttendance: canMarkSessionAttendance(date, startTime, today, nowMinutes),
+      attendanceOpensAt: minutesToHm(hmToMinutes(startTime) - ATTENDANCE_START_GRACE_MINUTES),
+    };
+  };
 
   // Stable id: the timetable row, not its position in the list.
   const rows = tt.map((r) => {
@@ -2790,6 +2927,7 @@ async function scheduleSession(arg: Record<string, unknown>, scope: BranchScope)
   const teacher = teacherId ? await acadTeacherById(teacherId) : null;
   if (teacherId && !teacher) return { ok: false, code: "TEACHER_NOT_FOUND", error: `No teacher ${teacherId}` };
   const id = newId("SCSS");
+  const studentIds = Array.isArray(arg["studentIds"]) ? (arg["studentIds"] as unknown[]).map((x) => s(x)).filter(Boolean) : [];
   await withTransaction(async (tx) => {
     // Payable is always NO here: an extra class that silently pays is money
     // leaving on nobody's decision (brief §10.2).
@@ -2801,6 +2939,12 @@ async function scheduleSession(arg: Record<string, unknown>, scope: BranchScope)
     );
     if (originalEventId && kind === "REPLACEMENT") {
       await tx.query(`update scheduled_sessions set replacement_event_id = $2 where id = $1`, [originalEventId, id]);
+    }
+    for (const studentId of studentIds) {
+      await tx.query(
+        `insert into scheduled_session_students (scheduled_session_id, student_id) values ($1,$2) on conflict do nothing`,
+        [id, studentId],
+      );
     }
   });
   await bumpRevisions(["sessions", "tasks"]);

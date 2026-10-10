@@ -755,6 +755,27 @@ class TaskCard {
   bool get needsAttention => state == 'ATTENTION' || (count ?? 0) > 0;
 }
 
+/// One student on a Today's Classes session roster, with their attendance
+/// mark for that session's date (NOT_MARKED until staff/founder tap one).
+class TodaysClassStudent {
+  TodaysClassStudent({
+    required this.studentId,
+    required this.name,
+    required this.instrument,
+    required this.status,
+  });
+  factory TodaysClassStudent.fromApi(Map<String, dynamic> b) => TodaysClassStudent(
+        studentId: _s(b['studentId']),
+        name: _s(b['name']),
+        instrument: _s(b['instrument']),
+        status: _s(b['status']).isEmpty ? 'NOT_MARKED' : _s(b['status']),
+      );
+  final String studentId;
+  final String name;
+  final String instrument;
+  final String status;
+}
+
 class TodaysClass {
   TodaysClass({
     required this.eventId,
@@ -777,6 +798,11 @@ class TodaysClass {
     required this.customReason,
     required this.resolved,
     required this.answerable,
+    this.timetableId = '',
+    this.scheduledSessionId = '',
+    this.students = const [],
+    this.canMarkAttendance = false,
+    this.attendanceOpensAt = '',
   });
   factory TodaysClass.fromApi(Map<String, dynamic> b) => TodaysClass(
         eventId: _s(b['eventId']),
@@ -799,6 +825,14 @@ class TodaysClass {
         customReason: _s(b['customReason']),
         resolved: b['resolved'] == true,
         answerable: b['answerable'] == true,
+        timetableId: _s(b['timetableId']),
+        scheduledSessionId: _s(b['scheduledSessionId']),
+        students: ((b['students'] as List?) ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .map(TodaysClassStudent.fromApi)
+            .toList(),
+        canMarkAttendance: b['canMarkAttendance'] == true,
+        attendanceOpensAt: _s(b['attendanceOpensAt']),
       );
   final String eventId;
   final String classDate;
@@ -820,6 +854,11 @@ class TodaysClass {
   final String customReason;
   final bool resolved;
   final bool answerable;
+  final String timetableId;
+  final String scheduledSessionId;
+  final List<TodaysClassStudent> students;
+  final bool canMarkAttendance;
+  final String attendanceOpensAt;
 
   bool get isHeld => outcome.toUpperCase() == 'HELD';
   bool get isCancelled => ['TEACHER_CANCELLED', 'ACADEMY_CANCELLED'].contains(outcome.toUpperCase());

@@ -338,6 +338,22 @@ void main() {
       }
     });
 
+    test('TodaysClass.fromApi parses each session\'s assigned students and attendance gate', () async {
+      final b = await call('api_staff_todaysClasses', {'branch': 'GOREGAON', 'date': '2026-09-11'});
+      final o = TodaysClassOptions.fromApi(b);
+      final withStudents = o.rows.where((c) => c.students.isNotEmpty).toList();
+      expect(withStudents, isNotEmpty, reason: 'at least one demo session should carry a roster');
+      final first = withStudents.first;
+      expect(first.students.first.studentId, isNotEmpty);
+      expect(first.students.first.name, isNotEmpty);
+      // Gated row: not yet markable, and names when it opens.
+      final gated = o.rows.firstWhere((c) => !c.canMarkAttendance);
+      expect(gated.attendanceOpensAt, isNotEmpty);
+      // Open row: markable now.
+      final open = o.rows.firstWhere((c) => c.canMarkAttendance);
+      expect(open.timetableId, isNotEmpty);
+    });
+
     test('TaskCard.fromApi parses today cards', () async {
       final b = await call('api_staff_todaysTasks', {'branch': 'GOREGAON'});
       final c = TaskCard.fromApi((b['cards'] as List).cast<Map<String, dynamic>>().first);

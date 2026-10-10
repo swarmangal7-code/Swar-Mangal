@@ -183,45 +183,42 @@ class PushService {
         // Founder-only destination regardless of who is signed in on this
         // device — matches notifyFounderApproval, which only ever pages the
         // founder's token.
-        target = ApprovalsScreen(highlightItemId: ref.isEmpty ? null : ref);
+        target = _chrome('Approvals', ApprovalsScreen(highlightItemId: ref.isEmpty ? null : ref));
         break;
       case 'MY_REQUESTS':
-        target = MyRequestsScreen(highlightItemId: ref.isEmpty ? null : ref);
+        target = _chrome('My requests', MyRequestsScreen(highlightItemId: ref.isEmpty ? null : ref));
         break;
       case 'TEACHERS':
         target = ref.isEmpty ? null : TeacherProfileScreen(teacherId: ref, staff: isStaff);
         break;
       case 'INQUIRIES':
-        target = ref.isEmpty ? InquiriesScreen() : InquiryProfileScreen(inquiryId: ref);
+        target = ref.isEmpty
+            ? _chrome('Inquiries', InquiriesScreen())
+            : InquiryProfileScreen(inquiryId: ref);
         break;
       case 'STUDENT_PROFILE':
         // No lightweight studentId -> Student lookup is wired here yet, and
         // StudentProfileScreen needs the full Student object — land on the
         // list rather than guess. Known gap, see push_service.dart report.
-        target = StudentsScreen(staff: isStaff);
+        target = _chrome('Students', StudentsScreen(staff: isStaff));
         break;
       case 'PAYOUTS':
-        target = const PayoutPreviewScreen();
+        target = _chrome('Payouts', const PayoutPreviewScreen());
         break;
       case 'TIMETABLE':
         target = TimetableScreen(staff: isStaff);
         break;
       case 'TODAYS_CLASSES':
-        // Unlike the shell-embedded screens above, this one has no Scaffold
-        // of its own (it expects the bottom-nav shell to supply the AppBar
-        // and chrome) -- pushed bare, it renders with no app bar and no way
-        // back to the rest of the app. Same wrapper dashboard_screen.dart
-        // already uses when it pushes this screen outside the shell.
-        target = Scaffold(appBar: AppBar(title: const Text("Today's Classes")), body: const TodaysClassesScreen());
+        target = _chrome("Today's Classes", const TodaysClassesScreen());
         break;
       case 'SCHOOL_INVOICE':
         target = SchoolInvoiceScreen(staff: isStaff);
         break;
       case 'EXPENSES':
-        target = ExpensesScreen(staff: isStaff);
+        target = _chrome('Expenses', ExpensesScreen(staff: isStaff));
         break;
       case 'RECEIPTS':
-        target = ReceiptsScreen(staff: isStaff);
+        target = _chrome('Receipts', ReceiptsScreen(staff: isStaff));
         break;
       case 'HOME':
       default:
@@ -231,6 +228,19 @@ class PushService {
     if (target == null) return;
     navigator.push(MaterialPageRoute(builder: (_) => target!));
   }
+
+  /// Several destination screens (Approvals, My Requests, Students, Expenses,
+  /// Inquiries, Payouts, Receipts, Today's Classes) are written as bare
+  /// bodies that rely on the bottom-nav shell (`shell_nav.dart`) to supply
+  /// their Scaffold, AppBar and back button — that's what makes them scroll
+  /// and respond to touches at all when shown as a shell tab. Pushed
+  /// directly on top of the navigator (as every notification tap does), the
+  /// shell is bypassed entirely, so without this wrapper the pushed route's
+  /// root has no Scaffold/Material of its own: it renders, but with no way
+  /// back and with broken scroll/touch handling — exactly what "opens but
+  /// isn't interactive" looks like from the outside.
+  Widget _chrome(String title, Widget body) =>
+      Scaffold(appBar: AppBar(title: Text(title)), body: body);
 
   /// Android does not show a "notification" payload's system banner while
   /// the app is in the foreground (by design) — show it ourselves so

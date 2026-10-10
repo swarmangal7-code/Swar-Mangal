@@ -1893,3 +1893,31 @@ alter table school_invoices_rpc add column if not exists voided_at timestamptz;
 -- a human-readable name for it, since a group jid means nothing in a list —
 -- normalizeIndianMobile() can't mask it like a real phone number.
 alter table wa_messages add column if not exists to_group_subject text;
+
+-- ============================================================
+-- Founder request 2026-10-09: Today's Classes shows each session's assigned
+-- students and is the only place attendance is marked for today, gated to
+-- the session's own start time. Before this, a slot's roster was always
+-- INFERRED at read time (instrument+branch text match, see
+-- timetableSessionDetail) rather than a real assignment — these two tables
+-- are that real assignment, one per session origin (a recurring weekly slot
+-- vs. an ad-hoc/make-up session scheduled via scheduleSession).
+-- ============================================================
+create table if not exists timetable_students (
+  timetable_id text not null references timetable(id) on delete cascade,
+  student_id text not null references students_acad(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (timetable_id, student_id)
+);
+
+create table if not exists scheduled_session_students (
+  scheduled_session_id text not null references scheduled_sessions(id) on delete cascade,
+  student_id text not null references students_acad(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (scheduled_session_id, student_id)
+);
+
+-- Tags an attendance mark made against an ad-hoc session, mirroring the
+-- existing timetable_id column (line ~1494) for a recurring slot. Nullable:
+-- a mark made from the old whole-day Attendance screen has neither.
+alter table attendance_acad add column if not exists scheduled_session_id text;

@@ -6,7 +6,7 @@ import { query } from "@/lib/db";
 import { recordBranch } from "@/lib/rpc/scope";
 import { pushEnabled, sendPush } from "./fcm";
 
-type Audience = "FOUNDER" | "ALL_STAFF" | { branch: string };
+type Audience = "FOUNDER" | "ALL_STAFF" | { branch: string } | { submitter: string };
 
 async function tokensFor(audience: Audience): Promise<string[]> {
   if (audience === "FOUNDER") {
@@ -15,6 +15,19 @@ async function tokensFor(audience: Audience): Promise<string[]> {
   }
   if (audience === "ALL_STAFF") {
     const rows = await query<{ fcm_token: string }>(`select fcm_token from push_tokens where role = 'OPS_USER'`);
+    return rows.map((r) => r.fcm_token);
+  }
+  if ("submitter" in audience) {
+    // submitted_by is always session.email || session.deviceLabel (see the
+    // `who()` helpers in governance.ts/handlers2.ts) — exactly what
+    // push_tokens.email/device_label are populated from on registration, so
+    // this matches the one device (or devices) the requester is signed in
+    // on without needing a separate identity table.
+    if (!audience.submitter) return [];
+    const rows = await query<{ fcm_token: string }>(
+      `select fcm_token from push_tokens where role = 'OPS_USER' and (email = $1 or device_label = $1)`,
+      [audience.submitter],
+    );
     return rows.map((r) => r.fcm_token);
   }
   const branch = recordBranch(audience.branch);
@@ -74,8 +87,14 @@ async function fire(audience: Audience, title: string, body: string, dataType: s
     const tokens = await tokensFor(audience);
     const result = await sendPush(tokens, title, body, { type: dataType, ref: dataRef, screen });
     const audienceLabel =
-      audience === "FOUNDER" ? "FOUNDER" : audience === "ALL_STAFF" ? "STAFF:ALL" : `STAFF:${recordBranch(audience.branch)}`;
-    const audienceBranch = typeof audience === "object" ? recordBranch(audience.branch) : "";
+      audience === "FOUNDER"
+        ? "FOUNDER"
+        : audience === "ALL_STAFF"
+          ? "STAFF:ALL"
+          : "submitter" in audience
+            ? `STAFF:${audience.submitter}`
+            : `STAFF:${recordBranch(audience.branch)}`;
+    const audienceBranch = typeof audience === "object" && "branch" in audience ? recordBranch(audience.branch) : "";
     await log(audienceLabel, audienceBranch, title, body, dataType, dataRef, screen, result);
   } catch (e) {
     console.error(`[push] notify failed: ${e instanceof Error ? e.message : "unknown"}`);
@@ -90,6 +109,19 @@ export function notifyFounderApproval(kind: string, summary: string, ref: string
 /** The founder decided on something a staff device submitted. */
 export function notifyStaffDecision(branch: string, kind: string, summary: string, ref: string) {
   void fire({ branch }, "Sharvil has decided", `${kind}: ${summary}`, "DECISION_MADE", ref, "MY_REQUESTS");
+}
+
+/** The founder decided on a specific staff member's own request — targets
+ *  only that submitter's device(s) (submitted_by, the same identity every
+ *  request table already records) rather than the whole branch. Falls back
+ *  to the branch-wide notice when there is no submitter to target (e.g. a
+ *  legacy row from before `submitted_by` was recorded). */
+export function notifyRequesterDecision(submittedBy: string, branch: string, kind: string, summary: string, ref: string) {
+  if (!submittedBy) {
+    notifyStaffDecision(branch, kind, summary, ref);
+    return;
+  }
+  void fire({ submitter: submittedBy }, "Sharvil has decided", `${kind}: ${summary}`, "DECISION_MADE", ref, "MY_REQUESTS");
 }
 
 /** Generic branch-scoped notice (used by the daily digest script). */

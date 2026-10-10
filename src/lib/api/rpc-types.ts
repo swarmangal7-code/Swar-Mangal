@@ -83,6 +83,7 @@ export interface StudentSearchResponse extends RpcEnvelope {
   results: Student[];
   rows: Student[];
   count: number;
+  instruments?: string[];
 }
 
 export interface DemoStudent {

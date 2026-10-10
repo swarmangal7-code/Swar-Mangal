@@ -32,7 +32,17 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
   bool _busy = false;
   String? _error;
   String _classFilter = 'ALL';
+  String _instrumentFilter = 'ALL';
+  String _teacherFilter = 'ALL';
+  String _feeFilter = 'ALL';
   List<String> _classCodes = const ['GMC', 'KMC'];
+  List<String> _instruments = [];
+  List<Teacher> _teachers = [];
+
+  static const _feeFilters = ['ALL', 'PAID', 'DUE', 'OVERDUE'];
+  static const _feeFilterLabels = {'ALL': 'All', 'PAID': 'Paid', 'DUE': 'Due', 'OVERDUE': 'Overdue'};
+
+  bool get _hasFilters => _classFilter != 'ALL' || _instrumentFilter != 'ALL' || _teacherFilter != 'ALL' || _feeFilter != 'ALL';
 
   @override
   void initState() {
@@ -43,6 +53,23 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
     // Loads the full roster immediately, same as the web app — no extra tap
     // should be needed just to see who's already there.
     _search();
+    _loadFilterSources();
+  }
+
+  Future<void> _loadFilterSources() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.service == null) return;
+    try {
+      final results = await Future.wait([auth.service!.listInstruments(), auth.service!.listTeachers()]);
+      if (!mounted) return;
+      setState(() {
+        _instruments = results[0] as List<String>;
+        _teachers = results[1] as List<Teacher>;
+      });
+    } catch (_) {
+      // Filter dropdowns are a convenience — a failure here shouldn't block
+      // the roster itself, which already loaded via _search().
+    }
   }
 
   @override
@@ -61,8 +88,15 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
     try {
       final rows = widget.staff
           ? await auth.service!.staffSearchStudents(_q.text,
-              branch: auth.branch ?? 'ALL')
-          : await auth.service!.searchStudents(_q.text, classCode: _classFilter);
+              branch: auth.branch ?? 'ALL',
+              instrument: _instrumentFilter,
+              teacherId: _teacherFilter,
+              feeState: _feeFilter)
+          : await auth.service!.searchStudents(_q.text,
+              classCode: _classFilter,
+              instrument: _instrumentFilter,
+              teacherId: _teacherFilter,
+              feeState: _feeFilter);
       if (!mounted) return;
       setState(() {
         _rows = rows;
@@ -126,6 +160,8 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
                   ),
                 ]),
               ],
+              const SizedBox(height: AppSpace.s3),
+              _filterRow(),
               if (_rows.isNotEmpty) ...[
                 const SizedBox(height: AppSpace.s2),
                 Align(
@@ -155,6 +191,54 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
     );
   }
 
+  Widget _filterRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        DropdownButton<String>(
+          value: _instrumentFilter,
+          underline: const SizedBox.shrink(),
+          items: [
+            const DropdownMenuItem(value: 'ALL', child: Text('All instruments')),
+            for (final i in _instruments) DropdownMenuItem(value: i, child: Text(i)),
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => _instrumentFilter = v);
+            _search();
+          },
+        ),
+        const SizedBox(width: AppSpace.s3),
+        DropdownButton<String>(
+          value: _teacherFilter,
+          underline: const SizedBox.shrink(),
+          items: [
+            const DropdownMenuItem(value: 'ALL', child: Text('All teachers')),
+            for (final t in _teachers) DropdownMenuItem(value: t.teacherId, child: Text(t.teacherName)),
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => _teacherFilter = v);
+            _search();
+          },
+        ),
+        const SizedBox(width: AppSpace.s3),
+        for (final f in _feeFilters)
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpace.s2),
+            child: ChoiceChip(
+              label: Text(_feeFilterLabels[f]!),
+              selected: _feeFilter == f,
+              onSelected: (_) {
+                setState(() => _feeFilter = f);
+                _search();
+              },
+            ),
+          ),
+      ]),
+    );
+  }
+
   Widget _initialHint() {
     // The roster loads automatically on open, so an empty list here means a
     // search/filter genuinely matched nothing — not that nobody has looked yet.
@@ -166,7 +250,7 @@ class _StudentsScreenState extends State<StudentsScreen> with SyncAware {
               size: 40, color: AppColors.muted),
           const SizedBox(height: AppSpace.s3),
           Text(
-            _q.text.isEmpty && _classFilter == 'ALL'
+            _q.text.isEmpty && !_hasFilters
                 ? 'No students yet.'
                 : 'No students match this search.',
             textAlign: TextAlign.center,

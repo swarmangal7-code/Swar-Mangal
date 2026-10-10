@@ -11,7 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRpc } from "@/lib/api/rpc-hooks";
+import { useRpc, useTeachers } from "@/lib/api/rpc-hooks";
 import type { StudentSearchResponse } from "@/lib/api/rpc-types";
 import { fadeUp, listVariants } from "@/lib/motion";
 import { initials } from "@/lib/utils/cn";
@@ -19,6 +19,7 @@ import { initials } from "@/lib/utils/cn";
 import { feeStatusTone, studentStatusTone, formatINR } from "../_shared";
 
 type ClassFilter = "ALL" | "GMC" | "KMC";
+type FeeFilter = "ALL" | "PAID" | "DUE" | "OVERDUE";
 
 const CLASS_FILTERS: { value: ClassFilter; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -26,10 +27,20 @@ const CLASS_FILTERS: { value: ClassFilter; label: string }[] = [
   { value: "KMC", label: "KMC" },
 ];
 
+const FEE_FILTERS: { value: FeeFilter; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "PAID", label: "Paid" },
+  { value: "DUE", label: "Due" },
+  { value: "OVERDUE", label: "Overdue" },
+];
+
 export default function FounderStudentsPage() {
   const [q, setQ] = React.useState("");
   const [debounced, setDebounced] = React.useState("");
   const [cls, setCls] = React.useState<ClassFilter>("ALL");
+  const [instrument, setInstrument] = React.useState("ALL");
+  const [teacherId, setTeacherId] = React.useState("ALL");
+  const [feeFilter, setFeeFilter] = React.useState<FeeFilter>("ALL");
 
   React.useEffect(() => {
     const t = setTimeout(() => setDebounced(q), 300);
@@ -38,10 +49,13 @@ export default function FounderStudentsPage() {
 
   const { data, isPending, isError, error, refetch } = useRpc<StudentSearchResponse>(
     "api_searchStudent",
-    { q: debounced, branch: "ALL", classCode: cls, includeAll: true },
+    { q: debounced, branch: "ALL", classCode: cls, instrument, teacherId, feeState: feeFilter, includeAll: true },
   );
+  const { data: teacherData } = useTeachers();
 
   const rows = data?.results ?? data?.rows ?? [];
+  const instruments = data?.instruments ?? [];
+  const hasFilters = cls !== "ALL" || instrument !== "ALL" || teacherId !== "ALL" || feeFilter !== "ALL";
 
   return (
     <motion.div initial="hidden" animate="visible" variants={listVariants} className="space-y-5">
@@ -79,6 +93,36 @@ export default function FounderStudentsPage() {
         <SegmentedControl value={cls} onChange={setCls} options={CLASS_FILTERS} label="Filter by class" />
       </motion.div>
 
+      <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-3">
+        <select
+          value={instrument}
+          onChange={(e) => setInstrument(e.target.value)}
+          aria-label="Filter by instrument"
+          className="rounded-xl border border-dash-fg/10 bg-dash-card px-3 py-1.5 text-[13px] text-dash-fg"
+        >
+          <option value="ALL">All instruments</option>
+          {instruments.map((i) => (
+            <option key={i} value={i}>
+              {i}
+            </option>
+          ))}
+        </select>
+        <select
+          value={teacherId}
+          onChange={(e) => setTeacherId(e.target.value)}
+          aria-label="Filter by teacher"
+          className="rounded-xl border border-dash-fg/10 bg-dash-card px-3 py-1.5 text-[13px] text-dash-fg"
+        >
+          <option value="ALL">All teachers</option>
+          {(teacherData?.teachers ?? []).map((t) => (
+            <option key={t.teacherId} value={t.teacherId}>
+              {t.teacherName}
+            </option>
+          ))}
+        </select>
+        <SegmentedControl value={feeFilter} onChange={setFeeFilter} options={FEE_FILTERS} label="Filter by fee status" />
+      </motion.div>
+
       {isError ? (
         <motion.div variants={fadeUp}>
           <Card className="border-red-400/30 bg-red-400/5">
@@ -106,8 +150,8 @@ export default function FounderStudentsPage() {
               <div>
                 <p className="text-sm font-medium text-dash-fg">No students found</p>
                 <p className="mt-0.5 text-sm text-dash-fg/45">
-                  {debounced || cls !== "ALL"
-                    ? "Try a different search or class filter."
+                  {debounced || hasFilters
+                    ? "Try a different search or filter."
                     : "Add your first student to get started."}
                 </p>
               </div>
