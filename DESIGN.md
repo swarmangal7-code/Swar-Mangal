@@ -4,108 +4,114 @@
 
 ## Scope
 
-This file documents the **public landing page** (`src/app/page.tsx`) redesign
-only. The founder/staff web dashboards elsewhere in this codebase are a
-separate, Operate-mode system with their own established UI (shadcn/Radix +
-Tailwind, functional not expressive) and are not covered here.
+This file documents the **public surfaces' light/glass/ink redesign**:
+`src/app/page.tsx` (the landing page) plus the three form surfaces that
+share its new world — `src/app/(auth)/login/page.tsx`,
+`src/app/enroll/[token]/page.tsx`, and `src/app/terms/[token]/page.tsx`.
+These are a complete visual and interaction replacement of a previous
+near-black cinematic/WebGL-string direction (described in earlier revisions
+of this file; no longer shipped). The founder/staff web dashboards
+elsewhere in this codebase are a separate, Operate-mode system with their
+own established UI (shadcn/Radix + Tailwind, functional not expressive) and
+are not covered here — the two worlds share no tokens: the new palette and
+fonts live under a `.sm-landing` CSS scope (see World, below) that only
+wraps these four routes' own root element, so the dashboards' existing
+near-black + gold tokens are untouched.
 
 ## World
 
-Near-black, stage-lit ground — a recital hall at night, not a SaaS dashboard.
+Light, grain-paper ground — glass and ink, not a recital hall or a SaaS
+dashboard. User-pinned direction, built from two named references
+(stackht.pages.dev's glossy liquid-glass blob on a light, fine-line-art
+ground; jjtheartist.pages.dev's grain-paper ground, bold grotesk display
+type, and ragged paint-stroke colour bars).
 
-- **Palette**: `#08070B` / `#0E0C12` (two near-black grounds, alternated per
-  section for quiet rhythm), `#F7F2E8` (primary text), `#A9A2B0` (secondary
-  text), `#D6A84F` / `#E2BD68` (warm brass/string-metal gold — the one
-  accent, used as a functional material: the string itself, hairline rules,
-  small caps labels — never as a decorative gradient-fill on text).
-- **Type**: Playfair Display (`--font-display`, headings, large scale, up to
-  `clamp(3.25rem,10vw,6.75rem)` in the hero) paired with Inter (`--font-sans`,
-  body). Both already the site's global font pair — not changed for this
-  surface, since it already sits in this skill's recommended-face list.
-- **Signature motif**: a lit string/wire, rendered in real WebGL (not CSS or
-  SVG), threading through the hero and echoed as a thin static gradient line
-  between every section below it — "sound made visible" as a literal,
-  physical object rather than an illustration of the idea.
-- **Cinematic layer** (added after a second pinned reference, lusion.co):
-  bloom/glow post-processing, a drifting field of warm light motes and
-  literal music-note glyphs, a cursor-following spotlight, a scroll-tied
-  camera dolly, and a whole-page film-grain + vignette overlay. The hero
-  opens inside this light; the CTA closes the page inside the same light
-  (particles alone, no string) — a deliberate bookend, not a repeated
-  effect.
-- **Night sky** (added after a third reference, the founder's own
-  `D:\Zeya` — a fully immersive walk-through 3D experience; pinned as mood
-  only, not a literal scene to copy, resolved to "amplify the existing
-  cinematic world" rather than build a second product). A sparse field of
-  real, shader-lit stars (`src/components/3d/star-field.tsx`) sits behind
-  the string in the hero and behind the dust cloud in the CTA — same
-  bookend, deeper atmosphere. Each star is its own GPU point (core + soft
-  glow in the fragment shader, warm cream/brass tint only — no blue, this
-  sky stays inside the page's own palette), not a texture sprite: no
-  canvas-2d texture to build on mount, one draw call for the whole field.
-  That makes it cheaper than the existing dust/note field, not just
-  quieter, which is why — unlike that field — it runs on every device,
-  phones included, rather than being gated to desktop.
+- **Palette**: `#F6F4EF` (grain-paper ground), `#15141A` (near-black ink,
+  primary text and solid-fill buttons), `#D6A84F` (warm brass/gold — the one
+  accent carried over from the previous world, now used for field-lines,
+  hairline rules and small highlights, never a decorative text-fill), plus
+  one distinct saturated colour per real instrument (see Courses, below).
+  Scoped entirely under a `.sm-landing` class (`globals.css`) that
+  repoints the shared shadcn tokens (`--background`, `--primary`,
+  `--border`, etc. — the same tokens `Button`/`Input`/the `.text-*`
+  utilities already read) to this palette and forces `color-scheme: light`
+  regardless of the visitor's OS theme, so the founder/staff dashboards
+  (which read the same token names outside this class) keep their own
+  values untouched.
+- **Type**: Syne (`--font-display-alt`, extra-bold/black weights, headings)
+  paired with Plus Jakarta Sans (`--font-sans-alt`, body) — a bold
+  geometric grotesk pair, deliberately not a serif, to avoid both the
+  previous world's cinematic-serif voice and the "warm cream + serif +
+  lamplight" AI-calibration default. Loaded globally via `next/font/google`
+  in `src/app/layout.tsx` but never applied as `--font-sans`/`--font-display`
+  outside `.sm-landing` — the dashboards keep Inter/Playfair Display.
+- **Grain**: a fixed, full-viewport `feTurbulence` SVG data-URI
+  (`.sm-grain` in `globals.css`) laid over the paper ground at low opacity
+  with `mix-blend-mode: multiply` — texture, not an image asset.
+- **Signature object**: a glossy, refractive glass drop (`GlassOrb`,
+  `src/components/landing/glass-orb.tsx`) — layered radial-gradients plus
+  `backdrop-filter: blur() saturate()` so it visibly refracts the ground
+  and field-lines behind it, finished with a small SVG
+  `feTurbulence`/`feDisplacementMap` filter on its rim highlight for an
+  organic waver. Pure CSS/SVG, no WebGL — this world's translation of the
+  previous direction's "lit string" into "lit glass," and cheap enough to
+  run on every device tier without a desktop gate.
+- **Field-lines** (`FieldLines`, `field-lines.tsx`): thin curved SVG paths
+  in the brass accent, radiating from the orb, with an animated
+  `stroke-dashoffset` flow gated to `prefers-reduced-motion: no-preference`
+  — with it on, the same paths render static and complete, never a blank
+  gap.
+- **Instrument colour**: each of the six real instruments owns one
+  saturated colour as a material (`PaintStroke`, `paint-stroke.tsx`) —
+  guitar amber `#E6A23C`, piano & keys indigo `#4D4A9E`, vocal crimson
+  `#B23A48`, tabla terracotta `#C1693B`, violin teal `#2F7A74`, flute
+  forest `#3C6B3A` — each paired with a text-ink colour chosen per-swatch
+  for contrast (cream text on the darker hues, dark ink on amber), never a
+  flat gray-on-hue. The shape is a hand-authored ragged SVG path, not a
+  `clip-path` polygon or a plain rectangle — see Composition rules for how
+  its raggedness is deliberately asymmetric (top/sides ragged, bottom
+  edge shallow) so the instrument name always lands on the painted colour.
 
 ## Signature interaction
 
-`src/components/3d/string-field.tsx` — a `@react-three/fiber` scene, three
-strands built as raw `THREE.Line` objects (not the `<line>` JSX tag, which
-collides with the DOM/SVG element under TypeScript's JSX namespace) with
-per-frame `BufferAttribute` writes, additive blending for glow:
+The draggable glass lens (`GlassLens`, `src/components/landing/glass-lens.tsx`)
+— the literal "liquidGL" interaction from the stackht.pages.dev reference: a
+circular lens the visitor drags across the hero to see it refract.
 
-- **Idle**: slow ambient sway (low-frequency sine per strand).
-- **Pointer**: a gaussian bend toward the cursor position (mapped from
-  R3F's normalized pointer coords) — a literal "pluck."
-- **Scroll**: `src/components/motion/lenis-provider.tsx` writes live Lenis
-  velocity into `src/lib/motion/scroll-state.ts` (plain mutable refs, no
-  React state, read inside `useFrame` every frame) — faster scrolling
-  raises the string's vibration amplitude and frequency.
+- A plain CSS `backdrop-filter: blur() saturate() brightness()` refracts
+  whatever sits behind the lens.
+- A separate `filter: url(#sm-lens-distort)` — referencing an SVG
+  `feTurbulence`/`feDisplacementMap` filter the component defines inline —
+  warps the lens's own rendered output for the liquid-glass waver. This is
+  kept as a **separate** CSS property from `backdrop-filter`, not combined
+  into one function list (`backdrop-filter: blur() url(#id)`): some engines
+  silently drop the entire `backdrop-filter` value when an SVG filter
+  reference is mixed with plain filter functions in the same list, which
+  first shipped this lens with no visible blur AND no other paint to make
+  it visible — a fully invisible hit-target. The lens also always carries
+  an explicit radial-gradient `background` and a `border`, so it reads as a
+  visible glass bubble even on an engine that drops both filters entirely;
+  the blur/distort are pure enhancement on top of a shape that is never
+  see-through-empty.
+- `framer-motion`'s `drag` + `dragConstraints` (bound to the hero section's
+  own ref) keeps it inside the ground it exists to distort. Direct
+  pointer-driven dragging isn't the kind of autoplay motion
+  `prefers-reduced-motion` targets, so the lens stays draggable either way;
+  what's disabled under that preference is only the elastic spring-back
+  feel (`dragElastic`/`dragTransition`), so a reduced-motion visitor gets a
+  lens that moves exactly where they put it, no bounce.
+- Rests beside the glass orb by default (`right-[12%] top-[46%]` of the
+  hero), not over either CTA pill — an earlier position
+  (`left-[14%] top-[62%]`) sat directly on top of the "Enroll now"/"Browse
+  courses" buttons.
 
-Real Lenis (`lenis` package) drives scroll physics for this page only, off
-entirely under `prefers-reduced-motion`. `StringField` itself falls back to
-a static 1px gradient line under reduced motion or when WebGL is
-unavailable — same visual position, zero animated frames, so there is never
-a blank gap, only a quieter version of the same object.
+Pure CSS/SVG, no WebGL and no new dependency — cheap enough to run on every
+device tier without a desktop gate, per PRODUCT.md's mid/low-end-Android
+constraint.
 
-The hero's canvas wrapper spans the full hero section (`absolute inset-0`),
-not a fixed-height band centered on the string — an earlier version used a
-`h-[36rem]` band so the star field only lit a horizontal strip with plain
-black above and below it, which read as broken rather than atmospheric.
-The string stays visually centered regardless, since its world position
-sits near y=0 and the camera always looks at the origin. The star field's
-own vertical spread (`star-field.tsx`) runs both above and below that
-plane so stars fill the whole frame rather than clustering in the upper
-half.
-
-**Performance**: `three` + `@react-three/fiber` (+ `@react-three/postprocessing`
-+ `postprocessing` for bloom) are lazy-loaded (`next/dynamic`, `ssr: false`,
-via `src/components/3d/string-field-lazy.tsx` and `particle-accent-lazy.tsx`
-— the App Router refuses `ssr:false` directly inside a Server Component) so
-none of it blocks the landing page's initial JS. `three` is imported by
-named export, not `import * as THREE`, so unused parts tree-shake. Homepage
-First Load JS: ~163kB (was 403kB before lazy-loading; adding bloom and the
-particle field did not move this number — they live in the same lazy chunk).
-
-Bloom and the particle field (`src/components/3d/particle-field.tsx`) are
-**desktop-only** (`min-width: 768px`), gated in both `string-field.tsx` and
-`particle-accent.tsx` — PRODUCT.md is explicit that this audience skews
-toward mid/low-end Android, and running an EffectComposer pass plus ~150
-points on top of the string roughly doubles frame cost. The string itself
-(the actual signature interaction) still plays at every size; only the
-cinematic dressing scales back.
-
-The star field is the one exception to that desktop gate — shader points
-with no texture and no post-processing dependency of their own cost little
-enough to run everywhere, at a lower count on narrow/mobile viewports
-(`StarField count={cinematic ? 130 : 70}`). Its horizontal spread is
-derived from the live camera FOV and canvas aspect
-(`useHorizontalSpreadAt`), not a fixed world-unit number — a fixed spread
-either clips almost entirely off a narrow portrait phone or barely fills a
-wide desktop window at the same vertical FOV; deriving it from the real
-frustum means the field actually fills whatever frame it is drawn in, on
-any device. Homepage First Load JS: ~170kB (was ~163kB; the shader source
-for the star field is the only addition, no new dependency).
+**Performance**: no new heavy dependency shipped for this redesign (no
+Three.js/WebGL work added — the orb, field-lines and lens are all CSS/SVG).
+Homepage First Load JS: ~167kB.
 
 ## Layout width
 
@@ -125,14 +131,22 @@ Derived directly from a redesign against this skill's craft-floor bans,
 which the incumbent page violated throughout:
 
 - **No eyebrow/kicker labels.** Every heading carries its own weight; no
-  uppercase-tracked label above any `<h2>`.
-- **No repeated icon+heading+text card grids.** Courses reads as a
-  conservatory-program list (name + level + description per row, hairline
-  dividers, no icon). Experience is an asymmetric offset two-column list
-  (odd items pushed down on desktop). Faculty is a flowing wrapped list
-  (a credits reel), not avatar cards.
-- **No hero-metric stat block.** The three factual numbers (10+ instruments,
-  2 centres, 1-on-1) run as one sentence, not a `dd`/`dt` grid.
+  uppercase-tracked label above any `<h2>` or `<h1>`. This includes the
+  enroll/terms form cards: an earlier draft placed a small-caps "Swar
+  Mangal" line directly above each page's `<h1>` — a textbook kicker,
+  removed in favour of folding the brand mark into the icon badge above it
+  as an icon+wordmark lockup (the same identity pairing as the landing
+  page's nav pill), which is a logo lockup, not a label announcing the
+  heading below it.
+- **No repeated icon+heading+text card grids.** Courses is six ragged
+  paint-stroke colour swatches, one per real instrument (see World) — a
+  distinct, single-purpose motif translated from jjtheartist's skill-bars,
+  not a card grid. Experience is an asymmetric offset two-column list (odd
+  items pushed down on desktop). Faculty is a flowing wrapped list (a
+  credits reel), not avatar cards.
+- **No hero-metric stat block.** The real facts (two branches, one-to-one,
+  six instruments) run as one sentence under the headline, not a `dd`/`dt`
+  grid.
 - **Branches keeps its two-card layout** — justified because there are
   exactly two real physical locations; this is location data, not a
   templated repeat of arbitrary content.
@@ -141,28 +155,50 @@ which the incumbent page violated throughout:
 
 - No real photography, faculty headshots, or logo file yet (see
   `PRODUCT.md` → Evidence on Hand). All visuals are abstract/geometric
-  placeholders (the "सा" panel, the string field itself) — swap for real
+  placeholders (the glass orb, the paint-stroke swatches) — swap for real
   assets when available; nothing here fakes a specific claim.
-- Display type at `6.75rem` in the hero exceeds this skill's `6rem` display
-  ceiling guideline. Kept deliberately for first-viewport impact in Persuade
-  mode (this was already the incumbent hero's scale); revisit only if a
-  future pass finds it hurts small-viewport legibility in practice.
+- The hero headline's copy ("Sound, taught / one-to-one.") was rewritten
+  during this pass specifically to hold two lines at both desktop (1440px)
+  and mobile widths — an earlier draft ("Sound you can / see, taught
+  right.") read fine at the comp width but re-wrapped into four or five
+  lines at narrower columns once Syne's actual letterforms were measured.
+  Revisit the exact wording if the founder wants different emphasis, but
+  keep new copy short enough (each clause under ~14 characters) to hold the
+  two-line promise without re-testing every breakpoint by eye.
 - Focus-visible states and custom text-selection/scrollbar theming were not
   added in this pass (pre-existing gap, not introduced here) — a follow-up
   accessibility/polish pass should close it.
+- `@cloudflare/next-on-pages` (the `pages:build` script, the actual
+  Cloudflare static-export target) could not be run to completion on the
+  Windows machine this redesign was built on — its own CLI prints a
+  warning that it "seems not to work reliably on Windows" and fails inside
+  its `shellac` subprocess spawner before touching the Next build output.
+  `next build` (the underlying production build) succeeds cleanly. This is
+  a known tooling limitation, not something introduced by this redesign;
+  confirm `pages:build` on a Linux/WSL/CI runner before relying on it.
 
 ## Provenance
 
-No generated raster assets ship on this surface (WebGL is drawn, not
-imaged; the "सा" panel is CSS/DOM, not a raster). Nothing here required
-`impeccable embed-prompt`.
+No generated raster assets ship on these surfaces (the grain ground is an
+inline SVG `feTurbulence` data URI, the glass orb and paint-stroke swatches
+are CSS/SVG, not rasters). Nothing here required `impeccable embed-prompt`.
 
 **FINISH**: reviewed via direct screenshot inspection (desktop 1440px and
-mobile 390px, both `prefers-reduced-motion: reduce` for a static content
-audit and live for interaction/motion verification) rather than the shipped
-finish-reviewer/documenter subagents — disclosed substitution, given no
-confirmed image-generation tool in this session and the CLI's `--start`
-question-server path being unverified on this Windows environment. A real
-hydration bug in the shared `Reveal` component (SSR/CSR mismatch on
-`prefers-reduced-motion`, pre-existing, not introduced by this redesign) was
-found via this process and fixed in `src/components/motion/reveal.tsx`.
+mobile 390px, all four routes — landing page, login, enroll, terms) using a
+real running dev server rather than the shipped finish-reviewer/documenter
+subagents, given this Windows environment's constraints. An independent
+finish review against this file's direction contract returned a "fix"
+disposition with five material findings, all resolved in this pass: the
+paint-stroke label text spilling outside the painted shape on five of six
+cards (fixed by reshaping the ragged path so its bottom edge — where the
+label sits — stays shallow and near-full-width while the raggedness lives
+at the top/sides instead); the draggable glass lens rendering fully
+invisible (fixed by separating the SVG distortion filter from
+`backdrop-filter`'s function list and giving the lens an explicit visible
+background, per Signature interaction, above); the enroll/terms kicker
+labels (removed, folded into an icon+wordmark lockup, per Composition
+rules, above); the hero headline wrapping to four/five lines instead of two
+(fixed via shorter copy, per Open decisions, above); and this file itself,
+which still documented the previous near-black cinematic/string-field world
+this redesign replaced (rewritten throughout World and Signature
+interaction, above).
