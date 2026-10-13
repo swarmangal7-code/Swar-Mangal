@@ -5,7 +5,6 @@
 import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcSession } from "@/lib/rpc/auth";
 import { s, n, d, newId, nextDocSeq, bumpRevisions, schoolByIdOrCode, parseExtraCharges, normalizeChargesJson } from "@/lib/rpc/shared";
-import { randomBytes } from "crypto";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo } from "@/lib/rpc/numbering";
 import { normalizeEmail, isValidEmail } from "@/lib/email/otp";
 import { todayIso, addMonths, splitInstalments, accruedLateFee, type LateFeeSetting } from "@/lib/rpc/fees";
@@ -13,6 +12,7 @@ import {
   EXPECTED_EVENTS_FLOOR,
   addDays,
   isExcludedReceiptStatus,
+  mintShortToken,
   monthEndExclusive,
   monthLabel,
   periodLockedRefusal,
@@ -23,6 +23,23 @@ import { branchForbidden, defaultBranch, inScope, moneyInScope, recordBranch, ty
 import { notifyFounderApproval, notifyRequesterDecision, notifyAllStaff, notifyBranch } from "@/lib/push/notify";
 
 type Result = Record<string, unknown>;
+
+/**
+ * Mint a short share-link token and insert it, retrying on the (vanishingly
+ * rare) primary-key collision. Tokens are unguessable enough that a retry
+ * loop, not a pre-check, is the correct uniqueness strategy.
+ */
+async function mintUniqueLinkToken(insert: (token: string) => Promise<unknown>): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    const token = mintShortToken();
+    try {
+      await insert(token);
+      return token;
+    } catch (e) {
+      if ((e as { code?: string })?.code !== "23505" || attempt >= 4) throw e;
+    }
+  }
+}
 const ok = (extra: Result = {}): Result => ({ ok: true, ...extra });
 const refuse = (code: string, error: string, extra: Result = {}): Result => ({ ok: false, code, error, ...extra });
 const who = (session?: RpcSession) => session?.email || session?.deviceLabel || "";
@@ -1245,10 +1262,11 @@ async function generateTermsToken(arg: Record<string, unknown>, scope: BranchSco
   if (open.length > 1) {
     return refuse("TOO_MANY_OPEN_TOKENS", `${student.name} already has more than one open terms link. Use an existing one or ask Sharvil.`);
   }
-  const token = randomBytes(24).toString("hex");
-  await query(
-    `insert into terms_acceptance_tokens (token, student_id, issued_by, expires_at) values ($1,$2,$3, now() + ($4::int * interval '1 day'))`,
-    [token, studentId, who(session), TERMS_TOKEN_TTL_DAYS],
+  const token = await mintUniqueLinkToken((t) =>
+    query(
+      `insert into terms_acceptance_tokens (token, student_id, issued_by, expires_at) values ($1,$2,$3, now() + ($4::int * interval '1 day'))`,
+      [t, studentId, who(session), TERMS_TOKEN_TTL_DAYS],
+    ),
   );
   const domain = (process.env.APP_DOMAIN ?? "").trim();
   const base = domain ? `https://${domain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}` : "";
@@ -1273,10 +1291,11 @@ const ENROLL_LINK_TTL_DAYS = 7;
 async function generateEnrollLink(arg: Record<string, unknown>, scope: BranchScope, session: RpcSession): Promise<Result> {
   const branch = defaultBranch(scope, arg["branch"]);
   if (!inScope(scope, branch)) return branchForbidden(branch);
-  const token = randomBytes(24).toString("hex");
-  await query(
-    `insert into enroll_links (token, branch, issued_by, expires_at) values ($1,$2,$3, now() + ($4::int * interval '1 day'))`,
-    [token, branch, who(session), ENROLL_LINK_TTL_DAYS],
+  const token = await mintUniqueLinkToken((t) =>
+    query(
+      `insert into enroll_links (token, branch, issued_by, expires_at) values ($1,$2,$3, now() + ($4::int * interval '1 day'))`,
+      [t, branch, who(session), ENROLL_LINK_TTL_DAYS],
+    ),
   );
   // The shareable link always points at the public marketing site — the
   // page itself is a static export there; its own form submission reaches
@@ -1379,10 +1398,11 @@ async function termsStatusForStudent(arg: Record<string, unknown>, scope: Branch
     [studentId],
   );
   if (!NOT_OPERATIONAL.has(s(student.status).toUpperCase()) && !(alreadySettled?.n ?? 0) && open.length === 0) {
-    const token = randomBytes(24).toString("hex");
-    await query(
-      `insert into terms_acceptance_tokens (token, student_id, issued_by, expires_at) values ($1,$2,$3, now() + ($4::int * interval '1 day'))`,
-      [token, studentId, who(session), TERMS_TOKEN_TTL_DAYS],
+    await mintUniqueLinkToken((t) =>
+      query(
+        `insert into terms_acceptance_tokens (token, student_id, issued_by, expires_at) values ($1,$2,$3, now() + ($4::int * interval '1 day'))`,
+        [t, studentId, who(session), TERMS_TOKEN_TTL_DAYS],
+      ),
     );
   }
 

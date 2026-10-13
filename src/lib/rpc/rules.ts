@@ -3,6 +3,7 @@
 // Every function here refuses by NAMING the reason; none of them guesses.
 
 import { addMonths, daysUntil } from "./fees.ts";
+import { randomBytes } from "node:crypto";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -19,6 +20,24 @@ export function isExcludedReceiptStatus(status: unknown): boolean {
 /** SQL twin of isExcludedReceiptStatus for a status column. */
 export function excludedReceiptSql(column: string): string {
   return `(upper(coalesce(${column},'')) like '%VOID%' or upper(coalesce(${column},'')) like '%REVERS%' or upper(coalesce(${column},'')) like '%DRAFT%')`;
+}
+
+/**
+ * Short share-link tokens (enroll + terms links sent over WhatsApp): 12
+ * characters from an unambiguous alphabet (no 0/O, 1/I/L), 60 bits of
+ * cryptographic entropy — short enough to share, far too many to guess
+ * inside a link's few-days TTL. 256 % 32 == 0, so the byte-to-symbol
+ * mapping has zero modulo bias. Uniqueness is enforced by the token
+ * primary keys with a retry on collision (see governance.ts), and old
+ * 48-hex tokens keep working: lookup is by exact match, never by format.
+ */
+const SHORT_TOKEN_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+export function mintShortToken(): string {
+  const buf = randomBytes(12);
+  let out = "";
+  for (const b of buf) out += SHORT_TOKEN_ALPHABET[b % SHORT_TOKEN_ALPHABET.length];
+  return out;
 }
 
 // ------------------------------------------------------------ service months

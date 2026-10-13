@@ -18,6 +18,7 @@ import {
   inquiryDormancyDue,
   INQUIRY_DORMANT_AFTER_DAYS,
   effectiveRowOn,
+  mintShortToken,
   payoutPercentForOutcome,
   slabPercentFor,
   hmToMinutes,
@@ -221,4 +222,15 @@ test("canMarkSessionAttendance: blocked before the grace window, open from it on
 test("canMarkSessionAttendance: a past date's session has already started; a future date's has not", () => {
   assert.equal(canMarkSessionAttendance("2026-10-08", "17:00", "2026-10-09", 0), true);
   assert.equal(canMarkSessionAttendance("2026-10-10", "17:00", "2026-10-09", 1439), false);
+});
+
+test("share-link tokens are short, unambiguous and unique", () => {
+  const seen = new Set<string>();
+  for (let i = 0; i < 500; i++) {
+    const t = mintShortToken();
+    assert.equal(t.length, 12);
+    assert.match(t, /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]+$/);
+    seen.add(t);
+  }
+  assert.equal(seen.size, 500);
 });
