@@ -8,18 +8,14 @@ import { FieldLines } from "@/components/landing/field-lines";
 import { GlassLens } from "@/components/landing/glass-lens";
 import { PrimaryButton, GhostButton } from "@/components/landing/section";
 
-// The release APK published on the VPS. This filename always serves the
-// latest published build, so the link never needs a version bump — same
-// file the in-app updater and the dashboard header button already use.
-const APK_DOWNLOAD_URL = "https://148.113.52.88.nip.io/downloads/swar-mangal.apk";
-
 /**
- * First viewport for the Midnight Raga world: pill nav, big two-line
- * Fraunces headline left-aligned mid-height, the ember orb right-of-centre
- * with gold field-lines flowing from it, one sentence of real fact, a
- * brass pill CTA beside an outlined one, a mono telemetry strip below
- * (branch codes · disciplines · format — real facts only, never invented
- * numbers), and the draggable glass lens overlaid on the whole stage.
+ * First viewport for the Dawn Parampara world: pill nav, tanpura drone
+ * strings behind everything, a giant सा watermark beside a rising-sun
+ * orb, big two-line Fraunces headline left-aligned mid-height, one
+ * sentence of real fact, a maroon pill CTA beside an outlined one, a
+ * mono telemetry strip below (branch codes · disciplines · format —
+ * real facts only, never invented numbers), and the draggable glass
+ * lens overlaid on the whole stage.
  */
 export function HeroStage() {
   const stageRef = React.useRef<HTMLElement>(null);
@@ -41,35 +37,36 @@ export function HeroStage() {
       ref={stageRef}
       className="relative isolate flex min-h-[100svh] flex-col overflow-hidden"
     >
-      {/* Ember ambience: a low warm glow behind the orb column plus a top
-          vignette so the nav pill sits in lamplight, not flat black. */}
+      {/* Dawn ambience: marigold glow along the top (first light), a warm
+          wash rising from below, and the tanpura drone strings across the
+          whole stage. All static CSS — no motion to gate. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(52rem 30rem at 78% 42%, rgba(178,58,72,0.16), transparent 62%)," +
-            "radial-gradient(44rem 26rem at 72% 46%, rgba(214,168,79,0.13), transparent 60%)," +
-            "linear-gradient(180deg, rgba(0,0,0,0.45), transparent 26%)",
+            "radial-gradient(60rem 26rem at 50% -6rem, rgba(214,168,79,0.4), transparent 62%)," +
+            "radial-gradient(50rem 30rem at 82% 44%, rgba(214,168,79,0.16), transparent 60%)," +
+            "linear-gradient(180deg, rgba(255,252,244,0.5), transparent 30%, transparent 72%, rgba(198,59,42,0.06))",
         }}
       />
+      <div aria-hidden className="sm-strings pointer-events-none absolute inset-0 opacity-70" />
       <PillNav />
 
       <div className="relative z-10 mx-auto flex w-full max-w-[88rem] flex-1 flex-col justify-center px-6 pb-16 pt-28 sm:px-8 md:pt-32">
         <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
-            {/* Two short clauses either side of the comma, each kept to
-                ~13 characters — the FIRST VIEWPORT promise is a two-line
-                headline at both desktop and mobile. Fraunces runs narrower
-                per character than the old geometric grotesk, so the same
-                size ramp (with the lg dip for the narrower two-column zone,
-                growing again at xl) holds the two lines with room to spare. */}
-            <h1 className="font-display text-[2.6rem] font-semibold leading-[1.02] tracking-tight text-[#F4EDE1] sm:text-6xl lg:text-5xl xl:text-6xl">
+            {/* Two short clauses either side of the comma, each kept short
+                so the FIRST VIEWPORT promise — a two-line headline at both
+                desktop and mobile — holds without breakpoint-by-breakpoint
+                tuning. Fraunces runs narrower than the old grotesk, with
+                room to spare. */}
+            <h1 className="font-display text-[2.6rem] font-semibold leading-[1.02] tracking-tight text-[#2A1512] sm:text-6xl lg:text-5xl xl:text-6xl">
               Sound, taught
               <br />
-              <em className="font-medium text-[#E8C57C]">one-to-one.</em>
+              <em className="text-[#6E2018]">one-to-one.</em>
             </h1>
-            <p className="mt-7 max-w-md text-base leading-relaxed text-[#F4EDE1]/65 sm:text-lg">
+            <p className="mt-7 max-w-md text-base leading-relaxed text-[#2A1512]/65 sm:text-lg">
               Two Mumbai studios, six instruments, every lesson taught one-to-one — guitar, piano,
               vocal, tabla, violin and flute.
             </p>
@@ -77,33 +74,27 @@ export function HeroStage() {
               <PrimaryButton href="/login">Enroll now</PrimaryButton>
               <GhostButton href="#courses">Browse courses</GhostButton>
             </div>
-            <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-[#D6A84F]/25 bg-[#D6A84F]/[0.07] px-4 py-2 text-xs font-semibold text-[#E8C57C] backdrop-blur-md">
-              <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#D6A84F]" />
+            <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-[#C63B2A]/25 bg-[#C63B2A]/[0.06] px-4 py-2 text-xs font-semibold text-[#8F2B1E] backdrop-blur-md">
+              <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C63B2A]" />
               Open for enrollment — Goregaon &amp; Kandivali
             </div>
-            <p className="sm-telemetry mt-8 text-[11px] uppercase leading-loose tracking-[0.22em] text-[#F4EDE1]/40">
-              KND · GGN <span aria-hidden className="mx-2 text-[#D6A84F]/60">/</span> 06 disciplines{" "}
-              <span aria-hidden className="mx-2 text-[#D6A84F]/60">/</span> 1:1 every lesson
-            </p>
-            <p className="mt-4">
-              <a
-                href={APK_DOWNLOAD_URL}
-                download
-                className="sm-telemetry text-[11px] uppercase tracking-[0.22em] text-[#F4EDE1]/45 underline decoration-[#D6A84F]/40 underline-offset-4 transition-colors hover:text-[#E8C57C]"
-              >
-                Download the Android app
-              </a>
+            <p className="sm-telemetry mt-8 text-[11px] uppercase leading-loose tracking-[0.22em] text-[#2A1512]/45">
+              KND · GGN <span aria-hidden className="mx-2 text-[#9A7422]/70">/</span> 06 disciplines{" "}
+              <span aria-hidden className="mx-2 text-[#9A7422]/70">/</span> 1:1 every lesson
             </p>
           </div>
 
           <div className="relative mx-auto hidden h-[26rem] w-full max-w-md lg:block" aria-hidden>
-            <FieldLines className="inset-0 h-full w-full text-[#D6A84F] drop-shadow-[0_0_12px_rgba(214,168,79,0.45)]" />
+            <span className="sm-dev pointer-events-none absolute -left-8 top-2 select-none text-[11rem] font-normal leading-none text-[#6E2018]/[0.08]">
+              सा
+            </span>
+            <FieldLines className="inset-0 h-full w-full text-[#9A7422]" />
             <GlassOrb className="absolute right-6 top-10 h-56 w-56 xl:h-64 xl:w-64" />
           </div>
         </div>
       </div>
 
-      {/* Mobile/tablet: the ember sits as a smaller standalone flourish behind
+      {/* Mobile/tablet: the sun sits as a smaller standalone flourish behind
           the headline rather than beside it, so the two-line headline keeps
           its full width down to narrow viewports. */}
       <GlassOrb className="pointer-events-none absolute -right-10 top-24 h-40 w-40 opacity-80 lg:hidden" />

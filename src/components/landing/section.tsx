@@ -12,7 +12,7 @@ export function PrimaryButton({ href, children }: { href: string; children: Reac
   return (
     <Link
       href={href}
-      className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#D6A84F] px-7 py-3.5 text-sm font-semibold text-[#17100A] shadow-[0_8px_30px_-8px_rgba(214,168,79,0.55)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#E8C57C] active:translate-y-0"
+      className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#6E2018] px-7 py-3.5 text-sm font-semibold text-[#F7F1E5] shadow-[0_10px_30px_-10px_rgba(110,32,24,0.6)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#82281D] active:translate-y-0"
     >
       <span>{children}</span>
       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
@@ -24,7 +24,7 @@ export function GhostButton({ href, children }: { href: string; children: ReactN
   return (
     <Link
       href={href}
-      className="inline-flex items-center justify-center gap-2 rounded-full border border-[#F4EDE1]/20 px-7 py-3.5 text-sm font-semibold text-[#F4EDE1] transition-colors duration-300 hover:border-[#D6A84F]/60 hover:text-[#E8C57C]"
+      className="inline-flex items-center justify-center gap-2 rounded-full border border-[#2A1512]/20 px-7 py-3.5 text-sm font-semibold text-[#2A1512] transition-colors duration-300 hover:border-[#9A7422]/60 hover:text-[#7A5A1A]"
     >
       {children}
     </Link>
@@ -39,14 +39,17 @@ export function InkDivider() {
 export function Section({
   id,
   tint,
+  band,
   children,
 }: {
   id: string;
   tint?: string;
+  /** Full-bleed background band for the dawn crescendo rhythm. */
+  band?: string;
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="relative">
+    <section id={id} className={cn("relative", band)}>
       <InkDivider />
       <SectionTransition className={cn("relative z-10 mx-auto w-full max-w-[88rem] px-6 py-20 md:py-28", tint)}>
         {children}
@@ -59,10 +62,10 @@ export function SectionHeading({ title, blurb }: { title: string; blurb?: string
   return (
     <Reveal>
       <div className="mb-14 max-w-2xl md:mb-20">
-        <h2 className="font-display text-3xl font-semibold leading-[1.1] tracking-tight text-[#F4EDE1] md:text-[2.75rem]">
+        <h2 className="font-display text-3xl font-semibold leading-[1.1] tracking-tight text-[#2A1512] md:text-[2.75rem]">
           {title}
         </h2>
-        {blurb && <p className="mt-4 text-[15px] leading-relaxed text-[#F4EDE1]/60">{blurb}</p>}
+        {blurb && <p className="mt-4 text-[15px] leading-relaxed text-[#2A1512]/60">{blurb}</p>}
       </div>
     </Reveal>
   );

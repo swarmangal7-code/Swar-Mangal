@@ -23,18 +23,23 @@ across both worlds.
 
 ## World
 
-Dark, warm ember-black ground — lamplight and telemetry, not a recital hall or a SaaS
-dashboard. Founder-pinned direction, built from four in-house portfolio
-references (HT's mono telemetry and scan-swept dark panels; JJ's craft
-grain and pigment honesty; Nihal's HUD chips and telemetry readouts;
-Vedh's cockpit gauges and smoked-glass tiles, translated into the
-academy's own content, never pasted).
+Ivory morning ground - first light and heritage, not a recital hall or a SaaS
+dashboard. Founder-pinned direction, chosen from five concepts as a blend
+of 1 (dawn light, italics, brightening scroll) and 4 (Devanagari voice,
+tanpura strings, parampara told only with real facts), translated into
+the academy's own content, never pasted. Predecessors (Midnight Raga dark,
+light glass/ink, cinematic string-field) are documented in older
+revisions; the four portfolio references that fed this blend are HT's
+mono telemetry, JJ's craft grain, Nihal's HUD chips and Vedh's cockpit
+gauges.
 
-- **Palette**: `#0E0B09` (ember-black ground), `#F4EDE1` (warm ivory,
-  primary text), `#D6A84F` (warm brass/gold — the one
-  accent carried over from the previous world, now the primary light:
-  brass CTA fills, field-lines, telemetry separators, hairline rules
-  and small highlights, never a decorative text-fill), plus
+- **Palette**: `#F5EFE2` (ivory morning ground, brightening per section
+  toward cream bands), `#2A1512` (deep maroon ink, primary text),
+  `#D6A84F` (warm brass/gold — the one
+  accent carried over from the previous world: brass CTA fills,
+  field-lines, telemetry separators, hairline rules
+  and small highlights, never a decorative text-fill), `#6E2018` (deep
+  maroon, primary buttons and headings emphasis) plus
   one distinct saturated colour per real instrument (see Courses, below).
   Scoped entirely under a `.sm-landing` class (`globals.css`) that
   repoints the shared shadcn tokens (`--background`, `--primary`,
@@ -45,7 +50,9 @@ academy's own content, never pasted).
   warm concert values from the same pass, documented in Scope, above.
 - **Type**: Fraunces (`--font-display-alt`, optical serif, semibold
   headings with italic accents) paired with Manrope (`--font-sans-alt`,
-  body) plus IBM Plex Mono (`--font-mono-alt`, telemetry readouts), — a bold
+  body) plus IBM Plex Mono (`--font-mono-alt`, telemetry readouts) and
+  Tiro Devanagari Hindi (`--font-dev`, the sa motif, swar strip and
+  accents, applied only inside `.sm-landing` via the `.sm-dev` class), — a bold
   an optical serif with a classical-editorial voice, chosen over both the
   previous world's geometric grotesk and the generic sans default. Loaded globally via `next/font/google`
   in `src/app/layout.tsx` but never applied as `--font-sans`/`--font-display`
@@ -53,7 +60,7 @@ academy's own content, never pasted).
 - **Grain**: a fixed, full-viewport `feTurbulence` SVG data-URI
   (`.sm-grain` in `globals.css`) laid   over the ember-black ground at low opacity
   with `mix-blend-mode: screen` — texture, not an image asset.
-- **Signature object**: an ember of smoked glass (`GlassOrb`,
+- **Signature object**: a rising sun of soft marigold light (`GlassOrb`,
   `src/components/landing/glass-orb.tsx`) — layered radial-gradients plus
   `backdrop-filter: blur() saturate()` so it visibly refracts the ground
   and field-lines behind it, finished with a small SVG
@@ -62,7 +69,7 @@ academy's own content, never pasted).
   previous direction's lit glass into lamplight, and cheap enough to
   run on every device tier without a desktop gate.
 - **Field-lines** (`FieldLines`, `field-lines.tsx`): thin curved SVG paths
-  in the brass accent with a soft glow, radiating from the ember, with an animated
+  in the brass accent with a soft glow, radiating from the sun, with an animated
   `stroke-dashoffset` flow gated to `prefers-reduced-motion: no-preference`
   — with it on, the same paths render static and complete, never a blank
   gap.
@@ -208,14 +215,19 @@ which still documented the previous near-black cinematic/string-field world
 this redesign replaced (rewritten throughout World and Signature
 interaction, above).
 
-**FINISH (Midnight Raga pass)**: verified by `tsc --noEmit` and a clean
-production `next build` (no screenshot review was available in this
-environment — confirm desktop 1440px and mobile 390px on device before
-relying on it). Composition and copy are unchanged from the reviewed
+**FINISH (Dawn Parampara pass)**: composes the same reviewed structure
+plus one Parampara section (swar strip in the Devanagari voice; the
+teaching lineage stated only with real facts, never invented gurus or
+dates) and alternating crescendo bands. Verified by `tsc --noEmit` and
+a clean production `next build` (no screenshot review was available in
+this environment — confirm desktop 1440px and mobile 390px on device
+before relying on it). Copy and
+composition stay unchanged from the reviewed
 pass (same sections, same two-line headline discipline, same no-kicker /
-no-card-grid / no-stat-block rules, plus one looped instrument marquee);
-the change is purely visual: dark ember ground, Fraunces/Manrope/Plex
-Mono type trio, ember orb with glowing field-lines, smoked-glass form
+no-card-grid / no-stat-block rules, plus one looped instrument marquee
+and one swar strip); the change is purely visual: ivory morning ground
+with crescendo bands, Fraunces/Manrope/Plex Mono/Tiro type quartet,
+rising-sun orb with tanpura strings, ivory-glass form
 cards, and a warm concert retune of the dashboard `--dash-*` tokens with
 no layout changes. Known carry-overs: no real photography or logo yet
 (abstract placeholders only, nothing fabricated); `@cloudflare/next-on-pages`

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Playfair_Display, Fraunces, Manrope, IBM_Plex_Mono } from "next/font/google";
+import { Inter, Playfair_Display, Fraunces, Manrope, IBM_Plex_Mono, Tiro_Devanagari_Hindi } from "next/font/google";
 
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -51,6 +51,17 @@ const midnightMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// Devanagari voice for the Dawn Parampara world: the सा motif, the swar
+// strip and section accents. Same scoping rules as the trio above —
+// applied only inside `.sm-landing` via `--font-dev`.
+const devanagari = Tiro_Devanagari_Hindi({
+  subsets: ["devanagari", "latin"],
+  style: ["normal", "italic"],
+  weight: ["400"],
+  variable: "--font-dev",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Swar Mangal — Music Academy",
   description: "Premium music class management platform for students, teachers, and academies.",
@@ -71,7 +82,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${display.variable} ${midnightDisplay.variable} ${midnightSans.variable} ${midnightMono.variable} font-sans`}
+        className={`${inter.variable} ${display.variable} ${midnightDisplay.variable} ${midnightSans.variable} ${midnightMono.variable} ${devanagari.variable} font-sans`}
       >
         <ThemeProvider
           attribute="class"
