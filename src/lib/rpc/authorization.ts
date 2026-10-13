@@ -126,6 +126,8 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   // directly to the cashbook (audited, idempotency-guarded). Drafts stay
   // for reimbursement claims, which carry paid-by tracking.
   api_addExpenseEntry: STAFF,
+  // Cashbook Available edits: both roles post real ledger adjustments.
+  api_addBalanceCorrection: STAFF,
   // Founder decides on a staff expense draft.
   api_founder_expenseDraftApprove: FOUNDER,
   api_founder_expenseDraftReject: FOUNDER,
@@ -403,7 +405,7 @@ export const WRITE_FUNCTIONS = new Set<string>([
   "api_founder_generatePayoutStatement", "api_founder_approvePayoutStatement", "api_founder_addPayoutAdjustment",
   "api_founder_setPayoutStatusRule", "api_founder_setTeacherPercentSlab", "api_founder_setLateFeeSettings",
   "api_founder_sendOverdueLateFeeReminders",
-  "api_addExpenseEntry", "api_staff_submitExpenseDraft",
+  "api_addExpenseEntry", "api_addBalanceCorrection", "api_staff_submitExpenseDraft",
   "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject",
   "api_generateSchoolInvoice", "api_staff_submitSchoolInvoiceDraft", "api_founder_finaliseSchoolInvoiceDraft", "api_founder_schoolInvoiceDraftReject", "api_founder_voidSchoolInvoice", "api_founder_deleteSchoolInvoice", "api_founder_notifyAppUpdate",
   "api_addSchool", "api_updateSchool",

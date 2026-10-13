@@ -242,8 +242,11 @@ test("expense drafts: staff submit, founder decides", () => {
   assert.equal(authorizeRpc(staff, "api_staff_submitExpenseDraft").ok, true);
   assert.equal(authorizeRpc(staff, "api_founder_expenseDraftApprove").ok, false);
   assert.equal(authorizeRpc(staff, "api_addExpenseEntry").ok, true);
-  // All three change data, so all three are audited.
-  for (const fn of ["api_staff_submitExpenseDraft", "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject"]) {
+  // Balance corrections move money both ways, for both roles — audited.
+  assert.equal(RPC_POLICY["api_addBalanceCorrection"], "STAFF");
+  assert.equal(authorizeRpc(staff, "api_addBalanceCorrection").ok, true);
+  // All four change data, so all four are audited.
+  for (const fn of ["api_staff_submitExpenseDraft", "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject", "api_addBalanceCorrection"]) {
     assert.ok(WRITE_FUNCTIONS.has(fn), `${fn} must be audited`);
   }
 });

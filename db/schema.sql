@@ -604,6 +604,11 @@ alter table school_invoices_rpc add column if not exists billed_address text;
 alter table receipts add column if not exists student_id text;
 alter table receipts add column if not exists branch text;
 alter table money_ledger add column if not exists branch text;
+-- Balance corrections (cashbook Available edits) carry an idempotency key
+-- so a retried submission can never double-post the adjustment.
+alter table money_ledger add column if not exists client_intent_key text;
+create unique index if not exists money_ledger_intent_unique
+  on money_ledger (client_intent_key) where client_intent_key is not null;
 
 -- One row per numbering series (e.g. SMR-26-27). Incremented inside the
 -- same transaction that writes the document, so numbers never repeat.

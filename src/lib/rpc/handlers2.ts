@@ -64,6 +64,8 @@ export async function dispatch2(role: RpcRole, fn: string, arg: Record<string, u
       return cashbook(arg, scope);
     case "api_addExpenseEntry":
       return addExpense(arg, scope);
+    case "api_addBalanceCorrection":
+      return addBalanceCorrection(arg, scope);
     case "api_staff_submitExpenseDraft":
       return submitExpenseDraft(arg, scope, session);
     case "api_founder_expenseDraftApprove":
@@ -1706,6 +1708,78 @@ async function cashbook(arg: Record<string, unknown>, scope: BranchScope): Promi
     status: s(r.status),
   }));
   return ok({ entries, balance: money(balance) });
+}
+
+/**
+ * Founder rule: the cashbook's Available amount is editable via a real
+ * ledger adjustment, never an overwrite (the balance is computed, not
+ * stored). Cash-out posts an expense row plus the matching outflow, like
+ * a direct expense; cash-in posts an inflow-only row. Both are audited
+ * and idempotency-guarded, and both refuse closed months and future
+ * dates exactly like every other money write.
+ */
+async function addBalanceCorrection(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
+  const direction = s(arg["direction"]).toUpperCase();
+  if (direction !== "IN" && direction !== "OUT") {
+    return { ok: false, code: "BAD_DIRECTION", error: "Say whether cash is going in or out." };
+  }
+  const amount = amountRupees(arg);
+  if (amount <= 0) return { ok: false, code: "BAD_AMOUNT", error: "Enter an amount greater than zero." };
+  const reason = s(arg["reason"]).trim();
+  if (!reason) return { ok: false, code: "REASON_REQUIRED", error: "Say what this correction is for — it stays on the ledger." };
+  const branch = scope.unrestricted ? recordBranch(s(arg["branch"]) || "KANDIVALI") : defaultBranch(scope, arg["branch"]);
+  if (!inScope(scope, branch)) return branchForbidden(branch);
+  const entryDate = isoDate(arg["entryDate"]) || todayIso();
+  if (entryDate > todayIso()) return { ok: false, code: "FUTURE_ENTRY_DATE", error: "A correction cannot be dated in the future." };
+  const locked = await closedMonthRefusal(entryDate);
+  if (locked) return locked;
+  const intent = s(arg["clientIntentKey"]).trim() || null;
+  if (intent) {
+    const earlier = await queryOne<{ id: string }>(
+      `select id from money_ledger where client_intent_key = $1
+       union all
+       select id from expenses where client_intent_key = $1 limit 1`,
+      [intent],
+    );
+    if (earlier) return ok({ entryId: earlier.id, idempotent: true, note: "already recorded" });
+  }
+  const id = newId("EXP");
+  const ledgerId = newId("LED");
+  const mode = s(arg["paymentMode"]) || "Cash";
+  const account = s(arg["account"]).trim() || null;
+  try {
+    await withTransaction(async (tx) => {
+      if (direction === "OUT") {
+        await tx.query(
+          `insert into expenses (id, expense_date, category, vendor, description, amount, approval_status, payment_reference, client_intent_key)
+           values ($1, $2::date, 'Balance Correction', 'Balance Correction', $3, $4, 'APPROVED', $5, $6)`,
+          [id, entryDate, reason, amount, s(arg["reference"]).trim() || null, intent],
+        );
+      }
+      await tx.query(
+        direction === "IN"
+          ? `insert into money_ledger (id, entry_date, party_name, category, description, inflow, amount, payment_mode, account, status, branch, client_intent_key)
+             values ($1, $2::date, 'Balance Correction', 'Balance Correction', $3, $4, $4, $5, $6, 'ACTIVE', $7, $8)`
+          : `insert into money_ledger (id, entry_date, party_name, category, description, outflow, amount, payment_mode, account, status, branch, client_intent_key)
+             values ($1, $2::date, 'Balance Correction', 'Balance Correction', $3, $4, $4, $5, $6, 'ACTIVE', $7, $8)`,
+        [ledgerId, entryDate, reason, amount, mode, account, branch, intent],
+      );
+    });
+  } catch (e) {
+    // Lost the race with an identical retry: the row is there, report it.
+    if ((e as { code?: string })?.code === "23505" && intent) {
+      const row = await queryOne<{ id: string }>(
+        `select id from money_ledger where client_intent_key = $1
+         union all
+         select id from expenses where client_intent_key = $1 limit 1`,
+        [intent],
+      );
+      if (row) return ok({ entryId: row.id, idempotent: true, note: "already recorded" });
+    }
+    throw e;
+  }
+  await bumpRevisions(["expenses", "dashboard"]);
+  return ok({ entryId: direction === "OUT" ? id : ledgerId, note: "cashbook balance corrected" });
 }
 
 async function addExpense(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {

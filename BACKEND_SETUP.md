@@ -144,7 +144,9 @@ twice is a no-op. Since 2026-10-13 staff may also record directly with
 api_addExpenseEntry (same audited, idempotency-guarded path as the founder);
 drafts stay for reimbursement claims, which carry paid-by tracking. The
 cashbook tab shows the lifetime available amount alongside the month's
-inflow/outflow/net.
+inflow/outflow/net. The Available figure is editable via api_addBalanceCorrection
+(both roles): it posts a real "Balance Correction" ledger adjustment, cash in
+or cash out with a mandatory reason — the figure itself is never overwritten.
 
 ## Device tokens and the audit trail
 
