@@ -8,6 +8,11 @@ import { FieldLines } from "@/components/landing/field-lines";
 import { GlassLens } from "@/components/landing/glass-lens";
 import { PrimaryButton, GhostButton } from "@/components/landing/section";
 
+// The release APK published on the VPS. This filename always serves the
+// latest published build, so the link never needs a version bump — same
+// file the in-app updater and the dashboard header button already use.
+const APK_DOWNLOAD_URL = "https://148.113.52.88.nip.io/downloads/swar-mangal.apk";
+
 /**
  * First viewport for the Midnight Raga world: pill nav, big two-line
  * Fraunces headline left-aligned mid-height, the ember orb right-of-centre
@@ -79,6 +84,15 @@ export function HeroStage() {
             <p className="sm-telemetry mt-8 text-[11px] uppercase leading-loose tracking-[0.22em] text-[#F4EDE1]/40">
               KND · GGN <span aria-hidden className="mx-2 text-[#D6A84F]/60">/</span> 06 disciplines{" "}
               <span aria-hidden className="mx-2 text-[#D6A84F]/60">/</span> 1:1 every lesson
+            </p>
+            <p className="mt-4">
+              <a
+                href={APK_DOWNLOAD_URL}
+                download
+                className="sm-telemetry text-[11px] uppercase tracking-[0.22em] text-[#F4EDE1]/45 underline decoration-[#D6A84F]/40 underline-offset-4 transition-colors hover:text-[#E8C57C]"
+              >
+                Download the Android app
+              </a>
             </p>
           </div>
 

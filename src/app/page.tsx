@@ -7,6 +7,12 @@ import { PaintStroke } from "@/components/landing/paint-stroke";
 import { Section, SectionHeading, InkDivider } from "@/components/landing/section";
 import { cn } from "@/lib/utils/cn";
 
+// The release APK published on the VPS. This filename always serves the
+// latest published build (see README "Build APK"), so the link never
+// needs a version bump — same file the in-app updater and the dashboard
+// header button already use.
+const APK_DOWNLOAD_URL = "https://148.113.52.88.nip.io/downloads/swar-mangal.apk";
+
 // Instrument swatches lifted for the ember-black ground — same six real
 // instruments, same ragged-stroke motif, each paired with a text ink
 // chosen per-swatch for contrast on dark.
@@ -304,6 +310,9 @@ function Footer() {
           </a>
           <a href="/login" className="transition-colors hover:text-[#E8C57C]">
             Student / Staff Login
+          </a>
+          <a href={APK_DOWNLOAD_URL} download className="transition-colors hover:text-[#E8C57C]">
+            Android app
           </a>
         </nav>
       </div>
