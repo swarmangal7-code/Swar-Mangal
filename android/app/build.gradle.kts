@@ -5,23 +5,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Release signing is supplied through `android/key.properties` (git-ignored).
-// Template:
-//   storePassword=...
-//   keyPassword=...
-//   keyAlias=...
-//   storeFile=../keystore/release.jks
-// If the file is absent, release falls back to debug signing so `flutter build
-// apk --release` keeps working in development. NEVER commit key.properties or
-// a keystore. See BACKEND_SETUP.md "Android release signing".
-import java.util.Properties
-import java.io.FileInputStream
-
-val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-}
+// Release signing uses the COMMITTED shared debug key
+// (build-keys/debug.jks, standard 'android' passwords) — deliberately, no
+// private keystore anywhere in this pipeline. Founder decision: any machine
+// must be able to cut a release with byte-identical signatures, so a lost
+// key can never strand updates again. This is for internal sideload
+// distribution only (own server, in-app updater); these APKs can never go
+// to the Play Store, and anyone with repo access can sign updates the app
+// accepts. See BACKEND_SETUP.md "Android signing".
 
 // Push notifications (Firebase Cloud Messaging). The google-services plugin
 // FAILS THE BUILD outright if google-services.json is missing, so it is only
@@ -59,24 +50,17 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropertiesFile.exists()) {
-            create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-            }
+        create("sharedDebug") {
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+            storeFile = rootProject.file("../build-keys/debug.jks")
+            storePassword = "android"
         }
     }
 
     buildTypes {
         release {
-            // Real keystore when key.properties exists; debug signing otherwise.
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("sharedDebug")
         }
     }
 }

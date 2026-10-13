@@ -76,6 +76,15 @@ npm run build
 flutter build apk --release
 ```
 
+Releases are signed with the committed shared debug key
+(`build-keys/debug.jks`, standard `android` passwords) — deliberately, no
+private keystore anywhere in this pipeline, so any machine cuts
+byte-identical releases and a lost key can never strand updates again.
+Internal sideload distribution only (own server, in-app updater); never
+the Play Store. Never replace that file. Publish by uploading the APK to
+`/opt/swarmangal/public/downloads/swar-mangal.apk` and bumping
+`version.json` (`versionCode` above whatever is installed).
+
 ## Test
 
 ```bash
