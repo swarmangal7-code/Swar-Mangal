@@ -45,6 +45,15 @@ export default function LoginPage() {
   return (
     <div className="sm-landing relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-12 font-sans">
       <div className="sm-grain" aria-hidden />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(36rem 22rem at 50% 30%, rgba(214,168,79,0.12), transparent 62%)," +
+            "radial-gradient(30rem 20rem at 50% 34%, rgba(178,58,72,0.12), transparent 60%)",
+        }}
+      />
 
       <motion.div
         initial="hidden"
@@ -53,18 +62,18 @@ export default function LoginPage() {
         className="relative z-10 w-full max-w-md"
       >
         <motion.div variants={fadeUp} className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#15141A]/10 bg-white/70 text-[#8A6A26] shadow-[0_1px_2px_rgba(21,20,26,0.04)] backdrop-blur-md">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#D6A84F]/30 bg-[#D6A84F]/10 text-[#E8C57C] shadow-[0_0_30px_-6px_rgba(214,168,79,0.5)] backdrop-blur-md">
             <Music2 className="h-5 w-5" aria-hidden />
           </div>
-          <p className="font-display text-2xl font-extrabold tracking-tight text-[#15141A]">Swar Mangal</p>
-          <p className="mt-2 max-w-xs text-sm text-[#15141A]/60">
+          <p className="font-display text-3xl font-semibold tracking-tight text-[#F4EDE1]">Swar Mangal</p>
+          <p className="mt-2 max-w-xs text-sm text-[#F4EDE1]/60">
             Sign in with the device token issued to your account.
           </p>
         </motion.div>
 
         <motion.div
           variants={fadeUp}
-          className="rounded-[28px] border border-[#15141A]/10 bg-white/70 p-6 shadow-[0_24px_60px_-24px_rgba(21,20,26,0.3)] backdrop-blur-xl"
+          className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl"
         >
           <div className="mb-5 flex justify-center">
             <SegmentedControl<RoleTab>
@@ -84,7 +93,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <Label htmlFor="device-token" className="text-xs font-medium text-[#15141A]/70">
+              <Label htmlFor="device-token" className="text-xs font-medium text-[#F4EDE1]/70">
                 Device token
               </Label>
               <div className="relative">
@@ -99,13 +108,13 @@ export default function LoginPage() {
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="rounded-2xl border-[#15141A]/15 bg-white/80 pr-11 text-[#15141A] placeholder:text-[#15141A]/30 focus-visible:ring-[#D6A84F]/60"
+                  className="rounded-2xl border-white/10 bg-black/30 pr-11 text-[#F4EDE1] placeholder:text-[#F4EDE1]/30 focus-visible:ring-[#D6A84F]/60"
                 />
                 <button
                   type="button"
                   onClick={() => setShowToken((s) => !s)}
                   aria-label={showToken ? "Hide token" : "Show token"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#15141A]/50 transition-colors hover:bg-[#15141A]/[0.06] hover:text-[#15141A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#F4EDE1]/50 transition-colors hover:bg-white/[0.06] hover:text-[#E8C57C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60"
                 >
                   {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -113,7 +122,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p role="alert" className="rounded-xl border border-red-400/30 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <p role="alert" className="rounded-xl border border-red-400/30 bg-red-950/50 px-3 py-2 text-xs text-red-200">
                 {error}
               </p>
             )}
@@ -121,7 +130,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               loading={submitting}
-              className="w-full rounded-full bg-[#15141A] text-[#F6F4EF] shadow-[0_8px_30px_-8px_rgba(21,20,26,0.4)] hover:bg-[#232029]"
+              className="w-full rounded-full bg-[#D6A84F] text-[#17100A] shadow-[0_8px_30px_-8px_rgba(214,168,79,0.55)] hover:bg-[#E8C57C]"
             >
               Sign In
             </Button>
@@ -131,7 +140,7 @@ export default function LoginPage() {
         <motion.p variants={fadeUp} className="mt-6 text-center">
           <Link
             href="/"
-            className="text-xs text-[#15141A]/50 transition-colors hover:text-[#8A6A26] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 focus-visible:ring-offset-2"
+            className="text-xs text-[#F4EDE1]/50 transition-colors hover:text-[#E8C57C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D6A84F]/60 focus-visible:ring-offset-2"
           >
             ← Back to home
           </Link>

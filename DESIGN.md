@@ -4,71 +4,77 @@
 
 ## Scope
 
-This file documents the **public surfaces' light/glass/ink redesign**:
+This file documents the public surfaces' **Midnight Raga** redesign:
 `src/app/page.tsx` (the landing page) plus the three form surfaces that
 share its new world — `src/app/(auth)/login/page.tsx`,
 `src/app/enroll/[token]/page.tsx`, and `src/app/terms/[token]/page.tsx`.
-These are a complete visual and interaction replacement of a previous
-near-black cinematic/WebGL-string direction (described in earlier revisions
-of this file; no longer shipped). The founder/staff web dashboards
+These replace the previous light glass/ink world (grain-paper ground,
+geometric grotesk pair, glass drop, documented in earlier revisions
+of this file and no longer shipped). The founder/staff web dashboards
 elsewhere in this codebase are a separate, Operate-mode system with their
 own established UI (shadcn/Radix + Tailwind, functional not expressive) and
 are not covered here — the two worlds share no tokens: the new palette and
 fonts live under a `.sm-landing` CSS scope (see World, below) that only
-wraps these four routes' own root element, so the dashboards' existing
-near-black + gold tokens are untouched.
+wraps these four routes' own root element. The dashboards themselves kept
+every layout and component but were retuned in the same pass to warm
+concert surfaces with brass accents (via the `--dash-*` tokens only),
+plus gold text selection, focus rings and glow shadows shared
+across both worlds.
 
 ## World
 
-Light, grain-paper ground — glass and ink, not a recital hall or a SaaS
-dashboard. User-pinned direction, built from two named references
-(stackht.pages.dev's glossy liquid-glass blob on a light, fine-line-art
-ground; jjtheartist.pages.dev's grain-paper ground, bold grotesk display
-type, and ragged paint-stroke colour bars).
+Dark, warm ember-black ground — lamplight and telemetry, not a recital hall or a SaaS
+dashboard. Founder-pinned direction, built from four in-house portfolio
+references (HT's mono telemetry and scan-swept dark panels; JJ's craft
+grain and pigment honesty; Nihal's HUD chips and telemetry readouts;
+Vedh's cockpit gauges and smoked-glass tiles, translated into the
+academy's own content, never pasted).
 
-- **Palette**: `#F6F4EF` (grain-paper ground), `#15141A` (near-black ink,
-  primary text and solid-fill buttons), `#D6A84F` (warm brass/gold — the one
-  accent carried over from the previous world, now used for field-lines,
-  hairline rules and small highlights, never a decorative text-fill), plus
+- **Palette**: `#0E0B09` (ember-black ground), `#F4EDE1` (warm ivory,
+  primary text), `#D6A84F` (warm brass/gold — the one
+  accent carried over from the previous world, now the primary light:
+  brass CTA fills, field-lines, telemetry separators, hairline rules
+  and small highlights, never a decorative text-fill), plus
   one distinct saturated colour per real instrument (see Courses, below).
   Scoped entirely under a `.sm-landing` class (`globals.css`) that
   repoints the shared shadcn tokens (`--background`, `--primary`,
   `--border`, etc. — the same tokens `Button`/`Input`/the `.text-*`
-  utilities already read) to this palette and forces `color-scheme: light`
+  utilities already read) to this palette   and forces `color-scheme: dark`
   regardless of the visitor's OS theme, so the founder/staff dashboards
-  (which read the same token names outside this class) keep their own
-  values untouched.
-- **Type**: Syne (`--font-display-alt`, extra-bold/black weights, headings)
-  paired with Plus Jakarta Sans (`--font-sans-alt`, body) — a bold
-  geometric grotesk pair, deliberately not a serif, to avoid both the
-  previous world's cinematic-serif voice and the "warm cream + serif +
-  lamplight" AI-calibration default. Loaded globally via `next/font/google`
+  (which read the same token names outside this class) keep the retuned
+  warm concert values from the same pass, documented in Scope, above.
+- **Type**: Fraunces (`--font-display-alt`, optical serif, semibold
+  headings with italic accents) paired with Manrope (`--font-sans-alt`,
+  body) plus IBM Plex Mono (`--font-mono-alt`, telemetry readouts), — a bold
+  an optical serif with a classical-editorial voice, chosen over both the
+  previous world's geometric grotesk and the generic sans default. Loaded globally via `next/font/google`
   in `src/app/layout.tsx` but never applied as `--font-sans`/`--font-display`
   outside `.sm-landing` — the dashboards keep Inter/Playfair Display.
 - **Grain**: a fixed, full-viewport `feTurbulence` SVG data-URI
-  (`.sm-grain` in `globals.css`) laid over the paper ground at low opacity
-  with `mix-blend-mode: multiply` — texture, not an image asset.
-- **Signature object**: a glossy, refractive glass drop (`GlassOrb`,
+  (`.sm-grain` in `globals.css`) laid   over the ember-black ground at low opacity
+  with `mix-blend-mode: screen` — texture, not an image asset.
+- **Signature object**: an ember of smoked glass (`GlassOrb`,
   `src/components/landing/glass-orb.tsx`) — layered radial-gradients plus
   `backdrop-filter: blur() saturate()` so it visibly refracts the ground
   and field-lines behind it, finished with a small SVG
   `feTurbulence`/`feDisplacementMap` filter on its rim highlight for an
-  organic waver. Pure CSS/SVG, no WebGL — this world's translation of the
-  previous direction's "lit string" into "lit glass," and cheap enough to
+  organic waver. Pure CSS/SVG, no WebGL —   this world's translation of the
+  previous direction's lit glass into lamplight, and cheap enough to
   run on every device tier without a desktop gate.
 - **Field-lines** (`FieldLines`, `field-lines.tsx`): thin curved SVG paths
-  in the brass accent, radiating from the orb, with an animated
+  in the brass accent with a soft glow, radiating from the ember, with an animated
   `stroke-dashoffset` flow gated to `prefers-reduced-motion: no-preference`
   — with it on, the same paths render static and complete, never a blank
   gap.
 - **Instrument colour**: each of the six real instruments owns one
-  saturated colour as a material (`PaintStroke`, `paint-stroke.tsx`) —
-  guitar amber `#E6A23C`, piano & keys indigo `#4D4A9E`, vocal crimson
-  `#B23A48`, tabla terracotta `#C1693B`, violin teal `#2F7A74`, flute
-  forest `#3C6B3A` — each paired with a text-ink colour chosen per-swatch
-  for contrast (cream text on the darker hues, dark ink on amber), never a
-  flat gray-on-hue. The shape is a hand-authored ragged SVG path, not a
-  `clip-path` polygon or a plain rectangle — see Composition rules for how
+  saturated colour as a material, lifted for the dark ground, one per
+  real instrument - guitar amber `#E8A83E`,
+  piano & keys lifted indigo `#6E68D6`, vocal crimson `#D15460`, tabla
+  terracotta `#D2803F`, violin teal `#3FA39A`, flute forest `#5C9457`, each
+  paired with a text-ink colour chosen per-swatch for contrast on the dark
+  ground, never a flat gray-on-hue. The shape is a hand-authored ragged
+  SVG path, not a `clip-path` polygon or a plain rectangle - see
+  Composition rules for how
   its raggedness is deliberately asymmetric (top/sides ragged, bottom
   edge shallow) so the instrument name always lands on the painted colour.
 
@@ -165,9 +171,8 @@ which the incumbent page violated throughout:
   Revisit the exact wording if the founder wants different emphasis, but
   keep new copy short enough (each clause under ~14 characters) to hold the
   two-line promise without re-testing every breakpoint by eye.
-- Focus-visible states and custom text-selection/scrollbar theming were not
-  added in this pass (pre-existing gap, not introduced here) — a follow-up
-  accessibility/polish pass should close it.
+- Focus-visible rings and text selection are now brass-gold across both
+  worlds (added in the Midnight Raga pass, closing the earlier gap).
 - `@cloudflare/next-on-pages` (the `pages:build` script, the actual
   Cloudflare static-export target) could not be run to completion on the
   Windows machine this redesign was built on — its own CLI prints a
@@ -202,3 +207,16 @@ rules, above); the hero headline wrapping to four/five lines instead of two
 which still documented the previous near-black cinematic/string-field world
 this redesign replaced (rewritten throughout World and Signature
 interaction, above).
+
+**FINISH (Midnight Raga pass)**: verified by `tsc --noEmit` and a clean
+production `next build` (no screenshot review was available in this
+environment — confirm desktop 1440px and mobile 390px on device before
+relying on it). Composition and copy are unchanged from the reviewed
+pass (same sections, same two-line headline discipline, same no-kicker /
+no-card-grid / no-stat-block rules, plus one looped instrument marquee);
+the change is purely visual: dark ember ground, Fraunces/Manrope/Plex
+Mono type trio, ember orb with glowing field-lines, smoked-glass form
+cards, and a warm concert retune of the dashboard `--dash-*` tokens with
+no layout changes. Known carry-overs: no real photography or logo yet
+(abstract placeholders only, nothing fabricated); `@cloudflare/next-on-pages`
+still needs a Linux/WSL/CI runner for the static-export target.

@@ -112,7 +112,7 @@ export function GlassLens({
             surface warps; the tooltip text stays crisp. */}
         <div className="sm-lens-glass pointer-events-none absolute inset-0 rounded-full" />
         <span
-          className="pointer-events-none absolute top-full left-0 mt-3 w-[9.5rem] rounded-xl bg-[#15141A] px-3 py-1.5 text-center text-[11px] font-medium leading-snug text-[#F6F4EF] transition-opacity lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:rounded-full lg:py-1"
+          className="sm-telemetry pointer-events-none absolute top-full left-0 mt-3 w-[9.5rem] rounded-xl border border-[#D6A84F]/30 bg-black/70 px-3 py-1.5 text-center text-[11px] font-medium leading-snug text-[#E8C57C] backdrop-blur-md transition-opacity lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:rounded-full lg:py-1"
           style={{ opacity: picked ? 0 : 1 }}
         >
           Drag the glass lens to look closer

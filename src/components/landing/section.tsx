@@ -12,7 +12,7 @@ export function PrimaryButton({ href, children }: { href: string; children: Reac
   return (
     <Link
       href={href}
-      className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#15141A] px-7 py-3.5 text-sm font-semibold text-[#F6F4EF] transition-transform duration-300 hover:-translate-y-0.5 active:translate-y-0"
+      className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#D6A84F] px-7 py-3.5 text-sm font-semibold text-[#17100A] shadow-[0_8px_30px_-8px_rgba(214,168,79,0.55)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#E8C57C] active:translate-y-0"
     >
       <span>{children}</span>
       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
@@ -24,21 +24,16 @@ export function GhostButton({ href, children }: { href: string; children: ReactN
   return (
     <Link
       href={href}
-      className="inline-flex items-center justify-center gap-2 rounded-full border border-[#15141A]/20 px-7 py-3.5 text-sm font-semibold text-[#15141A] transition-colors duration-300 hover:border-[#15141A]/50"
+      className="inline-flex items-center justify-center gap-2 rounded-full border border-[#F4EDE1]/20 px-7 py-3.5 text-sm font-semibold text-[#F4EDE1] transition-colors duration-300 hover:border-[#D6A84F]/60 hover:text-[#E8C57C]"
     >
       {children}
     </Link>
   );
 }
 
-/** The recurring motif between sections — a hairline ink rule, at rest. */
+/** The recurring motif between sections — a gold hairline, at rest. */
 export function InkDivider() {
-  return (
-    <div
-      aria-hidden
-      className="h-px w-full bg-[linear-gradient(90deg,transparent_0%,rgba(21,20,26,0.12)_50%,transparent_100%)]"
-    />
-  );
+  return <div aria-hidden className="sm-glow-line h-px w-full" />;
 }
 
 export function Section({
@@ -64,10 +59,10 @@ export function SectionHeading({ title, blurb }: { title: string; blurb?: string
   return (
     <Reveal>
       <div className="mb-14 max-w-2xl md:mb-20">
-        <h2 className="font-display text-3xl font-extrabold leading-tight tracking-tight text-[#15141A] md:text-4xl">
+        <h2 className="font-display text-3xl font-semibold leading-[1.1] tracking-tight text-[#F4EDE1] md:text-[2.75rem]">
           {title}
         </h2>
-        {blurb && <p className="mt-4 text-[15px] leading-relaxed text-[#15141A]/65">{blurb}</p>}
+        {blurb && <p className="mt-4 text-[15px] leading-relaxed text-[#F4EDE1]/60">{blurb}</p>}
       </div>
     </Reveal>
   );

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Playfair_Display, Syne, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Playfair_Display, Fraunces, Manrope, IBM_Plex_Mono } from "next/font/google";
 
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -19,24 +19,35 @@ const display = Playfair_Display({
   display: "swap",
 });
 
-// New-world type pair for the public marketing/forms redesign (landing
-// page, login, enroll, terms) only. These variables are defined here (next
-// font requires the generated className/variable to be mounted somewhere
-// in the tree) but never applied as `--font-sans`/`--font-display`
+// "Midnight Raga" type trio for the public marketing/forms surfaces
+// (landing page, login, enroll, terms) only. These variables are defined
+// here (next/font requires the generated className/variable to be mounted
+// somewhere in the tree) but never applied as `--font-sans`/`--font-display`
 // globally — `.sm-landing` in globals.css remaps those two variables to
 // these, scoped to that class, so the founder/staff dashboards (which keep
 // referencing `--font-sans`/`--font-display` directly via Tailwind's
 // `font-sans`/`font-display` utilities) are completely unaffected.
-const syne = Syne({
+// Fraunces (optical serif, classical-editorial voice) replaces the old
+// geometric Syne; Manrope replaces Plus Jakarta Sans for body; IBM Plex
+// Mono powers the telemetry readouts (branch codes, counts, status).
+const midnightDisplay = Fraunces({
   subsets: ["latin"],
-  weight: ["700", "800"],
+  style: ["normal", "italic"],
+  weight: ["500", "600", "700"],
   variable: "--font-display-alt",
   display: "swap",
 });
 
-const plusJakarta = Plus_Jakarta_Sans({
+const midnightSans = Manrope({
   subsets: ["latin"],
   variable: "--font-sans-alt",
+  display: "swap",
+});
+
+const midnightMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono-alt",
   display: "swap",
 });
 
@@ -50,7 +61,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#11161f",
+  themeColor: "#0E0B09",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -60,7 +71,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${display.variable} ${syne.variable} ${plusJakarta.variable} font-sans`}
+        className={`${inter.variable} ${display.variable} ${midnightDisplay.variable} ${midnightSans.variable} ${midnightMono.variable} font-sans`}
       >
         <ThemeProvider
           attribute="class"

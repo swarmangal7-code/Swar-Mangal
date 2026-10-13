@@ -12,6 +12,11 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
         display: ["var(--font-display)", "Georgia", "serif"],
+        // Mono telemetry voice for the public surfaces (branch codes,
+        // counts, status readouts). Reads --font-mono-alt where the
+        // public world sets it, falls back to the system mono stack
+        // anywhere else (dashboards included) — purely additive.
+        telemetry: ["var(--font-mono-alt)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

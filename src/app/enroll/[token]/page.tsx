@@ -93,10 +93,19 @@ export default function EnrollPage() {
   }
 
   return (
-    <div className="sm-landing relative flex min-h-dvh flex-col items-center justify-center px-6 py-10 font-sans">
+    <div className="sm-landing relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-10 font-sans">
       <div className="sm-grain" aria-hidden />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(36rem 22rem at 50% 30%, rgba(214,168,79,0.12), transparent 62%)," +
+            "radial-gradient(30rem 20rem at 50% 34%, rgba(178,58,72,0.12), transparent 60%)",
+        }}
+      />
       <div className="relative z-10 mx-auto flex w-full max-w-sm flex-col items-center text-center">
-        <div className="w-full rounded-[28px] border border-[#15141A]/10 bg-white/70 p-7 shadow-[0_24px_60px_-24px_rgba(21,20,26,0.3)] backdrop-blur-xl">
+        <div className="w-full rounded-[28px] border border-white/10 bg-white/[0.04] p-7 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)] backdrop-blur-xl">
           {/* Brand mark as an icon+wordmark lockup, not a kicker: the
               craft floor bans an uppercase label announcing the heading
               below it outright ("no brief earns it back"). This is the
@@ -104,55 +113,55 @@ export default function EnrollPage() {
               stacked for a narrow form card — the heading still carries
               its own weight. */}
           <div className="flex flex-col items-center gap-2">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#15141A]/10 bg-white/80 text-[#8A6A26]">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#D6A84F]/30 bg-[#D6A84F]/10 text-[#E8C57C]">
               <Music className="h-6 w-6" />
             </span>
-            <span className="text-sm font-semibold text-[#15141A]/70">Swar Mangal</span>
+            <span className="text-sm font-semibold text-[#F4EDE1]/70">Swar Mangal</span>
           </div>
-          <h1 className="mt-4 font-display text-2xl font-extrabold tracking-tight text-[#15141A]">
+          <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight text-[#F4EDE1]">
             Enroll a student
           </h1>
 
-          {state === "LOADING" && <p className="mt-4 text-body-sm text-[#15141A]/55">Loading…</p>}
+          {state === "LOADING" && <p className="mt-4 text-body-sm text-[#F4EDE1]/55">Loading…</p>}
 
           {state === "OPEN" && (
             <div className="mt-6 w-full space-y-4 text-left">
               <div className="space-y-1.5">
-                <Label>Student&apos;s full name *</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+                <Label className="text-[#F4EDE1]/70">Student&apos;s full name *</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="border-white/10 bg-black/30 text-[#F4EDE1] placeholder:text-[#F4EDE1]/30 focus-visible:ring-[#D6A84F]/60" />
               </div>
               <div className="space-y-1.5">
-                <Label>Guardian&apos;s name *</Label>
-                <Input value={guardianName} onChange={(e) => setGuardianName(e.target.value)} placeholder="Parent / guardian name" />
+                <Label className="text-[#F4EDE1]/70">Guardian&apos;s name *</Label>
+                <Input value={guardianName} onChange={(e) => setGuardianName(e.target.value)} placeholder="Parent / guardian name" className="border-white/10 bg-black/30 text-[#F4EDE1] placeholder:text-[#F4EDE1]/30 focus-visible:ring-[#D6A84F]/60" />
               </div>
               <div className="space-y-1.5">
-                <Label>Contact number *</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile number" type="tel" />
+                <Label className="text-[#F4EDE1]/70">Contact number *</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile number" type="tel" className="border-white/10 bg-black/30 text-[#F4EDE1] placeholder:text-[#F4EDE1]/30 focus-visible:ring-[#D6A84F]/60" />
               </div>
               <div className="space-y-1.5">
-                <Label>Email (optional)</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" type="email" />
+                <Label className="text-[#F4EDE1]/70">Email (optional)</Label>
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" type="email" className="border-white/10 bg-black/30 text-[#F4EDE1] placeholder:text-[#F4EDE1]/30 focus-visible:ring-[#D6A84F]/60" />
               </div>
               <div className="space-y-1.5">
-                <Label>Preferred instrument *</Label>
-                <Input value={instrument} onChange={(e) => setInstrument(e.target.value)} placeholder="e.g. Keyboard, Vocals, Tabla" />
+                <Label className="text-[#F4EDE1]/70">Preferred instrument *</Label>
+                <Input value={instrument} onChange={(e) => setInstrument(e.target.value)} placeholder="e.g. Keyboard, Vocals, Tabla" className="border-white/10 bg-black/30 text-[#F4EDE1] placeholder:text-[#F4EDE1]/30 focus-visible:ring-[#D6A84F]/60" />
               </div>
-              <div className="rounded-2xl border border-[#15141A]/10 bg-white/60 p-4 text-body-sm text-[#15141A]/60">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-body-sm text-[#F4EDE1]/60">
                 By checking the box below, you confirm you have read and agree to Swar Mangal&apos;s admission
                 terms and conditions, including the academy&apos;s fee, attendance, and cancellation policies.
               </div>
-              <label className="flex items-start gap-2 text-body-sm text-[#15141A]/60">
+              <label className="flex items-start gap-2 text-body-sm text-[#F4EDE1]/60">
                 <input
                   type="checkbox"
-                  className="mt-0.5"
+                  className="mt-0.5 accent-[#D6A84F]"
                   checked={termsAccepted}
                   onChange={(e) => setTermsAccepted(e.target.checked)}
                 />
                 I accept the Terms &amp; Conditions
               </label>
-              {error && <p className="text-body-sm text-red-600">{error}</p>}
+              {error && <p className="text-body-sm text-red-300">{error}</p>}
               <Button
-                className="w-full rounded-full bg-[#15141A] text-[#F6F4EF] hover:bg-[#232029]"
+                className="w-full rounded-full bg-[#D6A84F] text-[#17100A] shadow-[0_8px_30px_-8px_rgba(214,168,79,0.55)] hover:bg-[#E8C57C]"
                 disabled={busy}
                 onClick={submit}
               >
@@ -163,27 +172,27 @@ export default function EnrollPage() {
 
           {state === "SUBMITTED" && (
             <>
-              <CheckCircle2 className="mx-auto mt-6 h-10 w-10 text-emerald-600" />
-              <p className="mt-3 text-body-sm text-[#15141A]/60 text-balance">
+              <CheckCircle2 className="mx-auto mt-6 h-10 w-10 text-emerald-400" />
+              <p className="mt-3 text-body-sm text-[#F4EDE1]/60 text-balance">
                 Thank you! The academy has received your details and will be in touch shortly.
               </p>
             </>
           )}
 
           {state === "USED" && (
-            <p className="mt-4 text-body-sm text-[#15141A]/60 text-balance">
+            <p className="mt-4 text-body-sm text-[#F4EDE1]/60 text-balance">
               This link has already been used. Please ask the academy to send a new one.
             </p>
           )}
 
           {state === "EXPIRED" && (
-            <p className="mt-4 text-body-sm text-[#15141A]/60 text-balance">
+            <p className="mt-4 text-body-sm text-[#F4EDE1]/60 text-balance">
               This link has expired. Please ask the academy to send a new one.
             </p>
           )}
 
           {(state === "NOT_FOUND" || state === "ERROR") && (
-            <p className="mt-4 text-body-sm text-[#15141A]/60 text-balance">
+            <p className="mt-4 text-body-sm text-[#F4EDE1]/60 text-balance">
               This link is not valid. Please ask the academy to send a new one.
             </p>
           )}
