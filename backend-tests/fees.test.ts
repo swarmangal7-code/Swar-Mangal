@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { feeState, daysUntil, addMonths, advanceCycle, todayIso, DEFAULT_ADVANCE_DAYS, splitInstalments } from "../src/lib/rpc/fees.ts";
+import { feeState, daysUntil, addMonths, advanceCycle, todayIso, DEFAULT_ADVANCE_DAYS, splitInstalments, monthsSpannedByFeePeriod } from "../src/lib/rpc/fees.ts";
 
 const TODAY = "2026-09-16";
 
@@ -118,6 +118,34 @@ test("an instalment split always sums to exactly the total, never a paisa short 
 
 test("an even split gives equal instalments", () => {
   assert.deepEqual(splitInstalments(900, 3), [300, 300, 300]);
+});
+
+test("a fee period spans whole calendar months, inclusive of both ends", () => {
+  assert.deepEqual(monthsSpannedByFeePeriod("2026-08-01", "2026-10-31"), ["2026-08", "2026-09", "2026-10"]);
+  assert.deepEqual(monthsSpannedByFeePeriod("2026-08-15", "2026-08-20"), ["2026-08"]);
+  assert.deepEqual(monthsSpannedByFeePeriod("2026-12-01", "2027-02-28"), ["2026-12", "2027-01", "2027-02"]);
+  assert.deepEqual(monthsSpannedByFeePeriod("2026-10-13", "2026-10-13"), ["2026-10"]);
+});
+
+test("a fee period with missing, bad or backwards bounds spans nothing", () => {
+  assert.deepEqual(monthsSpannedByFeePeriod(null, "2026-10-31"), []);
+  assert.deepEqual(monthsSpannedByFeePeriod("2026-08-01", null), []);
+  assert.deepEqual(monthsSpannedByFeePeriod("", ""), []);
+  assert.deepEqual(monthsSpannedByFeePeriod("not-a-date", "2026-10-31"), []);
+  assert.deepEqual(monthsSpannedByFeePeriod("2026-11-01", "2026-10-31"), []);
+});
+
+test("a 3-month payment credits one monthly share per month, never 3x in the payment month", () => {
+  // Founder rule 2026-10-13: quarterly fee 28500 paid in Aug reaches Aug, Sep and Oct as 9500 each.
+  const spans = monthsSpannedByFeePeriod("2026-08-01", "2026-10-31");
+  const slices = splitInstalments(28500, spans.length);
+  assert.deepEqual(slices, [9500, 9500, 9500]);
+  assert.equal(slices[spans.indexOf("2026-08")], 9500);
+  assert.equal(slices[spans.indexOf("2026-09")], 9500);
+  assert.equal(slices[spans.indexOf("2026-10")], 9500);
+  // Uneven totals still sum exactly — no paisa created or lost across months.
+  const uneven = splitInstalments(10000, 3);
+  assert.equal(uneven.reduce((a, b) => a + b, 0), 10000);
 });
 
 import { resolvePlan, amountRupees, branchFromClient, referenceRuleViolation, PLAN_CATALOG } from "../src/lib/rpc/fees.ts";

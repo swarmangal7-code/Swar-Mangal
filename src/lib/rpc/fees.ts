@@ -146,6 +146,44 @@ export function splitInstalments(total: number, count: number): number[] {
   return amounts;
 }
 
+/**
+ * Calendar months (YYYY-MM) a receipt's fee period covers, inclusive of both
+ * ends — "2026-08-05".."2026-10-14" spans Aug, Sep and Oct. Powers the
+ * founder's payout rule that a multi-month payment credits one month's
+ * share per month: the preview month takes its slice via
+ * `splitInstalments(amount, spans.length)`, so a 3-month fee paid at once
+ * never pays 3 months' salary in the payment month. Returns [] when either
+ * bound is missing or unparseable, when the period runs backwards, or when
+ * it spans more than 36 months (the longest plan the academy sells) —
+ * callers fall back to counting such receipts in full in their creation
+ * month rather than guessing a split.
+ */
+export function monthsSpannedByFeePeriod(from: unknown, to: unknown): string[] {
+  const f = String(from ?? "").slice(0, 10);
+  const t = String(to ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return [];
+  if (t < f) return [];
+  const fy = Number(f.slice(0, 4));
+  const fm = Number(f.slice(5, 7));
+  const ty = Number(t.slice(0, 4));
+  const tm = Number(t.slice(5, 7));
+  if (!(fm >= 1 && fm <= 12 && tm >= 1 && tm <= 12)) return [];
+  if ((ty * 12 + tm) - (fy * 12 + fm) > 36) return [];
+  const out: string[] = [];
+  let y = fy;
+  let m = fm;
+  for (;;) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    if (y === ty && m === tm) break;
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- plans
 
 export interface FeePlan {

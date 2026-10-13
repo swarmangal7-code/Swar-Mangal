@@ -103,7 +103,11 @@ node --experimental-strip-types --test backend-tests/*.test.ts
 ## Teacher payouts
 
 `api_teacherPayoutPreview` computes what a teacher earned in a service month:
-each receipt counted once, attributed through the student id it was written
+each receipt contributes only the slice of its fee period (`fee_period_from`
+.. `fee_period_to`) that falls inside the month — a 3-month fee paid at once
+credits one month's share per month, never 3 months' salary in the payment
+month (receipts without a recorded period count in full in their creation
+month). Each slice is attributed through the student id it was written
 with, times the percentage in `payout_rules`. It also reports what it cannot
 know — `unattributedReceipts` (receipts in the month with no student link),
 `awaitingDecision` (students taught by more than one teacher, see below) and

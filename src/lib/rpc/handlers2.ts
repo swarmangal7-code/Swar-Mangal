@@ -2,7 +2,7 @@ import { query, queryOne, withTransaction, type Tx } from "@/lib/db";
 import type { RpcRole, RpcSession } from "@/lib/rpc/auth";
 import { s, n, d, newId, newPersonId, nextDocSeq, peekNextDocSeq, bumpRevisions, currentRevisions, acadStudents, acadStudentById, acadTeachers, acadTeacherById, studentToRpc, studentsToRpc, teacherToRpc, classSummary, schoolByIdOrCode, schoolBeneficiaries, computeBeneficiaryAmounts, parseExtraCharges, schoolInvoiceCharges, type AcadStudent, type ExtraCharge } from "@/lib/rpc/shared";
 import { schoolInvoiceSeries, formatSchoolInvoiceNo, billingMonthRange } from "@/lib/rpc/numbering";
-import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, accruedLateFee, type FeeState, type LateFeeSetting } from "@/lib/rpc/fees";
+import { amountRupees, feeState, todayIso, daysUntil, DEFAULT_ADVANCE_DAYS, accruedLateFee, splitInstalments, monthsSpannedByFeePeriod, type FeeState, type LateFeeSetting } from "@/lib/rpc/fees";
 import { normalizeIndianMobile } from "@/lib/whatsapp/phone";
 import { gatewayConfigFromEnv } from "@/lib/whatsapp/gateway";
 import { sendWhatsApp } from "@/lib/rpc/messaging";
@@ -902,6 +902,11 @@ async function updateTeacherCompensation(arg: Record<string, unknown>, session?:
  * Now: a receipt counts once, is attributed through the student id it was
  * written with, and only counts inside the requested month. Receipts that
  * cannot be attributed are reported rather than silently dropped.
+ *
+ * Founder rule 2026-10-13: a receipt covering several months of fee
+ * contributes one month's share per month — the preview month takes its
+ * slice of the receipt's fee period (see monthsSpannedByFeePeriod), so a
+ * quarterly payment never pays 3 months' salary in the payment month.
  */
 async function computePayoutPreviewLive(monthArg: string): Promise<Record<string, unknown>> {
   const month = isServiceMonth(monthArg) ? monthArg : todayIso().slice(0, 7);
@@ -921,9 +926,20 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
       `select distinct teacher_id, student_id from attendance_acad
        where coalesce(teacher_id,'') <> '' and coalesce(student_id,'') <> ''`,
     ),
-    query<{ id: string; student_id: string | null; amount: string; branch: string | null }>(
-      `select id, student_id, amount, branch from receipts
-       where not ${excludedReceiptSql("status")} and created_at >= $1::date and created_at < ($1::date + interval '1 month')`,
+    query<{ id: string; student_id: string | null; amount: string; branch: string | null; fee_period_from: string | null; fee_period_to: string | null }>(
+      // Founder rule: a receipt whose fee period overlaps the preview month
+      // contributes, even when it was created (paid) in an earlier month —
+      // that is how a quarterly payment reaches months 2 and 3. Receipts
+      // without a recorded fee period keep the old behaviour: they count
+      // only in their creation month.
+      `select id, student_id, amount, branch, fee_period_from::text, fee_period_to::text from receipts
+       where not ${excludedReceiptSql("status")} and (
+         (fee_period_from is not null and fee_period_to is not null and fee_period_from <= fee_period_to
+          and fee_period_to >= $1::date and fee_period_from < ($1::date + interval '1 month'))
+         or
+         ((fee_period_from is null or fee_period_to is null)
+          and created_at >= $1::date and created_at < ($1::date + interval '1 month'))
+       )`,
       [monthStart],
     ),
     query<{ teacher_id: string; payout_type: string; percentage: string }>(
@@ -1012,15 +1028,33 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
   const byStudent = new Map<string, { amount: number; count: number }>();
   let unattributed = 0;
   let unattributedAmount = 0;
+  let spreadReceipts = 0;
+  let spreadAmount = 0;
   for (const r of receipts) {
     const sid = s(r.student_id);
+    // Founder rule 2026-10-13: a multi-month payment credits one month's
+    // share per month — a 3-month fee paid at once never pays 3 months'
+    // salary in the payment month. The preview month takes its slice of
+    // the receipt's fee period (split exactly, paisa-precise); receipts
+    // without a recorded fee period count in full in their creation month.
+    const spans = monthsSpannedByFeePeriod(r.fee_period_from, r.fee_period_to);
+    let share = n(r.amount);
+    if (spans.length > 0) {
+      const idx = spans.indexOf(month);
+      if (idx < 0) continue;
+      share = splitInstalments(n(r.amount), spans.length)[idx] ?? 0;
+      if (spans.length > 1) {
+        spreadReceipts += 1;
+        spreadAmount += share;
+      }
+    }
     if (!sid) {
       unattributed++;
-      unattributedAmount += n(r.amount);
+      unattributedAmount += share;
       continue;
     }
     const cur = byStudent.get(sid) ?? { amount: 0, count: 0 };
-    cur.amount += n(r.amount);
+    cur.amount += share;
     cur.count += 1;
     byStudent.set(sid, cur);
   }
@@ -1150,6 +1184,10 @@ async function computePayoutPreviewLive(monthArg: string): Promise<Record<string
     earningBaseDefined: base != null,
     unattributedReceipts: base ? unattributed : 0,
     unattributedAmount: base ? unattributedAmount : 0,
+    // Multi-month receipts whose fee period reaches this month: how many
+    // contributed a slice here, and how much those slices total.
+    spreadReceipts: base ? spreadReceipts : 0,
+    spreadAmount: base ? money(spreadAmount) : 0,
     // Shared students only matter once there is a base to split.
     awaitingDecision: base ? awaitingDecision : [],
     awaitingDecisionAmount: base ? money(awaitingDecision.reduce((a, r) => a + Number(r.remaining), 0)) : 0,
