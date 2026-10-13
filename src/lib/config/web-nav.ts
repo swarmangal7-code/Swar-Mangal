@@ -39,7 +39,10 @@ export interface WebNavSection {
 export const founderNav: WebNavSection[] = [
   {
     label: "Today",
-    items: [{ title: "Home", href: "/founder", icon: Home }],
+    items: [
+      { title: "Home", href: "/founder", icon: Home },
+      { title: "Today's Classes", href: "/founder/classes", icon: CalendarCheck },
+    ],
   },
   {
     label: "Students",

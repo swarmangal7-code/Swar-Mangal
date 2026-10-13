@@ -309,6 +309,7 @@ padding: const EdgeInsets.symmetric(horizontal: AppSpace.s3 + 2, vertical: 1),
 /// Top-level choices offered to founder and staff, rendered by each shell.
 const founderItems = <({String key, String label, IconData icon})>[
   (key: 'home', label: 'Home', icon: Icons.home_outlined),
+  (key: 'todayClasses', label: 'Today\'s Classes', icon: Icons.schedule_outlined),
   (key: 'approvals', label: 'Approvals', icon: Icons.fact_check_outlined),
   (key: 'students', label: 'Students', icon: Icons.person_search_outlined),
   (key: 'addStudent', label: 'Add Student', icon: Icons.person_add_alt_1_outlined),
