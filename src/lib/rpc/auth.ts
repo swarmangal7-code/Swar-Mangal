@@ -42,7 +42,7 @@ export async function authenticateToken(token?: string | null): Promise<RpcSessi
     return { role: "FOUNDER_ADMIN", email: "sharvil87@gmail.com", name: "Sharvil Vaidya", deviceLabel: "env:founder" };
   }
   if (tokenMatches(token, STAFF_TOKEN)) {
-    return { role: "OPS_USER", email: "smmahavirnagar@gmail.com", name: "Latika", deviceLabel: "env:staff" };
+    return { role: "OPS_USER", email: "smmahavirnagar@gmail.com", name: "Staff", deviceLabel: "env:staff" };
   }
   return deviceSession(token);
 }
