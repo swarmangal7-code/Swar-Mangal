@@ -1,4 +1,4 @@
-package `in`.swarmangal.academyos
+package `in`.swarmangal.academy
 
 import io.flutter.embedding.android.FlutterActivity
 

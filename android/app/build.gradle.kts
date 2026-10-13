@@ -27,14 +27,14 @@ if (keystorePropertiesFile.exists()) {
 // FAILS THE BUILD outright if google-services.json is missing, so it is only
 // applied when that file actually exists — the app builds and runs fine
 // without it, just with push disabled. Drop the real file (from the
-// Firebase console, Android app registered as in.swarmangal.academyos) at
+// Firebase console, Android app registered as in.swarmangal.academy) at
 // android/app/google-services.json to turn push on; no other change needed.
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
 
 android {
-    namespace = "in.swarmangal.academyos"
+        namespace = "in.swarmangal.academy"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -51,7 +51,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "in.swarmangal.academyos"
+        applicationId = "in.swarmangal.academy"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
