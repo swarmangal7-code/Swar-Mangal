@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:395896588:android:eed4539be4cf35914c8b29",
+        "mobilesdk_app_id": "1:395896588:android:fe2687be939996814c8b29",
         "android_client_info": {
-          "package_name": "in.swarmangal.academyos"
+          "package_name": "in.swarmangal.academy"
         }
       },
       "oauth_client": [],
