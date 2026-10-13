@@ -66,6 +66,11 @@ deploy/.env
 deploy/secrets/
 deploy/backups/
 
+# VPS runtime files kept on the box, never committed: release APK + update
+# manifest served from public/downloads, nightly pg dumps in backups/
+backups/
+public/downloads/
+
 # Raw lead-import exports carry real names/phone numbers — imported into the
 # database directly, never committed to git history.
 swarmangal-leads-overdue-*.csv
