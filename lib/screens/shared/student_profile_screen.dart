@@ -13,6 +13,7 @@ import 'late_fee_waiver_screen.dart';
 import 'message_compose_screen.dart';
 import 'package_extension_screen.dart';
 import 'pause_membership_screen.dart';
+import 'receipt_detail_screen.dart';
 import 'teacher_profile_screen.dart';
 import 'terms_screen.dart';
 
@@ -809,8 +810,17 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
                     title: Text(r.receiptNo, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                     subtitle: Text('${r.date} · ${r.mode}${r.excluded ? ' · EXCLUDED' : ''}',
                         style: TextStyle(fontSize: 12, color: AppColors.adaptive(context, AppColors.muted))),
-                    trailing: Text(inr(r.amount),
-                        style: TextStyle(fontWeight: FontWeight.w800, color: r.excluded ? AppColors.adaptive(context, AppColors.muted) : AppColors.adaptive(context, AppColors.primary))),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(inr(r.amount),
+                          style: TextStyle(fontWeight: FontWeight.w800, color: r.excluded ? AppColors.adaptive(context, AppColors.muted) : AppColors.adaptive(context, AppColors.primary))),
+                      const SizedBox(width: 4),
+                      Icon(Icons.chevron_right_outlined, size: 20, color: AppColors.adaptive(context, AppColors.muted)),
+                    ]),
+                    // Receipt detail owns the printable PDF and one-tap
+                    // WhatsApp to the registered number.
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => ReceiptDetailScreen(receipt: r)),
+                    ),
                   ),
                 ),
           ],

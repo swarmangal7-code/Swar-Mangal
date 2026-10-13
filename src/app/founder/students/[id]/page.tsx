@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ReceiptRowActions } from "@/components/receipt-row-actions";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -382,7 +383,10 @@ export default function FounderStudentProfilePage() {
                               {r.receiptNo} · {formatDateOnly(r.date)} · {r.paymentMode || r.mode}
                             </p>
                           </div>
-                          <Badge className={tone.className}>{tone.label}</Badge>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <ReceiptRowActions receiptNo={r.receiptNo} studentId={id} />
+                            <Badge className={tone.className}>{tone.label}</Badge>
+                          </div>
                         </li>
                       );
                     })}
