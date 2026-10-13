@@ -1582,6 +1582,8 @@ class DemoApiClient extends ApiClient {
 
   Map<String, dynamic> _cashbook() => {
         'ok': true,
+        // Demo fixtures: 85000 in, 15000 + 2400 out.
+        'balance': 67600,
         'entries': [
           {
             'entryId': 'EXP-101',

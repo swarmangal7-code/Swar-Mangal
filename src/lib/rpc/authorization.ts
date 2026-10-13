@@ -122,7 +122,10 @@ export const RPC_POLICY: Record<string, RequiredRole> = {
   // Staff submits an expense DRAFT; founder records real expense + ledger read.
   api_cashbookReport: STAFF,
   api_staff_submitExpenseDraft: STAFF,
-  api_addExpenseEntry: FOUNDER,
+  // Founder rule 2026-10-13: both founder and staff record expenses
+  // directly to the cashbook (audited, idempotency-guarded). Drafts stay
+  // for reimbursement claims, which carry paid-by tracking.
+  api_addExpenseEntry: STAFF,
   // Founder decides on a staff expense draft.
   api_founder_expenseDraftApprove: FOUNDER,
   api_founder_expenseDraftReject: FOUNDER,

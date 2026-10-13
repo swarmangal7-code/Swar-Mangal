@@ -21,6 +21,9 @@ import { todayISO } from "@/lib/utils/cn";
 
 const CATEGORIES = ["Rent", "Salary", "Utilities", "Maintenance", "Instruments", "Marketing", "Travel", "Other"];
 
+const entityFor = (branch: string) =>
+  branch === "KANDIVALI" ? "ENT-KANDIVALI" : branch === "GOREGAON" ? "ENT-GOREGAON" : "";
+
 const selectCls =
   "flex h-11 w-full rounded-2xl border border-dash-fg/12 bg-dash-sidebar px-4 text-sm text-dash-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-dash-accent/60";
 
@@ -45,6 +48,25 @@ interface DraftResponse extends RpcEnvelope {
   note?: string;
 }
 
+interface DirectArg extends Record<string, unknown> {
+  entryDate: string;
+  entryType: string;
+  category: string;
+  paidTo: string;
+  description: string;
+  amount: number;
+  paymentMode: string;
+  account: string;
+  entityId: string;
+  requestId: string;
+  notes: string;
+}
+
+interface DirectResponse extends RpcEnvelope {
+  entryId?: string;
+  note?: string;
+}
+
 export default function StaffExpensesPage() {
   const { session } = useTokenAuth();
   const branches = session?.branches ?? [];
@@ -55,7 +77,7 @@ export default function StaffExpensesPage() {
         <p className="text-xs uppercase tracking-[0.16em] text-dash-fg/40">Staff · Money</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-dash-fg">Expenses & Cashbook</h1>
         <p className="mt-1 text-sm text-dash-fg/55">
-          Read the ledger, or send an expense to Sharvil — he approves it and posts it to the cashbook.
+          Read the ledger, send an expense for approval — or post it directly to the cashbook.
         </p>
       </motion.div>
 
@@ -98,6 +120,11 @@ function SubmitExpenseForm({ branches }: { branches: string[] }) {
   const [notes, setNotes] = React.useState("");
   const [branch, setBranch] = React.useState(branches.length === 1 ? branches[0] : "ALL");
   const [success, setSuccess] = React.useState<DraftResponse | null>(null);
+  // Founder rule 2026-10-13: staff may post directly to the cashbook, same
+  // as the founder. Drafts stay for reimbursement claims, which carry
+  // paid-by tracking the direct entry does not — so the reimbursement
+  // block hides in direct mode.
+  const [direct, setDirect] = React.useState(false);
 
   const intentRef = React.useRef(`EDRAFT-${Date.now()}`);
 
@@ -108,6 +135,15 @@ function SubmitExpenseForm({ branches }: { branches: string[] }) {
       intentRef.current = `EDRAFT-${Date.now()}`;
     },
     onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not send the expense."),
+  });
+
+  const recordDirect = useMutationRpc<DirectArg, DirectResponse>("api_addExpenseEntry", {
+    onSuccess: (res) => {
+      setSuccess(res);
+      toast.success(res.entryId ? `Expense ${res.entryId} recorded` : "Expense recorded");
+      intentRef.current = `EDRAFT-${Date.now()}`;
+    },
+    onError: (err) => toast.error(err.message.replace(/\[.*\]$/, "") || "Could not record the expense."),
   });
 
   const amountNum = Number(amount);
@@ -132,6 +168,22 @@ function SubmitExpenseForm({ branches }: { branches: string[] }) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid) return;
+    if (direct) {
+      recordDirect.mutate({
+        entryDate: expenseDate,
+        entryType: category.trim().toUpperCase() === "RENT" ? "RENT" : "DAILY_EXPENSE",
+        category: category.trim(),
+        paidTo: payee.trim(),
+        description: description.trim() || payee.trim(),
+        amount: amountNum,
+        paymentMode: mode,
+        account: account.trim(),
+        entityId: entityFor(branch),
+        requestId: intentRef.current,
+        notes: notes.trim(),
+      });
+      return;
+    }
     submit.mutate({
       amount: amountNum,
       category: category.trim(),
@@ -282,6 +334,19 @@ function SubmitExpenseForm({ branches }: { branches: string[] }) {
               <label className="flex items-center gap-3 text-sm text-dash-fg/80">
                 <input
                   type="checkbox"
+                  checked={direct}
+                  onChange={(e) => setDirect(e.target.checked)}
+                  className="h-4 w-4 rounded border-dash-fg/20 bg-dash-sidebar accent-dash-accent"
+                />
+                Post directly to the cashbook (skip approval)
+              </label>
+            </div>
+
+            {!direct && (
+            <div className="rounded-2xl border border-dash-fg/10 bg-dash-fg/[0.02] p-4">
+              <label className="flex items-center gap-3 text-sm text-dash-fg/80">
+                <input
+                  type="checkbox"
                   checked={reimbursement}
                   onChange={(e) => setReimbursement(e.target.checked)}
                   className="h-4 w-4 rounded border-dash-fg/20 bg-dash-sidebar accent-dash-accent"
@@ -300,6 +365,7 @@ function SubmitExpenseForm({ branches }: { branches: string[] }) {
                 </div>
               )}
             </div>
+            )}
 
             <div className="space-y-2">
               <Label className="text-dash-fg/70">Notes (optional)</Label>
@@ -321,9 +387,9 @@ function SubmitExpenseForm({ branches }: { branches: string[] }) {
           >
             Clear
           </button>
-          <Button type="submit" loading={submit.isPending} disabled={!valid} className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover">
+          <Button type="submit" loading={submit.isPending || recordDirect.isPending} disabled={!valid} className="bg-dash-accent text-dash-bg hover:bg-dash-accent-hover">
             <CircleDollarSign className="h-4 w-4" aria-hidden />
-            Send for approval
+            {recordDirect.isPending ? "Recording…" : direct ? "Record expense" : "Send for approval"}
           </Button>
         </div>
       </motion.form>

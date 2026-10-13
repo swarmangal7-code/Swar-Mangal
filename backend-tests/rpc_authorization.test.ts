@@ -96,9 +96,12 @@ test("authorizeRpc: staff -> founder financial finalisation ROLE_FORBIDDEN", () 
   assert.equal(r.code, "ROLE_FORBIDDEN");
 });
 
-test("authorizeRpc: staff -> founder expense write ROLE_FORBIDDEN", () => {
+test("authorizeRpc: staff -> direct expense record allowed", () => {
+  // Founder rule 2026-10-13: both founder and staff record expenses
+  // directly to the cashbook (audited, idempotency-guarded).
+  assert.equal(RPC_POLICY["api_addExpenseEntry"], "STAFF");
   const r = authorizeRpc(staff, "api_addExpenseEntry");
-  assert.equal(r.ok, false);
+  assert.equal(r.ok, true);
 });
 
 test("unknown function with valid token -> UNKNOWN_API (fail closed)", () => {
@@ -234,10 +237,11 @@ test("expense drafts: staff submit, founder decides", () => {
   assert.equal(RPC_POLICY["api_staff_submitExpenseDraft"], "STAFF");
   assert.equal(RPC_POLICY["api_founder_expenseDraftApprove"], "FOUNDER");
   assert.equal(RPC_POLICY["api_founder_expenseDraftReject"], "FOUNDER");
-  // Staff may propose but never approve their own spending.
+  // Staff may propose, approve nothing — but since 2026-10-13 they may
+  // also record directly to the cashbook. Only approvals stay founder-only.
   assert.equal(authorizeRpc(staff, "api_staff_submitExpenseDraft").ok, true);
   assert.equal(authorizeRpc(staff, "api_founder_expenseDraftApprove").ok, false);
-  assert.equal(authorizeRpc(staff, "api_addExpenseEntry").ok, false);
+  assert.equal(authorizeRpc(staff, "api_addExpenseEntry").ok, true);
   // All three change data, so all three are audited.
   for (const fn of ["api_staff_submitExpenseDraft", "api_founder_expenseDraftApprove", "api_founder_expenseDraftReject"]) {
     assert.ok(WRITE_FUNCTIONS.has(fn), `${fn} must be audited`);

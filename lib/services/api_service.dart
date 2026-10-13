@@ -452,7 +452,7 @@ class ApiService {
   Future<dynamic> addExpenseEntry(Map<String, dynamic> form) =>
       _api.call('api_addExpenseEntry', form);
 
-  Future<List<ExpenseEntry>> cashbookReport({
+  Future<CashbookReport> cashbookReport({
     String from = '',
     String to = '',
     String branch = 'ALL',
@@ -462,11 +462,7 @@ class ApiService {
       'dateTo': to,
       'branch': branch,
     });
-    return ((b as Map)['entries'] as List?)
-            ?.whereType<Map<String, dynamic>>()
-            .map(ExpenseEntry.fromApi)
-            .toList() ??
-        [];
+    return CashbookReport.fromApi((b as Map).cast<String, dynamic>());
   }
 
   // -------------------------------------------------------------- staff os

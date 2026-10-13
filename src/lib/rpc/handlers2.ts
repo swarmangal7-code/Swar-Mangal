@@ -1668,12 +1668,32 @@ async function payoutHistory(arg: Record<string, unknown>): Promise<Record<strin
 }
 
 // ------------------------------------------------------- cashbook / expenses
+const isoDate = (v: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(s(v).trim()) ? s(v).trim() : "");
+
+/**
+ * Cashbook ledger plus the lifetime cash-on-hand figure ("Available").
+ * Founder rule: the available amount is every live ledger row in scope —
+ * no date cap, no 200-row cap — so a branch-filtered view shows that
+ * branch's money and ALL shows the academy's. Voided/reversed/draft rows
+ * never count (they are audit history, not cash). The entry list itself
+ * honours the requested branch + date window (the pickers the clients
+ * already send); the balance never does.
+ */
 async function cashbook(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
-  const rows = (
-    await query<Record<string, unknown>>(
-      `select id as entry_id, entry_date::text, category, description, inflow, outflow, amount, payment_mode, status, branch from money_ledger order by entry_date desc limit 200`,
-    )
-  ).filter((r) => moneyInScope(scope, r.branch));
+  const branch = s(arg["branch"] ?? "ALL").toUpperCase();
+  const from = isoDate(arg["dateFrom"]);
+  const to = isoDate(arg["dateTo"]);
+  const live = await query<Record<string, unknown>>(
+    `select id as entry_id, entry_date::text, category, description, inflow, outflow, amount, payment_mode, status, branch from money_ledger
+     where not (upper(coalesce(status,'')) like '%VOID%' or upper(coalesce(status,'')) like '%REVERS%' or upper(coalesce(status,'')) like '%DRAFT%')`,
+  );
+  const inScope = live.filter((r) => moneyInScope(scope, r.branch) && (branch === "ALL" || recordBranch(s(r.branch)) === branch));
+  let balance = 0;
+  for (const r of inScope) balance += n(r.inflow) - n(r.outflow);
+  const rows = inScope
+    .filter((r) => (!from || s(r.entry_date) >= from) && (!to || s(r.entry_date) <= to))
+    .sort((a, b) => (s(a.entry_date) < s(b.entry_date) ? 1 : s(a.entry_date) > s(b.entry_date) ? -1 : 0))
+    .slice(0, 200);
   const entries = rows.map((r) => ({
     entryId: s(r.entry_id),
     date: d(r.entry_date),
@@ -1685,10 +1705,8 @@ async function cashbook(arg: Record<string, unknown>, scope: BranchScope): Promi
     approvalStatus: s(r.status) === "ACTIVE" ? "APPROVED" : s(r.status),
     status: s(r.status),
   }));
-  return ok({ entries });
+  return ok({ entries, balance: money(balance) });
 }
-
-const isoDate = (v: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(s(v).trim()) ? s(v).trim() : "");
 
 async function addExpense(arg: Record<string, unknown>, scope: BranchScope): Promise<Record<string, unknown>> {
   const amount = amountRupees(arg);

@@ -9,8 +9,8 @@ import '../../state/auth_provider.dart';
 import '../../widgets/atoms.dart';
 
 /// Expenses.
-/// staff:   submits an expense DRAFT (founder approval, no ledger write), and
-///          can read the cashbook same as founder.
+/// staff:   submits an expense DRAFT (founder approval, no ledger write) or
+///          records it directly to the cashbook, and reads the cashbook.
 /// founder: records a real expense (locked + idempotency-guarded) and reads
 ///          the cashbook.
 class ExpensesScreen extends StatefulWidget {
@@ -42,7 +42,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       Expanded(
         child: _tab == 0
             ? _ExpenseForm(staff: widget.staff)
-            : const _CashbookView(),
+            // Remount the cashbook on every tab visit so a just-recorded
+            // expense is visible immediately, not after an app restart.
+            : _CashbookView(key: ValueKey('cashbook-$_tab')),
       ),
     ]);
   }
@@ -75,6 +77,10 @@ class _ExpenseFormState extends State<_ExpenseForm> with SyncAware {
   late final String _idemKey;
   bool _busy = false;
   bool _reimbursement = false;
+  // Founder rule: staff may post directly to the cashbook, same as the
+  // founder. Drafts stay for reimbursement claims, which carry paid-by
+  // tracking the direct entry does not.
+  bool _direct = false;
   String? _result;
   bool _ok = false;
   late String _mode;
@@ -130,7 +136,11 @@ class _ExpenseFormState extends State<_ExpenseForm> with SyncAware {
           ? 'RENT'
           : 'DAILY_EXPENSE';
       final desc = _description.text.trim().isEmpty ? _paidTo.text.trim() : _description.text.trim();
-      final payload = widget.staff
+      // Staff choose per submission: draft for approval (with optional
+      // reimbursement tracking) or direct to the cashbook. Founders always
+      // record directly.
+      final useDraft = widget.staff && !_direct;
+      final payload = useDraft
           ? {
               'amountPaise': (amount * 100).round(),
               'branch': _branch,
@@ -158,7 +168,7 @@ class _ExpenseFormState extends State<_ExpenseForm> with SyncAware {
               'requestId': _idemKey,
               'notes': _notes.text.trim(),
             };
-      final r = widget.staff
+      final r = useDraft
           ? await auth.service!.raw('api_staff_submitExpenseDraft', payload)
           : await auth.service!.addExpenseEntry(payload);
       final m = r as Map<String, dynamic>;
@@ -168,7 +178,7 @@ class _ExpenseFormState extends State<_ExpenseForm> with SyncAware {
         _busy = false;
         _ok = m['ok'] == true;
         _result = m['ok'] == true
-            ? (widget.staff
+            ? (useDraft
                 ? 'Expense draft saved for founder approval.'
                 : 'Expense recorded (${m['entryId'] ?? '—'}).')
             : (m['error'] ?? 'Could not save.').toString();
@@ -317,6 +327,16 @@ class _ExpenseFormState extends State<_ExpenseForm> with SyncAware {
                   const SizedBox(height: AppSpace.s2),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
+                    value: _direct,
+                    onChanged: (v) => setState(() => _direct = v),
+                    title: const Text('Record directly to cashbook (skip approval)',
+                        style: TextStyle(fontSize: 13)),
+                  ),
+                ],
+                if (widget.staff && !_direct) ...[
+                  const SizedBox(height: AppSpace.s2),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
                     value: _reimbursement,
                     onChanged: (v) => setState(() => _reimbursement = v),
                     title: const Text('Someone paid out of pocket, needs reimbursing', style: TextStyle(fontSize: 13)),
@@ -352,7 +372,7 @@ class _ExpenseFormState extends State<_ExpenseForm> with SyncAware {
             ),
           const SizedBox(height: AppSpace.s4),
           LoadingButton(
-            label: widget.staff ? 'Submit expense' : 'Record expense',
+            label: widget.staff ? (_direct ? 'Record expense' : 'Submit expense') : 'Record expense',
             icon: Icons.account_balance_wallet,
             busy: _busy,
             onPressed: _submit,
@@ -383,13 +403,14 @@ class _ExpenseFormState extends State<_ExpenseForm> with SyncAware {
 }
 
 class _CashbookView extends StatefulWidget {
-  const _CashbookView();
+  const _CashbookView({super.key});
   @override
   State<_CashbookView> createState() => _CashbookViewState();
 }
 
 class _CashbookViewState extends State<_CashbookView> {
   List<ExpenseEntry> _rows = [];
+  double _balance = 0;
   String? _error;
   bool _busy = true;
   String _branch = 'ALL';
@@ -416,14 +437,15 @@ class _CashbookViewState extends State<_CashbookView> {
       _error = null;
     });
     try {
-      final rows = await auth.service!.cashbookReport(
+      final report = await auth.service!.cashbookReport(
         branch: _branch,
         from: _month.isEmpty ? '' : '$_month-01',
         to: _month.isEmpty ? '' : _endOf(_month),
       );
       if (!mounted) return;
       setState(() {
-        _rows = rows;
+        _rows = report.entries;
+        _balance = report.balance.toDouble();
         _busy = false;
       });
     } on ApiException catch (e) {
@@ -520,6 +542,34 @@ class _CashbookViewState extends State<_CashbookView> {
               child: const Text('Clear month'),
             ),
           ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpace.s4, AppSpace.s3, AppSpace.s4, 0),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpace.s4),
+              child: Row(children: [
+                Icon(Icons.account_balance_wallet_outlined,
+                    size: 28,
+                    color: _balance < 0
+                        ? AppColors.adaptive(context, AppColors.blockFg)
+                        : AppColors.adaptive(context, AppColors.okFg)),
+                const SizedBox(width: AppSpace.s3),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Available in cashbook',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelLarge
+                            ?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color)),
+                    const SizedBox(height: 2),
+                    Text(inr(_balance),
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpace.s4, vertical: AppSpace.s2),
           child: Row(children: [

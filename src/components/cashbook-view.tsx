@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDownLeft, ArrowUpRight, CircleDollarSign, Download } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CircleDollarSign, Download, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +22,9 @@ export function CashbookView({ branches }: { branches: string[] }) {
   const { data, isFetching, error } = useCashbook(branch, month);
 
   const entries = data?.entries ?? [];
+  // Lifetime cash on hand for the selected scope — not the month's net.
+  // Stays visible even with no entries in the picked month.
+  const available = Number(data?.balance ?? 0);
   const inflow = entries.filter((e) => (e.type ?? "EXPENSE").toUpperCase().includes("INFLOW"));
   const outflow = entries.filter((e) => !(e.type ?? "EXPENSE").toUpperCase().includes("INFLOW"));
   const inflowTotal = inflow.reduce((s, e) => s + Number(e.amount), 0);
@@ -46,7 +49,8 @@ export function CashbookView({ branches }: { branches: string[] }) {
         </select>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard label="Available" value={inr(available)} tone={available >= 0 ? "mint" : "peach"} icon={Wallet} />
         <SummaryCard label="Inflow" value={inr(inflowTotal)} tone="mint" icon={ArrowDownLeft} />
         <SummaryCard label="Outflow" value={inr(outflowTotal)} tone="peach" icon={ArrowUpRight} />
         <SummaryCard label="Net" value={inr(inflowTotal - outflowTotal)} tone={inflowTotal - outflowTotal >= 0 ? "mint" : "peach"} icon={CircleDollarSign} />

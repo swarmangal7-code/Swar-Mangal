@@ -140,7 +140,11 @@ expense_drafts as SUBMITTED and appears in the founder approval centre.
 api_founder_expenseDraftApprove turns it into a real expense plus the matching
 cashbook outflow in one transaction; api_founder_expenseDraftReject records the
 reason. Nothing reaches the books until the founder decides, and approving
-twice is a no-op.
+twice is a no-op. Since 2026-10-13 staff may also record directly with
+api_addExpenseEntry (same audited, idempotency-guarded path as the founder);
+drafts stay for reimbursement claims, which carry paid-by tracking. The
+cashbook tab shows the lifetime available amount alongside the month's
+inflow/outflow/net.
 
 ## Device tokens and the audit trail
 

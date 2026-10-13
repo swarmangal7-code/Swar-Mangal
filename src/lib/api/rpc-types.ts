@@ -452,6 +452,8 @@ export interface CashbookEntry {
 
 export interface CashbookResponse extends RpcEnvelope {
   entries: CashbookEntry[];
+  /** Lifetime cash on hand in scope (all live rows, no date cap). */
+  balance: number;
 }
 
 // ------------------------------------------------------------- timetable

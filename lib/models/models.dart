@@ -553,6 +553,26 @@ class ExpenseEntry {
   final String status;
 }
 
+/// Cashbook ledger report: the filtered entry list plus the lifetime
+/// cash-on-hand figure for the requested scope (all live rows, no date
+/// cap) — the "Available" amount, not the month's net.
+class CashbookReport {
+  CashbookReport({required this.entries, required this.balance});
+  factory CashbookReport.fromApi(Map<String, dynamic> b) {
+    final entries = ((b['entries'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(ExpenseEntry.fromApi)
+            .toList()) ??
+        [];
+    return CashbookReport(
+      entries: entries,
+      balance: _n(b['balance']),
+    );
+  }
+  final List<ExpenseEntry> entries;
+  final num balance;
+}
+
 /// Statuses the server can send (handlers2.ts inquiryTransition) — not the
 /// legacy NEW/FOLLOW_UP names, which the server never actually returns.
 /// Matches the server's own TERMINAL_INQUIRY_STATUSES (rules.ts) exactly —
